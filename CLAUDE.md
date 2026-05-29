@@ -14,13 +14,14 @@ timer-alternatives.html — phase 1 exploration, not part of the app
 ```
 
 ## App layout (top to bottom)
-1. **Header** — "Black Magic" title, live date/time
-2. **Brew name** — static for now ("148 Passenger Isidro Geisha")
+1. **Header** — "Black Magic" title, live date/time, `history` button (top-right)
+2. **Brew name** — editable text input (defaults to "148 Passenger Isidro Geisha")
 3. **Stats grid** — 2 rows × 4 columns of editable fields
 4. **Timer circle** — analog clock face with floating second hand
 5. **Start / Refresh buttons**
 6. **Bottom row** — TIME +/−, TDS, Rating
 7. **Notes** — free-text input
+8. **Save brew** — black pill button; snapshots the form to history
 
 ## Stats grid fields and their input types
 
@@ -74,10 +75,36 @@ Recalculated automatically when Contact, Decay, or Brew Target changes. Timer al
 - `.unit-wrap` / `.unit-label` — flex wrapper for fields with a unit suffix (%, ml); unit is 10px, #aaa
 - `.unit-wrap .value-input.wide` — 4ch width for Brew Target (4-digit values)
 
-## Phase 2 goals (not yet started)
-- Save completed brew records (brew name, all input fields, TIME +/−, TDS, Rating, Notes, date)
-- Browse/review brew history
-- Possibly: chart TDS or Rating over time, compare brews side by side
+## Brew history (Phase 2 — implemented)
+
+Saved brews persist in `localStorage` under the key `blackmagic.brews` — a JSON
+array of records. No backend; data is per-browser.
+
+### Record shape
+Every field is captured: `id`, `savedAt` (ISO), `brewName`, `dose`, `grind`,
+`agitate`/`agitateText`, `contact`/`contactText`, `water`, `bloom`, `decay`,
+`brewTarget`, `timeAdj`, `tds`, `rating`, `notes`. The `*Text` fields store the
+select's display label (e.g. "Low", "4:30") so history renders without re-mapping.
+
+`id` comes from `nextId()` — `max(Date.now(), maxExistingId + 1)` — guaranteeing
+strictly increasing, unique ids even for saves within the same millisecond (so
+delete-by-id never removes the wrong record).
+
+### History panel
+- Opened via the header `history` button; slide-in overlay (`.history-overlay` /
+  `.history-panel`), closed by ×, by tapping the dim backdrop, or after a load.
+- Cards listed newest-first (sort by `id` desc). Each shows name, date, and a
+  compact `dose · TDS · ★rating` line.
+- Tapping a card toggles an expanded detail grid (taps on the action buttons are
+  ignored so they don't also toggle).
+- **load** writes the record back into the live form via `applyRecord()`, then
+  recalculates the schedule and resets the timer, and closes the panel.
+- **delete** removes that one record (confirm() guarded).
+
+## Phase 3 ideas (not yet started)
+- Chart TDS or Rating over time
+- Compare brews side by side
+- Export / import history (JSON) so it survives a browser change
 
 ## Design conventions
 - White background, black text, no accent colors

@@ -321,6 +321,167 @@
     }
 
     .notes-input::placeholder { color: #bbb; }
+
+    /* ── Header history button ── */
+    .header { position: relative; }
+    .history-btn {
+      position: absolute;
+      top: 0; right: 0;
+      background: none;
+      border: none;
+      font-size: 11px;
+      color: #888;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+      padding: 2px 0;
+    }
+    .history-btn:active { color: #000; }
+
+    /* ── Editable brew name ── */
+    input.brew-name {
+      width: 100%;
+      background: transparent;
+      font-family: inherit;
+      outline: none;
+      border: none;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    input.brew-name:focus { border-bottom-color: #bbb; }
+
+    /* ── Save button ── */
+    .save-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .btn-save {
+      background: #000;
+      color: #fff;
+      border: 1.5px solid #000;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      padding: 7px 34px;
+      cursor: pointer;
+      letter-spacing: 0.3px;
+      font-family: inherit;
+    }
+    .btn-save:active { background: #333; }
+    .btn-save.saved { background: #fff; color: #000; }
+
+    /* ── History overlay ── */
+    .history-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      display: none;
+      justify-content: center;
+      z-index: 10;
+    }
+    .history-overlay.open { display: flex; }
+    .history-panel {
+      background: #fff;
+      width: 100%;
+      max-width: 390px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+    }
+    .history-overlay.open .history-panel { transform: translateX(0); }
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .history-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      color: #000;
+      font-family: inherit;
+      padding: 0 2px;
+    }
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0 24px;
+    }
+    .history-empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 13px;
+      padding: 48px 20px;
+    }
+    .brew-card {
+      padding: 12px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+    }
+    .brew-card:active { background: #f7f7f7; }
+    .brew-card .bc-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; }
+    .brew-card .bc-date {
+      font-size: 10px;
+      color: #aaa;
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+    .brew-card .bc-stats {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .brew-card .bc-detail { display: none; margin-top: 12px; }
+    .brew-card.expanded .bc-detail { display: block; }
+    .bc-detail .bc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px 18px;
+    }
+    .bc-detail .bc-grid .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #000;
+      font-variant-numeric: tabular-nums;
+    }
+    .bc-detail .bc-grid .row .k { color: #999; }
+    .bc-detail .bc-notes {
+      font-size: 12px;
+      color: #555;
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .bc-detail .bc-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .bc-actions button {
+      flex: 1;
+      font-size: 11px;
+      padding: 6px 0;
+      border: 1px solid #000;
+      border-radius: 16px;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+    }
+    .bc-actions .bc-delete { border-color: #c00; color: #c00; }
   </style>
 </head>
 <body>
@@ -330,10 +491,12 @@
     <div class="header">
       <h1>Black Magic</h1>
       <div class="date" id="date-display"></div>
+      <button class="history-btn" id="btn-history">history</button>
     </div>
 
     <!-- Brew Name -->
-    <div class="brew-name">148 Passenger Isidro Geisha</div>
+    <input class="brew-name" id="brew-name" type="text"
+      value="148 Passenger Isidro Geisha" placeholder="Brew name">
 
     <!-- Stats Grid -->
     <div class="stats-grid">
@@ -462,9 +625,25 @@
     <!-- Notes -->
     <div class="notes-section">
       <div class="notes-label">Notes</div>
-      <input class="notes-input" type="text" placeholder="Add notes…">
+      <input class="notes-input" id="notes" type="text" placeholder="Add notes…">
     </div>
 
+    <!-- Save -->
+    <div class="save-row">
+      <button class="btn-save" id="btn-save">save brew</button>
+    </div>
+
+  </div>
+
+  <!-- History overlay -->
+  <div class="history-overlay" id="history-overlay">
+    <div class="history-panel">
+      <div class="history-head">
+        <h2>History</h2>
+        <button class="history-close" id="btn-history-close">&times;</button>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
   </div>
 
   <script>
@@ -677,6 +856,170 @@
       document.getElementById('btn-start').textContent = 'start';
       recalcSchedule();
       render(0);
+    });
+
+    // ── Brew history (localStorage) ──────────────────────────────
+    const STORE_KEY = 'blackmagic.brews';
+
+    function getBrews() {
+      try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function setBrews(arr) {
+      localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+    }
+    // Strictly increasing, unique id even for saves in the same millisecond
+    function nextId() {
+      const maxId = getBrews().reduce((m, b) => Math.max(m, b.id), 0);
+      return Math.max(Date.now(), maxId + 1);
+    }
+
+    const $ = id => document.getElementById(id);
+
+    // Snapshot every field into a record
+    function collectRecord() {
+      const agitate = $('agitate'), contact = $('contact');
+      return {
+        id: nextId(),
+        savedAt: new Date().toISOString(),
+        brewName: $('brew-name').value.trim() || 'Untitled brew',
+        dose: $('dose').value,
+        grind: $('grind').value,
+        agitate: agitate.value,
+        agitateText: agitate.selectedOptions[0].text,
+        contact: contact.value,
+        contactText: contact.selectedOptions[0].text,
+        water: $('water').value,
+        bloom: $('bloom').value,
+        decay: $('decay').value,
+        brewTarget: $('brew-target').value,
+        timeAdj: $('time-val').textContent,
+        tds: $('tds').value,
+        rating: $('rating').value,
+        notes: $('notes').value.trim()
+      };
+    }
+
+    // Write a record back into the live form
+    function applyRecord(r) {
+      $('brew-name').value = r.brewName;
+      $('dose').value = r.dose;
+      $('grind').value = r.grind;
+      $('agitate').value = r.agitate;
+      $('contact').value = r.contact;
+      $('water').value = r.water;
+      $('bloom').value = r.bloom;
+      $('decay').value = r.decay;
+      $('brew-target').value = r.brewTarget;
+      $('tds').value = r.tds;
+      $('rating').value = r.rating;
+      $('notes').value = r.notes;
+      timeDisplay.textContent = r.timeAdj;
+      // Programmatic .value changes don't fire 'change', so reset timer manually
+      inCountdown = false;
+      running = false;
+      elapsed = 0;
+      lastTs = null;
+      $('btn-start').textContent = 'start';
+      recalcSchedule();
+      render(0);
+    }
+
+    function fmtSavedAt(iso) {
+      const dt = new Date(iso);
+      const date = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      return `${date} · ${time}`;
+    }
+
+    function renderHistory() {
+      const list = $('history-list');
+      const brews = getBrews().sort((a, b) => b.id - a.id);
+      list.innerHTML = '';
+
+      if (!brews.length) {
+        list.innerHTML = '<div class="history-empty">No saved brews yet.</div>';
+        return;
+      }
+
+      brews.forEach(r => {
+        const card = document.createElement('div');
+        card.className = 'brew-card';
+        const dose = r.dose ? r.dose + 'g' : '—';
+        const tds = r.tds ? 'TDS ' + r.tds : 'TDS —';
+        const rating = r.rating ? '★' + r.rating : '★—';
+        card.innerHTML = `
+          <div class="bc-top">
+            <span class="bc-name"></span>
+            <span class="bc-date">${fmtSavedAt(r.savedAt)}</span>
+          </div>
+          <div class="bc-stats">${dose} · ${tds} · ${rating}</div>
+          <div class="bc-detail">
+            <div class="bc-grid">
+              <div class="row"><span class="k">Dose</span><span>${r.dose || '—'} g</span></div>
+              <div class="row"><span class="k">Grind</span><span>${r.grind || '—'}</span></div>
+              <div class="row"><span class="k">Agitate</span><span>${r.agitateText}</span></div>
+              <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
+              <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
+              <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
+              <div class="row"><span class="k">Decay</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
+              <div class="row"><span class="k">Time +/−</span><span>${r.timeAdj}</span></div>
+              <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
+              <div class="row"><span class="k">Rating</span><span>${r.rating || '—'}</span></div>
+            </div>
+            ${r.notes ? `<div class="bc-notes">${r.notes.replace(/</g, '&lt;')}</div>` : ''}
+            <div class="bc-actions">
+              <button class="bc-load">load</button>
+              <button class="bc-delete">delete</button>
+            </div>
+          </div>`;
+        card.querySelector('.bc-name').textContent = r.brewName;
+
+        // Tap card toggles detail (ignore taps on the action buttons)
+        card.addEventListener('click', e => {
+          if (e.target.closest('.bc-actions')) return;
+          card.classList.toggle('expanded');
+        });
+        card.querySelector('.bc-load').addEventListener('click', () => {
+          applyRecord(r);
+          closeHistory();
+        });
+        card.querySelector('.bc-delete').addEventListener('click', () => {
+          if (!confirm('Delete this brew?')) return;
+          setBrews(getBrews().filter(b => b.id !== r.id));
+          renderHistory();
+        });
+
+        list.appendChild(card);
+      });
+    }
+
+    function openHistory() {
+      renderHistory();
+      $('history-overlay').classList.add('open');
+    }
+    function closeHistory() {
+      $('history-overlay').classList.remove('open');
+    }
+
+    $('btn-save').addEventListener('click', () => {
+      const brews = getBrews();
+      brews.push(collectRecord());
+      setBrews(brews);
+      const btn = $('btn-save');
+      btn.textContent = 'saved ✓';
+      btn.classList.add('saved');
+      setTimeout(() => {
+        btn.textContent = 'save brew';
+        btn.classList.remove('saved');
+      }, 1400);
+    });
+
+    $('btn-history').addEventListener('click', openHistory);
+    $('btn-history-close').addEventListener('click', closeHistory);
+    $('history-overlay').addEventListener('click', e => {
+      if (e.target === $('history-overlay')) closeHistory();
     });
 
     // ── Init ─────────────────────────────────────────────────────
