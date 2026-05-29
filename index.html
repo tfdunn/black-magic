@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Magic</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    .app {
+      background: #fff;
+      width: 390px;
+      min-height: 100vh;
+      padding: 20px 20px 28px;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding-bottom: 10px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .header h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+      color: #000;
+    }
+
+    .header .date {
+      font-size: 11px;
+      color: #888;
+      margin-top: 2px;
+    }
+
+    .brew-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #000;
+      text-align: center;
+      padding: 10px 0 8px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .stats-grid .stat-cell {
+      padding: 8px 6px;
+      text-align: center;
+      border-right: 1px solid #e8e8e8;
+    }
+
+    .stats-grid .stat-cell:last-child { border-right: none; }
+    .stats-grid .stat-cell:nth-child(4) { border-right: none; }
+    .stats-grid .stat-cell:nth-child(5) { border-top: 1px solid #e8e8e8; }
+    .stats-grid .stat-cell:nth-child(6) { border-top: 1px solid #e8e8e8; }
+    .stats-grid .stat-cell:nth-child(7) { border-top: 1px solid #e8e8e8; }
+    .stats-grid .stat-cell:nth-child(8) { border-top: 1px solid #e8e8e8; }
+
+    .stat-cell .label {
+      font-size: 9px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .stat-cell .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      display: block;
+      line-height: 1.1;
+    }
+
+    /* ── Editable stat inputs ── */
+    .value-input {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid transparent;
+      text-align: center;
+      text-align-last: center; /* keeps <select> text centred */
+      width: 100%;
+      padding: 0;
+      line-height: 1.1;
+      font-family: inherit;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+    }
+
+    .value-input:focus {
+      outline: none;
+      border-bottom-color: #bbb;
+    }
+
+    /* Hide number spinners */
+    .value-input[type=number]::-webkit-inner-spin-button,
+    .value-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .value-input[type=number] { -moz-appearance: textfield; }
+
+    /* Cells with a unit suffix (%, ml) */
+    .unit-wrap {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+    }
+
+    .unit-wrap .value-input {
+      width: 3ch;
+    }
+
+    .unit-wrap .value-input.wide {
+      width: 4ch;   /* brew target can be 4 digits */
+    }
+
+    .unit-label {
+      font-size: 10px;
+      font-weight: 500;
+      color: #aaa;
+      line-height: 1.1;
+      margin-left: 1px;
+    }
+
+    /* ── Timer Area ── */
+    .timer-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 18px 0 10px;
+    }
+
+    .timer-circle-wrap {
+      position: relative;
+      width: 240px;
+      height: 240px;
+    }
+
+    .timer-circle-wrap svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    .timer-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .pour-number {
+      font-size: 48px;
+      font-weight: 700;
+      color: #000;
+      line-height: 1;
+      letter-spacing: -2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pour-unit {
+      font-size: 13px;
+      font-weight: 500;
+      color: #777;
+      margin-top: 2px;
+    }
+
+    .pour-time {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 8px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Start / End Buttons ── */
+    .timer-controls {
+      display: flex;
+      gap: 60px;
+      margin-top: 14px;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .btn-pill {
+      background: none;
+      border: 1.5px solid #000;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+      color: #000;
+      padding: 5px 22px;
+      cursor: pointer;
+      letter-spacing: 0.2px;
+      font-family: inherit;
+    }
+
+    .btn-pill:active { background: #f0f0f0; }
+
+    /* ── Bottom Stats Row ── */
+    .bottom-stats {
+      display: flex;
+      align-items: stretch;
+      border-top: 1px solid #e8e8e8;
+      border-bottom: 1px solid #e8e8e8;
+      margin-top: 10px;
+    }
+
+    .bottom-stat {
+      flex: 1;
+      text-align: center;
+      padding: 8px 6px;
+      border-right: 1px solid #e8e8e8;
+    }
+
+    .bottom-stat:last-child { border-right: none; }
+
+    .bottom-stat .label {
+      font-size: 9px;
+      font-weight: 600;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .bottom-stat .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      display: block;
+    }
+
+    /* Time cell with +/- */
+    .time-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .time-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1px;
+    }
+
+    .time-controls .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .btn-adj {
+      background: none;
+      border: none;
+      font-size: 17px;
+      color: #000;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 2px;
+      font-family: inherit;
+    }
+
+    /* ── Notes ── */
+    .notes-section {
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .notes-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: #000;
+      letter-spacing: 0.2px;
+    }
+
+    .notes-input {
+      width: 100%;
+      margin-top: 6px;
+      border: none;
+      border-bottom: 1px solid #e8e8e8;
+      font-size: 13px;
+      color: #555;
+      padding: 4px 0;
+      font-family: inherit;
+      outline: none;
+      background: transparent;
+      text-align: center;
+    }
+
+    .notes-input::placeholder { color: #bbb; }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>Black Magic</h1>
+      <div class="date" id="date-display"></div>
+    </div>
+
+    <!-- Brew Name -->
+    <div class="brew-name">148 Passenger Isidro Geisha</div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-cell">
+        <span class="label">Dose</span>
+        <input class="value-input" type="number" id="dose"
+          min="0" max="99" step="0.1" value="24.8" inputmode="decimal">
+      </div>
+      <div class="stat-cell">
+        <span class="label">Grind</span>
+        <input class="value-input" type="number" id="grind"
+          min="0" max="99" step="0.1" value="8" inputmode="decimal">
+      </div>
+      <div class="stat-cell">
+        <span class="label">Agitate</span>
+        <select class="value-input" id="agitate">
+          <option value="zero">Zero</option>
+          <option value="min">Min</option>
+          <option value="low" selected>Low</option>
+          <option value="mid">Mid</option>
+          <option value="high">High</option>
+        </select>
+      </div>
+      <div class="stat-cell">
+        <span class="label">Contact</span>
+        <select class="value-input" id="contact">
+          <option value="60">1:00</option>
+          <option value="90">1:30</option>
+          <option value="120">2:00</option>
+          <option value="150">2:30</option>
+          <option value="180">3:00</option>
+          <option value="210">3:30</option>
+          <option value="240">4:00</option>
+          <option value="270" selected>4:30</option>
+          <option value="300">5:00</option>
+          <option value="330">5:30</option>
+          <option value="360">6:00</option>
+          <option value="390">6:30</option>
+          <option value="420">7:00</option>
+          <option value="450">7:30</option>
+          <option value="480">8:00</option>
+          <option value="510">8:30</option>
+          <option value="540">9:00</option>
+          <option value="570">9:30</option>
+          <option value="600">10:00</option>
+        </select>
+      </div>
+      <div class="stat-cell">
+        <span class="label">Water F°</span>
+        <input class="value-input" type="number" id="water"
+          min="0" max="999" step="1" value="208" inputmode="numeric">
+      </div>
+      <div class="stat-cell">
+        <span class="label">Bloom</span>
+        <div class="unit-wrap">
+          <input class="value-input" type="number" id="bloom"
+            min="0" max="999" step="1" value="72" inputmode="numeric">
+          <span class="unit-label">ml</span>
+        </div>
+      </div>
+      <div class="stat-cell">
+        <span class="label">Decay</span>
+        <div class="unit-wrap">
+          <input class="value-input" type="number" id="decay"
+            min="0" max="100" step="1" value="90" inputmode="numeric">
+          <span class="unit-label">%</span>
+        </div>
+      </div>
+      <div class="stat-cell">
+        <span class="label">Brew Target</span>
+        <div class="unit-wrap">
+          <input class="value-input wide" type="number" id="brew-target"
+            min="0" max="9999" step="1" value="350" inputmode="numeric">
+          <span class="unit-label">ml</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Timer -->
+    <div class="timer-section">
+      <div class="timer-circle-wrap">
+        <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
+          <!-- Outer 8-min progress track -->
+          <circle cx="100" cy="100" r="93" stroke="#ebebeb" stroke-width="5"/>
+          <!-- 8-min arc (circ = 2π×93 ≈ 584.34) -->
+          <circle id="t-arc" cx="100" cy="100" r="93"
+            stroke="#000" stroke-width="5" stroke-linecap="butt"
+            stroke-dasharray="584.34" stroke-dashoffset="584.34"
+            transform="rotate(-90 100 100)"/>
+          <!-- Tick marks: 16 × 30s = 8 min, drawn by JS -->
+          <g id="t-ticks"></g>
+          <!-- Second hand: floats in outer ring, r=40 (inner) to r=84 (outer) -->
+          <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
+            stroke="#000" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <div class="timer-center">
+          <div class="pour-number" id="t-ml">0</div>
+          <div class="pour-time" id="t-time">0:00</div>
+        </div>
+      </div>
+
+      <div class="timer-controls">
+        <button class="btn-pill" id="btn-start">start</button>
+        <button class="btn-pill" id="btn-end">refresh</button>
+      </div>
+    </div>
+
+    <!-- Bottom Stats -->
+    <div class="bottom-stats">
+      <div class="bottom-stat">
+        <span class="label">Time +/−</span>
+        <span class="value" id="time-val">0</span>
+      </div>
+      <div class="bottom-stat">
+        <span class="label">TDS</span>
+        <input class="value-input" type="number" id="tds"
+          min="0" max="9.99" step="0.01" value="1.72" inputmode="decimal">
+      </div>
+      <div class="bottom-stat">
+        <span class="label">Rating</span>
+        <input class="value-input" type="number" id="rating"
+          min="0" max="100" step="1" value="91" inputmode="numeric">
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="notes-section">
+      <div class="notes-label">Notes</div>
+      <input class="notes-input" type="text" placeholder="Add notes…">
+    </div>
+
+  </div>
+
+  <script>
+    // ── Date display ─────────────────────────────────────────────
+    const d = new Date();
+    const opts = { day: 'numeric', month: 'long', year: 'numeric' };
+    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+    document.getElementById('date-display').textContent =
+      d.toLocaleDateString('en-US', opts) + '  ' + timeStr;
+
+    // ── TIME +/- display ─────────────────────────────────────────
+    const timeDisplay = document.getElementById('time-val');
+
+    // ── Audio (Web Audio API, created on first user gesture) ─────
+    let audioCtx = null;
+
+    function getAudio() {
+      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+      return audioCtx;
+    }
+
+    function beep(freq, dur, vol = 0.5) {
+      try {
+        const ctx = getAudio();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+        osc.start(ctx.currentTime);
+        osc.stop(ctx.currentTime + dur);
+      } catch(e) {}
+    }
+
+    // ── Pour schedule (dynamic — rebuilt from CONTACT, DECAY, BREW TARGET) ──
+    // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
+    // Sum of n pours = BREW_TARGET  →  x = BREW_TARGET · (1−r) / (1−r^n)
+    const CYCLE_SECS = 30;
+    const CLOCK_SCOPE = 240; // timer face always spans 4 minutes; wraps if brew is longer
+    let POUR_TARGETS = [];
+    let TOTAL = 270; // updated by recalcSchedule()
+
+    function recalcSchedule() {
+      const contactSecs = parseInt(document.getElementById('contact').value) || 270;
+      const brewTarget  = Math.round(parseFloat(document.getElementById('brew-target').value) || 350);
+      const decayPct    = parseFloat(document.getElementById('decay').value);
+      const r = decayPct / 100;
+      const n = Math.max(1, Math.round(contactSecs / CYCLE_SECS));
+      TOTAL = n * CYCLE_SECS;
+
+      const x = Math.abs(r - 1) < 0.001
+        ? brewTarget / n                              // equal distribution (DECAY = 100%)
+        : brewTarget * (1 - r) / (1 - Math.pow(r, n));
+
+      POUR_TARGETS = [];
+      for (let i = 0; i < n; i++) {
+        const cumul = Math.abs(r - 1) < 0.001
+          ? Math.round(x * (i + 1))
+          : Math.round(x * (1 - Math.pow(r, i + 1)) / (1 - r));
+        POUR_TARGETS.push(cumul);
+      }
+      POUR_TARGETS[POUR_TARGETS.length - 1] = brewTarget; // exact final target
+
+      drawTicks();
+    }
+
+    function pourTarget(s) {
+      if (!POUR_TARGETS.length) return 0;
+      return POUR_TARGETS[Math.min(Math.floor(s / CYCLE_SECS), POUR_TARGETS.length - 1)];
+    }
+
+    function fmtTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${String(sec).padStart(2, '0')}`;
+    }
+
+    // ── Tick marks — fixed 4-min face, no numeric labels ─────────
+    function drawTicks() {
+      const g = document.getElementById('t-ticks');
+      g.innerHTML = '';
+      const ns = 'http://www.w3.org/2000/svg';
+      const n = CLOCK_SCOPE / CYCLE_SECS; // 8
+      for (let i = 0; i < n; i++) {
+        const tickSecs = (i + 1) * CYCLE_SECS;
+        const isMinute = tickSecs % 60 === 0;
+        const a = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
+        const r0 = 76, r1 = isMinute ? 86 : 81;
+        const ln = document.createElementNS(ns, 'line');
+        ln.setAttribute('x1', (100 + r0 * Math.cos(a)).toFixed(2));
+        ln.setAttribute('y1', (100 + r0 * Math.sin(a)).toFixed(2));
+        ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
+        ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
+        ln.setAttribute('stroke', isMinute ? '#999' : '#ddd');
+        ln.setAttribute('stroke-width', isMinute ? '2' : '1');
+        g.appendChild(ln);
+      }
+    }
+
+    // ── Timer state ──────────────────────────────────────────────
+    const CIRC = 2 * Math.PI * 93;
+    let elapsed = 0, running = false, lastTs = null;
+    let inCountdown = false;
+
+    function render(s) {
+      const pos = s % CLOCK_SCOPE;
+      const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
+      document.getElementById('t-arc')
+        .setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
+      const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
+      const hand = document.getElementById('t-hand');
+      hand.setAttribute('x1', (100 + 40 * Math.cos(a)).toFixed(2));
+      hand.setAttribute('y1', (100 + 40 * Math.sin(a)).toFixed(2));
+      hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
+      hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
+      document.getElementById('t-ml').textContent = pourTarget(s);
+      document.getElementById('t-time').textContent = fmtTime(s);
+    }
+
+    function tick(ts) {
+      if (running) {
+        if (lastTs !== null) {
+          const prev = elapsed;
+          elapsed = Math.min(elapsed + (ts - lastTs) / 1000, TOTAL);
+          // Beep at each 30-second boundary
+          if (Math.floor(elapsed / CYCLE_SECS) > Math.floor(prev / CYCLE_SECS)) {
+            beep(880, 0.18, 0.45);
+          }
+        }
+        lastTs = ts;
+      } else {
+        lastTs = null;
+      }
+      render(elapsed);
+      requestAnimationFrame(tick);
+    }
+
+    // ── 3-second countdown before brew starts ────────────────────
+    // Pitches rise G4→A4→C5 to build anticipation; GO tone is G5
+    function startCountdown() {
+      inCountdown = true;
+      document.getElementById('btn-start').textContent = 'stop';
+      const pitches = [392, 440, 523];
+      let count = 3;
+
+      const step = () => {
+        if (!inCountdown) return;
+        document.getElementById('t-ml').textContent = count;
+        document.getElementById('t-time').textContent = '';
+        beep(pitches[3 - count], 0.15, 0.6);
+        count--;
+        if (count > 0) {
+          setTimeout(step, 1000);
+        } else {
+          setTimeout(() => {
+            if (!inCountdown) return;
+            inCountdown = false;
+            elapsed = 0;
+            running = true;
+            lastTs = null;
+            beep(784, 0.4, 0.7); // G5 "GO" tone
+            render(0);
+          }, 1000);
+        }
+      };
+      step();
+    }
+
+    // ── Field change → recalc + reset ────────────────────────────
+    ['contact', 'decay', 'brew-target'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        inCountdown = false;
+        running = false;
+        elapsed = 0;
+        lastTs = null;
+        document.getElementById('btn-start').textContent = 'start';
+        recalcSchedule();
+        render(0);
+      });
+    });
+
+    // ── Buttons ──────────────────────────────────────────────────
+    document.getElementById('btn-start').addEventListener('click', () => {
+      if (inCountdown) {
+        inCountdown = false;
+        document.getElementById('btn-start').textContent = 'start';
+        render(0);
+        return;
+      }
+      if (!running) {
+        startCountdown();
+      } else {
+        running = false;
+        lastTs = null;
+        document.getElementById('btn-start').textContent = 'start';
+        // Subtract 2 s reaction-time correction
+        timeDisplay.textContent = Math.round(elapsed - TOTAL) - 2;
+      }
+    });
+
+    document.getElementById('btn-end').addEventListener('click', () => {
+      inCountdown = false;
+      running = false;
+      elapsed = 0;
+      lastTs = null;
+      document.getElementById('btn-start').textContent = 'start';
+      recalcSchedule();
+      render(0);
+    });
+
+    // ── Init ─────────────────────────────────────────────────────
+    recalcSchedule();
+    render(0);
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
