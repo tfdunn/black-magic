@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Magic — Timer Alternatives</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+    }
+
+    .app {
+      background: #fff;
+      width: 390px;
+      min-height: 100vh;
+      padding: 20px 20px 48px;
+    }
+
+    .page-header {
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e8e8e8;
+      margin-bottom: 24px;
+    }
+
+    .page-header a {
+      font-size: 12px;
+      color: #999;
+      text-decoration: none;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+    }
+
+    .page-header p {
+      font-size: 11px;
+      color: #aaa;
+      margin-top: 3px;
+      line-height: 1.5;
+    }
+
+    /* ── Alt card ── */
+    .alt-card {
+      margin-bottom: 32px;
+      padding-bottom: 32px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+
+    .alt-card:last-child { border-bottom: none; margin-bottom: 0; }
+
+    .alt-tag {
+      font-size: 9px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: #bbb;
+      margin-bottom: 4px;
+    }
+
+    .alt-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+    }
+
+    .alt-desc {
+      font-size: 12px;
+      color: #777;
+      margin-top: 4px;
+      line-height: 1.55;
+    }
+
+    /* ── Clock wrapper ── */
+    .clock-stage {
+      display: flex;
+      justify-content: center;
+      margin-top: 18px;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    .clock-wrap {
+      position: relative;
+      width: 230px;
+      height: 230px;
+    }
+
+    .clock-wrap svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* Center text overlay — sits above SVG */
+    .clock-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .pour-number {
+      font-size: 48px;
+      font-weight: 700;
+      color: #000;
+      line-height: 1;
+      letter-spacing: -2px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .pour-unit {
+      font-size: 13px;
+      font-weight: 500;
+      color: #777;
+      margin-top: 2px;
+      letter-spacing: 0.5px;
+    }
+
+    .pour-time {
+      font-size: 11px;
+      color: #bbb;
+      margin-top: 8px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.5px;
+    }
+
+    .pause-hint {
+      text-align: center;
+      margin-top: 8px;
+      font-size: 11px;
+      color: #ccc;
+      letter-spacing: 0.3px;
+      height: 16px;
+    }
+
+    .pause-hint.paused { color: #999; }
+
+    /* ── Pour stage dots (legend) ── */
+    .stage-legend {
+      display: flex;
+      justify-content: center;
+      gap: 14px;
+      margin-top: 12px;
+    }
+
+    .stage-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      color: #999;
+    }
+
+    .stage-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #ccc;
+      flex-shrink: 0;
+    }
+
+    .stage-dot.active { background: #000; }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <div class="page-header">
+    <a href="index.html">← Black Magic</a>
+    <h1>Timer Alternatives</h1>
+    <p>Animating from 0:35 · pour target updates with the schedule · tap to pause</p>
+  </div>
+
+  <!-- ══ ALT A: EXPANDING ARC ══ -->
+  <div class="alt-card">
+    <div class="alt-tag">Option A</div>
+    <div class="alt-title">Expanding Arc</div>
+    <div class="alt-desc">One full revolution = 10 minutes. The arc's leading edge is the only indicator — no hand. Pour target owns the entire center, undisturbed at any point in the brew.</div>
+    <div class="clock-stage" id="stage-a">
+      <div class="clock-wrap">
+        <svg id="svg-a" viewBox="0 0 200 200" fill="none">
+          <!-- Track ring -->
+          <circle cx="100" cy="100" r="86" stroke="#ebebeb" stroke-width="1.5"/>
+          <!-- Tick marks drawn by JS -->
+          <g id="ticks-a"></g>
+          <!-- Progress arc: r=86, full circ ≈ 540.35 -->
+          <circle id="arc-a" cx="100" cy="100" r="86"
+            stroke="#000" stroke-width="2"
+            stroke-linecap="round"
+            stroke-dasharray="540.35" stroke-dashoffset="540.35"
+            transform="rotate(-90 100 100)"/>
+          <!-- Leading dot -->
+          <circle id="dot-a" cx="100" cy="14" r="4.5" fill="#000"/>
+        </svg>
+        <div class="clock-center">
+          <div class="pour-number" id="num-a">—</div>
+          <div class="pour-unit">ml</div>
+          <div class="pour-time" id="time-a">0:00</div>
+        </div>
+      </div>
+    </div>
+    <div class="pause-hint" id="hint-a">tap to pause</div>
+  </div>
+
+  <!-- ══ ALT B: FLOATING SECOND HAND ══ -->
+  <div class="alt-card">
+    <div class="alt-tag">Option B</div>
+    <div class="alt-title">Floating Second Hand</div>
+    <div class="alt-desc">A hand sweeps once per minute — traditional stopwatch feel. It floats in the outer ring only (never reaching the center), so the pour target reads clearly at all times. A thin outer arc tracks 10-min progress.</div>
+    <div class="clock-stage" id="stage-b">
+      <div class="clock-wrap">
+        <svg id="svg-b" viewBox="0 0 200 200" fill="none">
+          <!-- Outer 10-min progress track -->
+          <circle cx="100" cy="100" r="93" stroke="#ebebeb" stroke-width="5"/>
+          <!-- 10-min arc: r=93, circ ≈ 584.3 -->
+          <circle id="arc-b" cx="100" cy="100" r="93"
+            stroke="#000" stroke-width="5"
+            stroke-linecap="butt"
+            stroke-dasharray="584.3" stroke-dashoffset="584.3"
+            transform="rotate(-90 100 100)"/>
+          <!-- Tick marks -->
+          <g id="ticks-b"></g>
+          <!-- Second hand: from r=40 to r=84 (floats, never touches center) -->
+          <line id="hand-b" x1="100" y1="60" x2="100" y2="16"
+            stroke="#000" stroke-width="2" stroke-linecap="round"/>
+          <!-- Tiny center cap so hand "floats" -->
+          <circle cx="100" cy="100" r="3.5" fill="#000"/>
+        </svg>
+        <div class="clock-center">
+          <div class="pour-number" id="num-b">—</div>
+          <div class="pour-unit">ml</div>
+          <div class="pour-time" id="time-b">0:00</div>
+        </div>
+      </div>
+    </div>
+    <div class="pause-hint" id="hint-b">tap to pause</div>
+  </div>
+
+  <!-- ══ ALT C: ORBITAL DOT ══ -->
+  <div class="alt-card">
+    <div class="alt-tag">Option C</div>
+    <div class="alt-title">Orbital Dot</div>
+    <div class="alt-desc">A single dot orbits the outer groove over 10 minutes, trailing an arc behind it. Nothing ever crosses the center — the pour target can be as large as you like. Very clean; resembles a vinyl record.</div>
+    <div class="clock-stage" id="stage-c">
+      <div class="clock-wrap">
+        <svg id="svg-c" viewBox="0 0 200 200" fill="none">
+          <!-- Groove ring -->
+          <circle cx="100" cy="100" r="88" stroke="#e8e8e8" stroke-width="5"/>
+          <!-- Trailing arc: r=88, circ ≈ 552.9 -->
+          <circle id="arc-c" cx="100" cy="100" r="88"
+            stroke="#000" stroke-width="5"
+            stroke-linecap="round"
+            stroke-dasharray="552.9" stroke-dashoffset="552.9"
+            transform="rotate(-90 100 100)"/>
+          <!-- Stage milestone marks drawn by JS -->
+          <g id="ticks-c"></g>
+          <!-- Orbital dot (white fill + black stroke so it pops from arc) -->
+          <circle id="orb-c" cx="100" cy="12" r="7"
+            fill="#fff" stroke="#000" stroke-width="2.5"/>
+        </svg>
+        <div class="clock-center">
+          <div class="pour-number" id="num-c">—</div>
+          <div class="pour-unit">ml</div>
+          <div class="pour-time" id="time-c">0:00</div>
+        </div>
+      </div>
+    </div>
+    <div class="pause-hint" id="hint-c">tap to pause</div>
+  </div>
+
+</div><!-- /app -->
+
+<script>
+  // ── Pour schedule ────────────────────────────────────────────
+  // [elapsed_seconds, cumulative_ml]
+  // Bloom is poured on contact; main pours at 0:50, 1:40, 2:30, 3:20
+  const SCHEDULE = [
+    [0,   0],
+    [10,  72],   // bloom (grounds saturated immediately)
+    [50,  150],  // 1st main pour  → at ~0:35 this gives ≈ 121 ml
+    [100, 230],  // 2nd main pour
+    [150, 290],  // 3rd main pour
+    [200, 350],  // final pour (brew target reached)
+    [270, 350],  // drawdown / contact time
+  ];
+
+  const TOTAL = 600; // 10 minutes in seconds
+
+  function pourTarget(s) {
+    const last = SCHEDULE[SCHEDULE.length - 1];
+    if (s >= last[0]) return last[1];
+    if (s <= 0) return 0;
+    for (let i = 0; i < SCHEDULE.length - 1; i++) {
+      const [t0, v0] = SCHEDULE[i];
+      const [t1, v1] = SCHEDULE[i + 1];
+      if (s >= t0 && s < t1) {
+        return Math.round(v0 + ((s - t0) / (t1 - t0)) * (v1 - v0));
+      }
+    }
+    return 0;
+  }
+
+  function fmtTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = Math.floor(s % 60);
+    return `${m}:${String(sec).padStart(2, '0')}`;
+  }
+
+  // ── Tick marks ───────────────────────────────────────────────
+  // 20 marks × 30 s each = 600 s total
+  function drawTicks(groupId, cx, cy, r0, r1, n) {
+    const g = document.getElementById(groupId);
+    g.innerHTML = '';
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * 2 * Math.PI - Math.PI / 2;
+      const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      line.setAttribute('x1', (cx + r0 * Math.cos(a)).toFixed(2));
+      line.setAttribute('y1', (cy + r0 * Math.sin(a)).toFixed(2));
+      line.setAttribute('x2', (cx + r1 * Math.cos(a)).toFixed(2));
+      line.setAttribute('y2', (cy + r1 * Math.sin(a)).toFixed(2));
+      // Every 2 minutes (4 ticks) = slightly longer mark
+      const isMajor = (i % 4 === 0);
+      line.setAttribute('stroke', isMajor ? '#bbb' : '#ddd');
+      line.setAttribute('stroke-width', isMajor ? '1.5' : '1');
+      g.appendChild(line);
+    }
+  }
+
+  drawTicks('ticks-a', 100, 100, 76, 82, 20);   // inside the arc
+  drawTicks('ticks-b', 100, 100, 76, 83, 20);   // inside hand zone
+  drawTicks('ticks-c', 100, 100, 83, 89, 20);   // within the groove
+
+  // ── Animation state ──────────────────────────────────────────
+  const START = 35; // seconds offset so we start mid-brew
+
+  const state = {
+    a: { elapsed: START, running: true, last: null },
+    b: { elapsed: START, running: true, last: null },
+    c: { elapsed: START, running: true, last: null },
+  };
+
+  // Pause on tap
+  ['a', 'b', 'c'].forEach(id => {
+    document.getElementById(`stage-${id}`).addEventListener('click', () => {
+      state[id].running = !state[id].running;
+      const hint = document.getElementById(`hint-${id}`);
+      hint.textContent = state[id].running ? 'tap to pause' : 'paused';
+      hint.classList.toggle('paused', !state[id].running);
+    });
+  });
+
+  // ── Alt A updater ─────────────────────────────────────────────
+  const CIRC_A = 2 * Math.PI * 86; // ≈ 540.35
+
+  function updateA(s) {
+    const p = s / TOTAL;
+    // Arc
+    document.getElementById('arc-a').setAttribute('stroke-dashoffset',
+      (CIRC_A * (1 - p)).toFixed(3));
+    // Leading dot
+    const a = p * 2 * Math.PI - Math.PI / 2;
+    document.getElementById('dot-a').setAttribute('cx', (100 + 86 * Math.cos(a)).toFixed(2));
+    document.getElementById('dot-a').setAttribute('cy', (100 + 86 * Math.sin(a)).toFixed(2));
+    // Text
+    document.getElementById('num-a').textContent = pourTarget(s);
+    document.getElementById('time-a').textContent = fmtTime(s);
+  }
+
+  // ── Alt B updater ─────────────────────────────────────────────
+  const CIRC_B = 2 * Math.PI * 93; // ≈ 584.3
+
+  function updateB(s) {
+    // Outer 10-min arc
+    const p10 = s / TOTAL;
+    document.getElementById('arc-b').setAttribute('stroke-dashoffset',
+      (CIRC_B * (1 - p10)).toFixed(3));
+
+    // Second hand: one revolution per 60 seconds
+    const secAngle = ((s % 60) / 60) * 2 * Math.PI - Math.PI / 2;
+    const r0 = 40, r1 = 84; // floats in outer ring, inner edge at r=40
+    const hand = document.getElementById('hand-b');
+    hand.setAttribute('x1', (100 + r0 * Math.cos(secAngle)).toFixed(2));
+    hand.setAttribute('y1', (100 + r0 * Math.sin(secAngle)).toFixed(2));
+    hand.setAttribute('x2', (100 + r1 * Math.cos(secAngle)).toFixed(2));
+    hand.setAttribute('y2', (100 + r1 * Math.sin(secAngle)).toFixed(2));
+
+    document.getElementById('num-b').textContent = pourTarget(s);
+    document.getElementById('time-b').textContent = fmtTime(s);
+  }
+
+  // ── Alt C updater ─────────────────────────────────────────────
+  const CIRC_C = 2 * Math.PI * 88; // ≈ 552.9
+
+  function updateC(s) {
+    const p = s / TOTAL;
+    // Trailing arc
+    document.getElementById('arc-c').setAttribute('stroke-dashoffset',
+      (CIRC_C * (1 - p)).toFixed(3));
+    // Orbital dot
+    const a = p * 2 * Math.PI - Math.PI / 2;
+    document.getElementById('orb-c').setAttribute('cx', (100 + 88 * Math.cos(a)).toFixed(2));
+    document.getElementById('orb-c').setAttribute('cy', (100 + 88 * Math.sin(a)).toFixed(2));
+
+    document.getElementById('num-c').textContent = pourTarget(s);
+    document.getElementById('time-c').textContent = fmtTime(s);
+  }
+
+  // ── RAF loop ─────────────────────────────────────────────────
+  function tick(ts) {
+    ['a', 'b', 'c'].forEach(id => {
+      const st = state[id];
+      if (st.running) {
+        if (st.last !== null) {
+          st.elapsed = Math.min(st.elapsed + (ts - st.last) / 1000, TOTAL);
+        }
+        st.last = ts;
+      } else {
+        st.last = null;
+      }
+    });
+
+    updateA(state.a.elapsed);
+    updateB(state.b.elapsed);
+    updateC(state.c.elapsed);
+
+    requestAnimationFrame(tick);
+  }
+
+  // Seed initial render, then start loop
+  updateA(START); updateB(START); updateC(START);
+  requestAnimationFrame(tick);
+</script>
+</body>
+</html>
