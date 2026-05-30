@@ -2,8 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Black Magic</title>
+
+  <!-- PWA / installable -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Black Magic">
+  <link rel="apple-touch-icon" href="icon-180.png">
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -311,7 +320,7 @@
       margin-top: 6px;
       border: none;
       border-bottom: 1px solid #e8e8e8;
-      font-size: 13px;
+      font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
       color: #555;
       padding: 4px 0;
       font-family: inherit;
@@ -509,7 +518,7 @@
     input.bean-name::placeholder { color: #ccc; font-weight: 500; }
 
     input.roaster {
-      width: 100%; font-size: 13px; font-weight: 500; color: #555;
+      width: 100%; font-size: 16px; font-weight: 500; color: #555;
       text-align: center; background: transparent; border: none;
       border-bottom: 1px solid #e8e8e8; outline: none; font-family: inherit;
       padding: 8px 0 10px;
@@ -535,7 +544,7 @@
       letter-spacing: 0.4px; display: block; margin-bottom: 4px;
     }
     .value-input::placeholder { color: #ccc; font-weight: 500; }
-    .bean-date { font-size: 13px; }
+    .bean-date { font-size: 16px; width: 100%; min-height: 34px; padding: 5px 0; }
 
     .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
     .text-field .label {
@@ -544,7 +553,7 @@
     }
     .text-field input {
       width: 100%; border: none; outline: none; background: transparent;
-      font-family: inherit; font-size: 13px; color: #555; text-align: center;
+      font-family: inherit; font-size: 16px; color: #555; text-align: center;
     }
     .text-field input::placeholder { color: #ccc; }
 
@@ -857,12 +866,21 @@
   </div>
 
   <script>
-    // ── Date display ─────────────────────────────────────────────
-    const d = new Date();
-    const opts = { day: 'numeric', month: 'long', year: 'numeric' };
-    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-    document.getElementById('date-display').textContent =
-      d.toLocaleDateString('en-US', opts) + '  ' + timeStr;
+    // ── Date display (live — updates while open and on re-focus) ──
+    const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
+    function updateClock() {
+      const d = new Date();
+      const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      document.getElementById('date-display').textContent =
+        d.toLocaleDateString('en-US', dateOpts) + '  ' + t;
+    }
+    updateClock();
+    setInterval(updateClock, 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      updateClock();
+      if (audioCtx) audioCtx.resume();   // re-prime audio after returning from background (iOS)
+    });
 
     // ── TIME +/- display ─────────────────────────────────────────
     const timeDisplay = document.getElementById('time-val');
@@ -872,9 +890,28 @@
 
     function getAudio() {
       if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state === 'suspended') audioCtx.resume();
+      if (audioCtx.state !== 'running') audioCtx.resume();   // covers 'suspended' + iOS 'interrupted'
       return audioCtx;
     }
+
+    // Keep audio unlocked across gestures AND app re-focus. iOS suspends the
+    // AudioContext when backgrounded and needs a resume on the next interaction,
+    // so we re-prime on every gesture (cheap) instead of just once.
+    // NOTE: the physical Ring/Silent switch can still mute Web Audio on iOS.
+    let audioPrimed = false;
+    function unlockAudio() {
+      const ctx = getAudio();
+      if (!audioPrimed) {
+        try {
+          const src = ctx.createBufferSource();
+          src.buffer = ctx.createBuffer(1, 1, 22050);
+          src.connect(ctx.destination);
+          src.start(0);
+          audioPrimed = true;
+        } catch (e) {}
+      }
+    }
+    ['touchend', 'pointerdown'].forEach(ev => window.addEventListener(ev, unlockAudio));
 
     function beep(freq, dur, vol = 0.5) {
       try {
@@ -1543,6 +1580,12 @@
         }
         list.appendChild(card);
       });
+    }
+
+    // ── Service worker (offline + installable; no-op on insecure origins) ──
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () =>
+        navigator.serviceWorker.register('sw.js').catch(() => {}));
     }
 
     // ── Init ─────────────────────────────────────────────────────
