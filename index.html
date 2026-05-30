@@ -482,21 +482,123 @@
       letter-spacing: 0.3px;
     }
     .bc-actions .bc-delete { border-color: #c00; color: #c00; }
+
+    /* ── Screen nav toggle (top-left, mirrors history) ── */
+    .nav-btn {
+      position: absolute;
+      top: 0; left: 0;
+      background: none; border: none;
+      font-size: 11px; color: #888;
+      cursor: pointer; font-family: inherit;
+      font-weight: 600; letter-spacing: 0.8px;
+      padding: 2px 0;
+    }
+    .nav-btn:active { color: #000; }
+
+    /* ── Screens ── */
+    .screen[hidden] { display: none; }
+
+    /* ── Bean screen ── */
+    input.bean-name {
+      width: 100%; font-size: 20px; font-weight: 600; color: #000;
+      text-align: center; background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8; outline: none; font-family: inherit;
+      padding: 14px 0 6px;
+    }
+    input.bean-name:focus { border-bottom-color: #bbb; }
+    input.bean-name::placeholder { color: #ccc; font-weight: 500; }
+
+    input.roaster {
+      width: 100%; font-size: 13px; font-weight: 500; color: #555;
+      text-align: center; background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8; outline: none; font-family: inherit;
+      padding: 8px 0 10px;
+    }
+    input.roaster:focus { border-bottom-color: #bbb; }
+    input.roaster::placeholder { color: #ccc; }
+
+    .bean-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .bean-grid.one-col { grid-template-columns: 1fr; }
+    .bean-cell {
+      padding: 9px 6px; text-align: center;
+      border-right: 1px solid #e8e8e8; border-top: 1px solid #e8e8e8;
+    }
+    .bean-grid .bean-cell:nth-child(-n+2) { border-top: none; }
+    .bean-grid .bean-cell:nth-child(2n) { border-right: none; }
+    .bean-grid.one-col .bean-cell { border-right: none; border-top: none; }
+    .bean-cell .label {
+      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 4px;
+    }
+    .value-input::placeholder { color: #ccc; font-weight: 500; }
+    .bean-date { font-size: 13px; }
+
+    .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
+    .text-field .label {
+      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 5px; text-align: center;
+    }
+    .text-field input {
+      width: 100%; border: none; outline: none; background: transparent;
+      font-family: inherit; font-size: 13px; color: #555; text-align: center;
+    }
+    .text-field input::placeholder { color: #ccc; }
+
+    /* ── Selected-coffee bar (BREW screen) ── */
+    .bean-bar {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid #e8e8e8;
+      font-family: inherit;
+      padding: 9px 0 8px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 1px;
+    }
+    .bean-bar:active { background: #fafafa; }
+    .bean-bar-name { font-size: 15px; font-weight: 500; color: #000; }
+    .bean-bar:not(.has-bean) .bean-bar-name { color: #bbb; }
+    .bean-bar-roast { font-size: 10px; color: #aaa; letter-spacing: 0.2px; }
+
+    /* ── Two-button save row (BEAN input) ── */
+    .save-row.two { gap: 10px; }
+    .btn-save.secondary { background: #fff; color: #000; }
+    .btn-save.secondary:active { background: #f0f0f0; }
+
+    /* ── Bean-card actions: prominent "brew this", demoted delete ── */
+    .bc-actions .bc-brew { flex: 1; background: #000; color: #fff; border-color: #000; }
+    .bc-delete-link {
+      display: block; margin: 12px auto 0;
+      background: none; border: none;
+      font-size: 10px; color: #caa; cursor: pointer;
+      font-family: inherit; letter-spacing: 0.3px; text-decoration: underline;
+    }
+    .bc-delete-link:active { color: #c00; }
   </style>
 </head>
 <body>
   <div class="app">
 
+   <!-- ══ BREW SCREEN ══ -->
+   <section id="screen-brew" class="screen">
+
     <!-- Header -->
     <div class="header">
+      <button class="nav-btn" id="btn-to-bean">BEAN</button>
       <h1>Black Magic</h1>
       <div class="date" id="date-display"></div>
       <button class="history-btn" id="btn-history">history</button>
     </div>
 
-    <!-- Brew Name -->
-    <input class="brew-name" id="brew-name" type="text"
-      value="148 Passenger Isidro Geisha" placeholder="Brew name">
+    <!-- Selected coffee (tap to choose a bean) -->
+    <button class="bean-bar" id="bean-bar" type="button">
+      <span class="bean-bar-name" id="bb-name">Select a coffee</span>
+      <span class="bean-bar-roast" id="bb-roast"></span>
+    </button>
 
     <!-- Stats Grid -->
     <div class="stats-grid">
@@ -633,13 +735,96 @@
       <button class="btn-save" id="btn-save">save brew</button>
     </div>
 
+   </section>
+
+   <!-- ══ BEAN SCREEN ══ -->
+   <section id="screen-bean" class="screen" hidden>
+
+    <!-- Header -->
+    <div class="header">
+      <button class="nav-btn" id="btn-to-brew">BREW</button>
+      <h1>Black Magic</h1>
+      <button class="history-btn" id="btn-history-bean">history</button>
+    </div>
+
+    <!-- Identity -->
+    <input class="bean-name" id="bean-name" type="text" placeholder="Bean name">
+    <input class="roaster" id="bean-roaster" type="text" placeholder="Roaster"
+      list="roaster-list" autocomplete="off">
+
+    <!-- Origin -->
+    <div class="bean-grid">
+      <div class="bean-cell">
+        <span class="label">Country</span>
+        <input class="value-input" id="bean-country" type="text" placeholder="—"
+          list="country-list" autocomplete="off">
+      </div>
+      <div class="bean-cell">
+        <span class="label">Region</span>
+        <input class="value-input" id="bean-region" type="text" placeholder="—">
+      </div>
+      <div class="bean-cell">
+        <span class="label">Process</span>
+        <select class="value-input" id="bean-process">
+          <option value="" selected>—</option>
+          <option>Washed</option>
+          <option>Natural</option>
+          <option>Honey</option>
+          <option>Hybrid</option>
+          <option value="__other">Other…</option>
+        </select>
+      </div>
+      <div class="bean-cell">
+        <span class="label">Varietal</span>
+        <input class="value-input" id="bean-varietal" type="text" placeholder="—"
+          list="varietal-list" autocomplete="off">
+      </div>
+    </div>
+
+    <!-- Process (other) — shown when Process = Other… -->
+    <div class="text-field" id="process-other-row" hidden>
+      <span class="label">Process (other)</span>
+      <input id="bean-process-other" type="text" placeholder="Type process…">
+    </div>
+
+    <!-- Roast date -->
+    <div class="bean-grid one-col">
+      <div class="bean-cell">
+        <span class="label">Roast Date</span>
+        <input class="value-input bean-date" id="bean-roast" type="date">
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="text-field">
+      <span class="label">Roaster Notes</span>
+      <input id="bean-rnotes" type="text" placeholder="From the bag…">
+    </div>
+    <div class="text-field">
+      <span class="label">My Notes</span>
+      <input id="bean-mynotes" type="text" placeholder="Optional…">
+    </div>
+
+    <!-- Save -->
+    <div class="save-row two">
+      <button class="btn-save secondary" id="btn-save-bean">save</button>
+      <button class="btn-save" id="btn-save-bean-brew">save &amp; brew</button>
+    </div>
+
+   </section>
+
+   <!-- Datalists seeded from the spreadsheet (and grown by saved beans) -->
+   <datalist id="country-list"></datalist>
+   <datalist id="roaster-list"></datalist>
+   <datalist id="varietal-list"></datalist>
+
   </div>
 
   <!-- History overlay -->
   <div class="history-overlay" id="history-overlay">
     <div class="history-panel">
       <div class="history-head">
-        <h2>History</h2>
+        <h2 id="history-title">History</h2>
         <button class="history-close" id="btn-history-close">&times;</button>
       </div>
       <div class="history-list" id="history-list"></div>
@@ -882,7 +1067,9 @@
       return {
         id: nextId(),
         savedAt: new Date().toISOString(),
-        brewName: $('brew-name').value.trim() || 'Untitled brew',
+        brewName: currentBean ? (currentBean.name || 'Untitled brew') : 'Untitled brew',
+        beanId: currentBean ? currentBean.id : null,
+        roastDate: currentBean ? (currentBean.roastDate || '') : '',
         dose: $('dose').value,
         grind: $('grind').value,
         agitate: agitate.value,
@@ -902,7 +1089,7 @@
 
     // Write a record back into the live form
     function applyRecord(r) {
-      $('brew-name').value = r.brewName;
+      setBeanBar((r.beanId || r.brewName) ? { id: r.beanId || null, name: r.brewName, roastDate: r.roastDate || '' } : null);
       $('dose').value = r.dose;
       $('grind').value = r.grind;
       $('agitate').value = r.agitate;
@@ -956,6 +1143,7 @@
           <div class="bc-stats">${dose} · ${tds} · ${rating}</div>
           <div class="bc-detail">
             <div class="bc-grid">
+              <div class="row"><span class="k">Roast</span><span>${r.roastDate ? fmtDateShort(r.roastDate) : '—'}</span></div>
               <div class="row"><span class="k">Dose</span><span>${r.dose || '—'} g</span></div>
               <div class="row"><span class="k">Grind</span><span>${r.grind || '—'}</span></div>
               <div class="row"><span class="k">Agitate</span><span>${r.agitateText}</span></div>
@@ -996,7 +1184,13 @@
     }
 
     function openHistory() {
-      renderHistory();
+      if (currentScreen === 'bean') {
+        $('history-title').textContent = 'Beans';
+        renderBeanHistory();
+      } else {
+        $('history-title').textContent = 'Brews';
+        renderHistory();
+      }
       $('history-overlay').classList.add('open');
     }
     function closeHistory() {
@@ -1017,12 +1211,225 @@
     });
 
     $('btn-history').addEventListener('click', openHistory);
+    $('btn-history-bean').addEventListener('click', openHistory);
     $('btn-history-close').addEventListener('click', closeHistory);
     $('history-overlay').addEventListener('click', e => {
       if (e.target === $('history-overlay')) closeHistory();
     });
 
+    // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
+    let currentScreen = 'brew';
+    function showScreen(name) {
+      currentScreen = name;
+      $('screen-brew').hidden = (name !== 'brew');
+      $('screen-bean').hidden = (name !== 'bean');
+    }
+    $('btn-to-bean').addEventListener('click', () => showScreen('bean'));
+    $('btn-to-brew').addEventListener('click', () => showScreen('brew'));
+
+    // ── Beans (localStorage) ─────────────────────────────────────
+    const BEANS_KEY = 'blackmagic.beans';
+    function getBeans() {
+      try { return JSON.parse(localStorage.getItem(BEANS_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function setBeans(arr) { localStorage.setItem(BEANS_KEY, JSON.stringify(arr)); }
+    function nextBeanId() {
+      const maxId = getBeans().reduce((m, b) => Math.max(m, b.id), 0);
+      return Math.max(Date.now(), maxId + 1);
+    }
+
+    // Seed lists scraped from the spreadsheet (Café Integral absorbs "Integral";
+    // "La Columbe" → "La Colombe"). Sorted alphabetically.
+    const SEED = {
+      country: ['Blend','Brazil','Burundi','Colombia','Congo','Costa Rica','Ecuador',
+        'El Salvador','Ethiopia','Guatemala','Hawaii','Honduras','Indonesia','Jamaica',
+        'Kenya','Mexico','Nicaragua','Panama','Peru','Rwanda'],
+      roaster: ['Big Island','Café Integral','Desnudo','Devocion','Gardelli','La Cabra',
+        'La Colombe','Majano','Parlor','Passenger','Preface','Prodigal','Roasting Plant',
+        'Sagebrush','Sey','Tandem','Vigilante','Volcanica'],
+      varietal: ['Aji','Bourbon','Bourbon Aji','Caturra','Gesha','Java','Kona Typica',
+        'Mejorado','Papayo','Parainema','Peaberry','Pink Bourbon','Red Catuai','Rosado',
+        'SL28','SL34','Sidra','Sudan Rume','Tabi','Typica','Wush Wush','Yellow Caturra']
+    };
+
+    // Datalists = seed ∪ values already used in saved beans (living list)
+    function populateDatalists() {
+      const beans = getBeans();
+      const merge = (seed, field) => {
+        const set = new Set(seed);
+        beans.forEach(b => { const v = (b[field] || '').trim(); if (v) set.add(v); });
+        return [...set].sort((a, b) => a.localeCompare(b));
+      };
+      const fill = (id, vals) => {
+        $(id).innerHTML = vals.map(v =>
+          `<option value="${v.replace(/"/g, '&quot;')}">`).join('');
+      };
+      fill('country-list', merge(SEED.country, 'country'));
+      fill('roaster-list', merge(SEED.roaster, 'roaster'));
+      fill('varietal-list', merge(SEED.varietal, 'varietal'));
+    }
+
+    // Process "Other…" reveals a free-text field
+    $('bean-process').addEventListener('change', e => {
+      $('process-other-row').hidden = e.target.value !== '__other';
+    });
+
+    function collectBean() {
+      let process = $('bean-process').value;
+      if (process === '__other') process = $('bean-process-other').value.trim();
+      return {
+        id: nextBeanId(),
+        savedAt: new Date().toISOString(),
+        name: $('bean-name').value.trim(),
+        roaster: $('bean-roaster').value.trim(),
+        country: $('bean-country').value.trim(),
+        region: $('bean-region').value.trim(),
+        process,
+        varietal: $('bean-varietal').value.trim(),
+        roastDate: $('bean-roast').value,           // yyyy-mm-dd
+        roasterNotes: $('bean-rnotes').value.trim(),
+        myNotes: $('bean-mynotes').value.trim()
+      };
+    }
+
+    function clearBeanForm() {
+      ['bean-name','bean-roaster','bean-country','bean-region','bean-varietal',
+       'bean-roast','bean-rnotes','bean-mynotes','bean-process-other']
+        .forEach(id => $(id).value = '');
+      $('bean-process').value = '';
+      $('process-other-row').hidden = true;
+    }
+
+    function saveBean() {
+      const bean = collectBean();
+      if (!bean.name) { alert('Add a bean name first.'); return null; }
+      const beans = getBeans();
+      beans.push(bean);
+      setBeans(beans);
+      populateDatalists();   // new custom values become future suggestions
+      clearBeanForm();
+      return bean;
+    }
+    $('btn-save-bean').addEventListener('click', () => {
+      if (!saveBean()) return;
+      const btn = $('btn-save-bean');
+      btn.textContent = 'saved ✓';
+      btn.classList.add('saved');
+      setTimeout(() => { btn.textContent = 'save'; btn.classList.remove('saved'); }, 1400);
+    });
+    $('btn-save-bean-brew').addEventListener('click', () => {
+      const bean = saveBean();
+      if (bean) selectBean(bean);   // set the coffee bar + jump to BREW
+    });
+
+    // ── Selected coffee (links a brew to a bean) ─────────────────
+    let currentBean = null;
+    function setBeanBar(bean) {
+      currentBean = bean || null;
+      const bar = $('bean-bar');
+      if (currentBean) {
+        $('bb-name').textContent = currentBean.name || 'Untitled coffee';
+        $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
+        bar.classList.add('has-bean');
+      } else {
+        $('bb-name').textContent = 'Select a coffee';
+        $('bb-roast').textContent = '';
+        bar.classList.remove('has-bean');
+      }
+    }
+    function selectBean(bean) {
+      setBeanBar(bean);
+      closeHistory();
+      showScreen('brew');
+    }
+    // Tap the coffee bar → pick from saved beans
+    function openBeanPicker() {
+      $('history-title').textContent = 'Choose coffee';
+      renderBeanHistory('pick');
+      $('history-overlay').classList.add('open');
+    }
+    $('bean-bar').addEventListener('click', openBeanPicker);
+
+    function fmtDateShort(ymd) {
+      const dt = new Date(ymd + 'T00:00:00');
+      return isNaN(dt) ? ymd
+        : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // mode: 'browse' (history — expand, brew-this, demoted delete) | 'pick' (tap to select)
+    function renderBeanHistory(mode = 'browse') {
+      const list = $('history-list');
+      const beans = getBeans().sort((a, b) => b.id - a.id);
+      list.innerHTML = '';
+      if (!beans.length) {
+        list.innerHTML = '<div class="history-empty">No saved beans yet.</div>';
+        return;
+      }
+      beans.forEach(b => {
+        const card = document.createElement('div');
+        card.className = 'brew-card';
+        const roast = b.roastDate ? fmtDateShort(b.roastDate) : '—';
+        card.innerHTML = `
+          <div class="bc-top">
+            <span class="bc-name"></span>
+            <span class="bc-date"></span>
+          </div>
+          <div class="bc-stats"></div>
+          <div class="bc-detail">
+            <div class="bc-grid">
+              <div class="row"><span class="k">Roaster</span><span class="v v-roaster"></span></div>
+              <div class="row"><span class="k">Country</span><span class="v v-country"></span></div>
+              <div class="row"><span class="k">Region</span><span class="v v-region"></span></div>
+              <div class="row"><span class="k">Process</span><span class="v v-process"></span></div>
+              <div class="row"><span class="k">Varietal</span><span class="v v-varietal"></span></div>
+              <div class="row"><span class="k">Roast</span><span>${roast}</span></div>
+            </div>
+            <div class="bc-notes" hidden></div>
+            <div class="bc-actions"><button class="bc-brew">brew this</button></div>
+            <button class="bc-delete-link">delete bean</button>
+          </div>`;
+        card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
+        card.querySelector('.bc-date').textContent = 'roast ' + roast;
+        card.querySelector('.bc-stats').textContent =
+          [b.roaster, [b.country, b.process].filter(Boolean).join(' · ')]
+            .filter(Boolean).join(' · ') || '—';
+        card.querySelector('.v-roaster').textContent = b.roaster || '—';
+        card.querySelector('.v-country').textContent = b.country || '—';
+        card.querySelector('.v-region').textContent = b.region || '—';
+        card.querySelector('.v-process').textContent = b.process || '—';
+        card.querySelector('.v-varietal').textContent = b.varietal || '—';
+        if (b.roasterNotes) {
+          const n = card.querySelector('.bc-notes');
+          n.textContent = b.roasterNotes;
+          n.hidden = false;
+        }
+
+        if (mode === 'pick') {
+          // Whole card selects this coffee; no expand, no delete
+          card.querySelector('.bc-actions').remove();
+          card.querySelector('.bc-delete-link').remove();
+          card.addEventListener('click', () => selectBean(b));
+        } else {
+          card.addEventListener('click', e => {
+            if (e.target.closest('.bc-actions') || e.target.closest('.bc-delete-link')) return;
+            card.classList.toggle('expanded');
+          });
+          card.querySelector('.bc-brew').addEventListener('click', () => selectBean(b));
+          card.querySelector('.bc-delete-link').addEventListener('click', () => {
+            if (!confirm('Delete this bean permanently? This is rarely needed and cannot be undone.')) return;
+            setBeans(getBeans().filter(x => x.id !== b.id));
+            renderBeanHistory('browse');
+          });
+        }
+        list.appendChild(card);
+      });
+    }
+
     // ── Init ─────────────────────────────────────────────────────
+    populateDatalists();
+    setBeanBar(null);
+    showScreen('brew');
     recalcSchedule();
     render(0);
     requestAnimationFrame(tick);
