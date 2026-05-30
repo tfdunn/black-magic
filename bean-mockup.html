@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Black Magic — Bean</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+      background: #f0f0f0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      min-height: 100vh;
+    }
+
+    .app {
+      background: #fff;
+      width: 390px;
+      min-height: 100vh;
+      padding: 20px 20px 28px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    .header {
+      position: relative;
+      text-align: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .header h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.3px; color: #000; }
+
+    .nav-btn {
+      position: absolute; top: 4px;
+      background: none; border: none;
+      font-size: 11px; color: #888;
+      cursor: pointer; font-family: inherit;
+      letter-spacing: 0.3px; padding: 2px 0;
+    }
+    .nav-btn:active { color: #000; }
+    .nav-left  { left: 0;  font-weight: 600; letter-spacing: 0.8px; }
+    .nav-right { right: 0; }
+
+    /* ── Identity ── */
+    input.bean-name {
+      width: 100%;
+      font-size: 20px; font-weight: 600; color: #000;
+      text-align: center;
+      background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8;
+      outline: none; font-family: inherit;
+      padding: 14px 0 6px;
+    }
+    input.bean-name:focus { border-bottom-color: #bbb; }
+    input.bean-name::placeholder { color: #ccc; font-weight: 500; }
+
+    input.roaster {
+      width: 100%;
+      font-size: 13px; font-weight: 500; color: #555;
+      text-align: center;
+      background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8;
+      outline: none; font-family: inherit;
+      padding: 8px 0 10px;
+    }
+    input.roaster:focus { border-bottom-color: #bbb; }
+    input.roaster::placeholder { color: #ccc; }
+
+    /* ── Grid ── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .cell {
+      padding: 9px 6px;
+      text-align: center;
+      border-right: 1px solid #e8e8e8;
+      border-top: 1px solid #e8e8e8;
+    }
+    .cell:nth-child(-n+2) { border-top: none; }
+    .cell:nth-child(2n) { border-right: none; }
+
+    .cell .label {
+      font-size: 9px; font-weight: 600; color: #888;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      display: block; margin-bottom: 4px;
+    }
+    .value-input {
+      font-size: 15px; font-weight: 700; color: #000;
+      background: transparent; border: none;
+      border-bottom: 1px solid transparent;
+      text-align: center; text-align-last: center;
+      width: 100%; padding: 0; line-height: 1.15;
+      font-family: inherit; cursor: pointer;
+      -webkit-appearance: none; appearance: none; display: block;
+    }
+    .value-input:focus { outline: none; border-bottom-color: #bbb; }
+    .value-input::placeholder { color: #ccc; font-weight: 500; }
+    .value-input.empty { color: #ccc; font-weight: 500; }
+
+    /* ── Free-text fields ── */
+    .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
+    .text-field .label {
+      font-size: 9px; font-weight: 600; color: #888;
+      text-transform: uppercase; letter-spacing: 0.4px;
+      display: block; margin-bottom: 5px; text-align: center;
+    }
+    .text-field input {
+      width: 100%; border: none; outline: none;
+      background: transparent; font-family: inherit;
+      font-size: 13px; color: #555; text-align: center;
+    }
+    .text-field input::placeholder { color: #ccc; }
+
+    /* ── Save ── */
+    .save-row { display: flex; justify-content: center; margin-top: 22px; }
+    .btn-save {
+      background: #000; color: #fff;
+      border: 1.5px solid #000; border-radius: 20px;
+      font-size: 12px; font-weight: 500;
+      padding: 7px 34px; cursor: pointer;
+      letter-spacing: 0.3px; font-family: inherit;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+    <!-- Header: BREW toggle (left), brand, history (right) -->
+    <div class="header">
+      <button class="nav-btn nav-left">BREW</button>
+      <h1>Black Magic</h1>
+      <button class="nav-btn nav-right">history</button>
+    </div>
+
+    <!-- Identity (blank state) -->
+    <input class="bean-name" type="text" placeholder="Bean name">
+    <input class="roaster" type="text" placeholder="Roaster">
+
+    <!-- Origin -->
+    <div class="grid">
+      <div class="cell">
+        <span class="label">Country</span>
+        <input class="value-input" type="text" placeholder="—">
+      </div>
+      <div class="cell">
+        <span class="label">Region</span>
+        <input class="value-input" type="text" placeholder="—">
+      </div>
+      <div class="cell">
+        <span class="label">Process</span>
+        <select class="value-input empty">
+          <option value="" selected>—</option>
+          <option>Washed</option>
+          <option>Natural</option>
+          <option>Honey</option>
+          <option>Anaerobic</option>
+          <option>Other</option>
+        </select>
+      </div>
+      <div class="cell">
+        <span class="label">Varietal</span>
+        <input class="value-input" type="text" placeholder="—">
+      </div>
+    </div>
+
+    <!-- Roast date -->
+    <div class="grid" style="grid-template-columns: 1fr;">
+      <div class="cell" style="border-right:none;">
+        <span class="label">Roast Date</span>
+        <input class="value-input" type="text" placeholder="—">
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div class="text-field">
+      <span class="label">Roaster Notes</span>
+      <input type="text" placeholder="From the bag…">
+    </div>
+    <div class="text-field">
+      <span class="label">My Notes</span>
+      <input type="text" placeholder="Optional…">
+    </div>
+
+    <!-- Save -->
+    <div class="save-row">
+      <button class="btn-save">save bean</button>
+    </div>
+
+  </div>
+</body>
+</html>
