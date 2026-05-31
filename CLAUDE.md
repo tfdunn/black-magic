@@ -8,10 +8,27 @@ The original design mockup is `Black Magic iPhone Mockup.pdf` (Adobe Illustrator
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
+manifest.webmanifest    — PWA manifest (relative paths; scope "./")
+sw.js                   — service worker (network-first, caches app shell)
+icon-180/192/512.png    — PWA / home-screen icons
 CLAUDE.md               — this file
 Black Magic iPhone Mockup.pdf   — original design reference
 timer-alternatives.html — phase 1 exploration, not part of the app
 ```
+
+## Deployment (GitHub Pages)
+Live at **https://tfdunn.github.io/black-magic/** — served from the `main` branch
+root of the public repo **https://github.com/tfdunn/black-magic** (owner `tfdunn`).
+This is the permanent home; the old cloudflared tunnel is retired.
+
+All PWA paths are **relative** (`./`, `manifest.webmanifest`, `sw.js`, `icon-*.png`),
+so the app works under the `/black-magic/` subpath with no path rewrites — keep it
+that way (never hard-code a leading `/` in asset/manifest/SW references).
+
+**Deploy loop:** branch → edit → verify → merge to `main` → Pages auto-rebuilds
+(~1–2 min). Bump the `CACHE` version in `sw.js` when changing cached assets so
+clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
+`tfdunn`). `.claude/` is gitignored.
 
 ## App layout (top to bottom)
 1. **Header** — "Black Magic" title, live date/time, `history` button (top-right)
