@@ -203,7 +203,9 @@
       width: 280px;
       height: 280px;
       margin: 0 auto 4px;
+      cursor: pointer;           /* whole dial is the start/stop/reset tap target */
     }
+    .timer-circle-wrap:active { opacity: 0.92; }
 
     .timer-circle-wrap svg {
       width: 100%;
@@ -243,42 +245,32 @@
       margin-top: 2px;
     }
 
-    .pour-time {
-      font-size: 17px;
-      font-weight: 500;
-      color: var(--secondary);
-      margin-top: 10px;
-      font-variant-numeric: tabular-nums;
-      letter-spacing: 0.5px;
-    }
-
-    /* ── Start / End Buttons ── */
-    .timer-controls {
-      display: flex;
-      gap: 14px;
-      margin-top: 6px;
-      align-items: center;
-      justify-content: center;
-      padding-bottom: 4px;
-    }
-
-    .btn-pill {
-      min-width: 132px;
-      background: none;
-      border: 1.5px solid var(--ink);
-      border-radius: 999px;
-      font-size: 16px;
-      font-weight: 500;
+    /* status symbol under the pour target: ▶ start / ⏸ stop / ↺ reset */
+    .pour-sym {
+      font-size: 22px;
       color: var(--ink);
-      padding: 12px 26px;
-      cursor: pointer;
-      letter-spacing: -0.2px;
-      font-family: inherit;
-      transition: transform .12s ease, background .15s, color .15s, border-color .15s;
+      margin-top: 8px;
+      line-height: 1;
     }
 
-    .btn-pill:active { transform: scale(0.96); }
-    .btn-pill.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+    /* ── Timer corner readouts (below the dial) ── */
+    .timer-readouts {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-top: 12px;
+      padding: 0 6px;
+    }
+    .timer-readouts .ro { display: flex; flex-direction: column; }
+    .timer-readouts .ro.right { align-items: flex-end; }
+    .timer-readouts .lab {
+      font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
+      text-transform: uppercase; color: var(--secondary); margin-bottom: 4px;
+    }
+    .timer-readouts .val {
+      font-size: 21px; font-weight: 600; letter-spacing: -0.4px;
+      color: var(--ink); line-height: 1; font-variant-numeric: tabular-nums;
+    }
 
     /* ── Bottom Stats Row ── */
     .bottom-stats {
@@ -801,12 +793,13 @@
         </svg>
         <div class="timer-center">
           <div class="pour-number" id="t-ml">0</div>
-          <div class="pour-time" id="t-time">0:00</div>
+          <div class="pour-sym" id="t-sym">▶</div>
         </div>
       </div>
 
-      <div class="timer-controls">
-        <button class="btn-pill" id="btn-start">start</button>
+      <div class="timer-readouts">
+        <div class="ro"><span class="lab">Pour</span><span class="val" id="t-pour">0:30</span></div>
+        <div class="ro right"><span class="lab">Timer</span><span class="val" id="t-timer">0:00</span></div>
       </div>
     </div>
 
@@ -956,11 +949,11 @@
     // ── TIME +/- display ─────────────────────────────────────────
     const timeDisplay = document.getElementById('time-val');
 
-    // Timer button label ('start' | 'stop' | 'reset'); filled (ink) while running
+    // Status symbol shown under the pour target: ▶ start · ⏸ stop · ↺ reset
     function setTimerLabel(label) {
-      const b = document.getElementById('btn-start');
-      b.textContent = label;
-      b.classList.toggle('active', label === 'stop');
+      const sym = label === 'stop' ? '⏸' : label === 'reset' ? '↺' : '▶';
+      const e = document.getElementById('t-sym');
+      if (e) e.textContent = sym;
     }
 
     // Notes textarea grows to fit its content
@@ -1115,8 +1108,14 @@
       hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
-      document.getElementById('t-ml').textContent = pourTarget(s);
-      document.getElementById('t-time').textContent = fmtTime(s);
+      if (!inCountdown) document.getElementById('t-ml').textContent = pourTarget(s);
+      // corner readouts: POUR = countdown to the next 30s pour, TIMER = total elapsed
+      let pour;
+      if (running)      pour = (s >= TOTAL) ? '—' : fmtTime(CYCLE_SECS - (s % CYCLE_SECS));
+      else if (s === 0) pour = fmtTime(CYCLE_SECS);   // idle / ready
+      else              pour = '—';                   // stopped
+      document.getElementById('t-pour').textContent = pour;
+      document.getElementById('t-timer').textContent = fmtTime(s);
     }
 
     function tick(ts) {
@@ -1160,7 +1159,6 @@
       const step = () => {
         if (!inCountdown) return;
         document.getElementById('t-ml').textContent = count;
-        document.getElementById('t-time').textContent = '';
         count--;
         if (count > 0) {
           setTimeout(step, 1000);
@@ -1201,7 +1199,7 @@
 
     // ── Timer button: cycles start → stop → reset → start ─────────
     // Affects ONLY the timer (and its TIME +/− output) — never TDS/Rating.
-    document.getElementById('btn-start').addEventListener('click', () => {
+    document.querySelector('.timer-circle-wrap').addEventListener('click', () => {
       if (inCountdown) {                  // press during countdown → cancel
         inCountdown = false;
         cancelCountdownAudio();

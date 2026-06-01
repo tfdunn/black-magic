@@ -35,11 +35,12 @@ clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
    (top-right). `Bean`/`History` are amber text buttons.
 2. **Coffee selector** — full-width `Select a coffee ⌄` row (taps to pick a saved bean)
 3. **Stats grid** — 2 rows × 4 columns of editable fields
-4. **Timer circle** — analog clock face with floating second hand
-5. **Timer button** — single pill that cycles **start → stop → reset**
-6. **Bottom row** — TIME +/−, TDS, Rating
-7. **Notes** — auto-growing textarea
-8. **Save/New button** — black pill that toggles **save brew ⇄ new brew**
+4. **Timer dial** — analog clock face (amber sweep hand). Center stacks the pour
+   target over a **▶/⏸/↺ status symbol**; **tapping the dial** cycles start → stop →
+   reset (no visible button). `POUR` / `TIMER` readouts flank just below it.
+5. **Bottom row** — TIME +/− (editable), TDS, Rating
+6. **Notes** — auto-growing textarea
+7. **Save/New button** — black pill that toggles **save brew ⇄ new brew**
 
 ## Stats grid fields and their input types
 
@@ -58,8 +59,9 @@ Agitate keeps a real native `<select>` (so iOS shows its picker) but the select 
 transparent and layered over a `#agitate-num` (bold) + `#agitate-word` (small grey)
 display via `.select-wrap` / `.select-overlay`; `syncAgitate()` keeps them in step.
 
-Bottom row: TIME +/− (read-only, set by stop), TDS (number, 2dp), Rating (integer 0–100).
-TDS and Rating values are rendered in the amber accent.
+Bottom row: TIME +/− (editable; auto-set by stop, hand-editable for brews logged
+without the timer), TDS (number, 2dp), Rating (integer 0–100). TIME +/−, TDS, and
+Rating values all render in the amber accent.
 
 ## Timer logic
 
@@ -68,12 +70,13 @@ TDS and Rating values are rendered in the amber accent.
 - 8 tick marks (30-second), 1-minute ones heavier; the 12-o'clock mark is a bold
   `--ink` anchor (cycle start/end). No numeric labels.
 - Outer arc fills over 4 minutes; wraps to a new cycle if brew is longer
-- Second hand sweeps once per 30-second pour cycle (floats in the outer ring, so
-  the center number stays clear)
-- **Progress colour** (arc + hand, set per-frame in `render()`): dark grey `#555`
-  for the first 4 minutes, **black** `#000` once past 4:00. Amber is *not* used on
-  the clock — only on Bean/History/TDS/Rating.
-- Center shows the **cumulative pour target in ml** (not elapsed seconds)
+- Amber sweep hand sweeps once per 30-second pour cycle (floats in the outer ring,
+  so the center stays clear)
+- **Progress arc colour** (set per-frame in `render()`): dark grey `#555` for the
+  first 4 minutes, **black** `#000` once past 4:00. The sweep hand is amber; amber is
+  otherwise used only on Bean/History/TDS/Rating/TIME.
+- Center stacks the **cumulative pour target in ml** over the **▶/⏸/↺ status symbol**
+  (not elapsed seconds). Live `POUR` / `TIMER` readouts sit just below the dial.
 
 ### Pour schedule
 Geometric decay series. Individual pour amounts: x, x·r, x·r², … for n cycles, where:
@@ -87,16 +90,19 @@ The center of the clock shows the **cumulative** pour target for the current cyc
 
 Recalculated automatically when Contact, Decay, or Brew Target changes. Timer also resets on any of those changes.
 
-### Timer button (single pill: start → stop → reset)
-- **start**: 3-second audio countdown (rising tones G4→A4→C5, then G5 "GO"), then runs
-- **stop**: freezes timer, writes `round(elapsed − TOTAL) − 2` to TIME +/− (−2 is a
-  reaction-time correction). Button then reads **reset**.
-- **reset**: zeroes the timer and TIME +/− back to start. Affects the timer *only* —
-  never TDS/Rating.
-- The timer **counts up past TOTAL** (no cap) so long brews are recorded as a
-  positive TIME +/−.
-- Pressing during the countdown cancels it (and cancels its queued tones).
-- Label fill: the pill fills ink while running (`stop`); outlined otherwise.
+### Timer — tap the dial (cycles start → stop → reset)
+No visible button: the whole clock dial is the tap target (click listener on
+`.timer-circle-wrap`). The `#t-sym` glyph under the pour target shows the current
+action — ▶ start · ⏸ stop · ↺ reset.
+- **start** (▶): 3-second audio countdown (rising tones G4→A4→C5, then G5 "GO"), then runs
+- **stop** (⏸): freezes timer, writes `round(elapsed − TOTAL) − 2` to TIME +/−
+  (−2 reaction-time correction). Symbol becomes ↺.
+- **reset** (↺): zeroes the clock back to start. **Does NOT touch TIME +/−** — only
+  "new brew" clears that, so an evaluated brew isn't lost to an accidental reset.
+- The timer **counts up past TOTAL** (no cap) so long brews record a positive TIME +/−.
+- Pressing during the countdown cancels it (and its queued tones).
+- Two readouts flank below the dial: `#t-pour` (POUR — `30 − elapsed%30`, countdown to
+  the next pour; `—` once all pours are done) and `#t-timer` (TIMER — total elapsed `m:ss`).
 
 ### Save / New button (single pill: save brew ⇄ new brew)
 - **save brew**: snapshots the form to history and changes nothing on screen; flips
