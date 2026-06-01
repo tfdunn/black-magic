@@ -171,9 +171,8 @@
       margin-left: 2px;
     }
 
-    /* Leading unit (e.g. the "#" before Grind) sits to the LEFT of the value */
-    .unit-pre { margin-left: 0; margin-right: 1px; }
-    #grind { width: 2ch; }   /* narrow so the "#" sits snug against the number */
+    /* Agitate: a little extra gap between the number and its word */
+    #agitate-word { margin-left: 5px; }
 
     /* Agitate: bold number + small grey word, backed by a transparent native
        <select> so the iOS picker still works. */
@@ -257,14 +256,13 @@
 
     /* ── Timer corner readouts (below the dial) ── */
     .timer-readouts {
-      display: flex;
-      justify-content: space-between;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);   /* aligns with the 4-col stats grid */
       width: 100%;
       margin-top: 2px;
-      padding: 0 6px;
     }
-    .timer-readouts .ro { display: flex; flex-direction: column; }
-    .timer-readouts .ro.right { align-items: flex-end; }
+    .timer-readouts .ro { display: flex; flex-direction: column; align-items: center; }
+    .timer-readouts .ro.right { grid-column: 4; }   /* POUR under col 1, TIMER under col 4 */
     .timer-readouts .lab {
       font-size: 9px; font-weight: 600; letter-spacing: 0.07em;
       text-transform: uppercase; color: var(--tertiary); margin-bottom: 2px;
@@ -693,15 +691,18 @@
     <div class="stats-grid">
       <div class="stat-cell">
         <span class="label">Dose</span>
-        <input class="value-input" type="number" id="dose"
-          min="0" max="99" step="0.1" value="24.8" inputmode="decimal">
+        <div class="unit-wrap">
+          <input class="value-input wide" type="number" id="dose"
+            min="0" max="99" step="0.1" value="24.8" inputmode="decimal">
+          <span class="unit-label">g</span>
+        </div>
       </div>
       <div class="stat-cell">
         <span class="label">Grind</span>
         <div class="unit-wrap">
-          <span class="unit-label unit-pre">#</span>
           <input class="value-input" type="number" id="grind"
             min="0" max="99" step="0.1" value="8" inputmode="decimal">
+          <span class="unit-label">#</span>
         </div>
       </div>
       <div class="stat-cell">
@@ -791,7 +792,7 @@
           <g id="t-ticks"></g>
           <!-- Floating second hand: one sweep = one 30s pour cycle -->
           <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
-            stroke-width="1.6" stroke-linecap="round"/>
+            stroke-width="2.2" stroke-linecap="round"/>
         </svg>
         <div class="timer-center">
           <div class="pour-number" id="t-ml">0</div>
@@ -1092,7 +1093,7 @@
         ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
         ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
         ln.setAttribute('stroke', isTop ? 'rgba(60,60,67,0.40)' : isMinute ? 'rgba(60,60,67,0.28)' : 'rgba(60,60,67,0.16)');
-        ln.setAttribute('stroke-width', isTop ? '3' : isMinute ? '2.3' : '1.3');
+        ln.setAttribute('stroke-width', isTop ? '3.4' : isMinute ? '2.8' : '1.3');
         ln.setAttribute('stroke-linecap', 'round');
         g.appendChild(ln);
       }
@@ -1401,7 +1402,7 @@
     }
     function newBrew() {
       resetTimer();              // clock back to zero
-      timeDisplay.value = '0';   // TIME +/− is cleared ONLY here (on New brew)
+      timeDisplay.value = '';    // TIME +/− blanked ONLY here (on New brew)
       $('tds').value = '';
       $('rating').value = '';
       setBottomButton('save');

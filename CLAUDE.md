@@ -46,8 +46,8 @@ clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
 
 | Field | Type | Constraints |
 |---|---|---|
-| Dose | number input | 0–99, step 0.1, one decimal |
-| Grind | number input | 0–99, step 0.1; shows a small grey "#" *prefix* |
+| Dose | number input | 0–99, step 0.1; shows "g" suffix |
+| Grind | number input | 0–99, step 0.1; shows a small grey "#" suffix |
 | Agitate | select (overlay) | 0–4 → none/min/mid/low/high; renders as bold number + small grey word (see below) |
 | Contact | select | 30-second intervals, 1:00–10:00 |
 | Water | number input | 0–999, integer; shows "°F" suffix (label is "Water") |
