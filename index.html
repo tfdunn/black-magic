@@ -171,7 +171,8 @@
     }
 
     /* Leading unit (e.g. the "#" before Grind) sits to the LEFT of the value */
-    .unit-pre { margin-left: 0; margin-right: 2px; }
+    .unit-pre { margin-left: 0; margin-right: 1px; }
+    #grind { width: 2ch; }   /* narrow so the "#" sits snug against the number */
 
     /* Agitate: bold number + small grey word, backed by a transparent native
        <select> so the iOS picker still works. */
@@ -210,11 +211,11 @@
       overflow: visible;
     }
 
-    /* Clock strokes — progress is dark grey for the first 4 min, black past it
-       (colour set per-frame in render()). */
+    /* Clock strokes — progress arc is dark grey for the first 4 min, black past
+       it (colour set per-frame in render()); the sweep hand is amber. */
     #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
     #timer-svg #t-arc   { stroke: #555; transition: stroke-dashoffset 0.1s linear, stroke 0.25s linear; }
-    #timer-svg #t-hand  { stroke: #555; transition: stroke 0.25s linear; }
+    #timer-svg #t-hand  { stroke: var(--accent); }
 
     .timer-center {
       position: absolute;
@@ -227,11 +228,11 @@
     }
 
     .pour-number {
-      font-size: 76px;
+      font-size: 64px;
       font-weight: 700;
       color: var(--ink);
       line-height: 0.9;
-      letter-spacing: -3px;
+      letter-spacing: -2.5px;
       font-variant-numeric: tabular-nums;
     }
 
@@ -314,8 +315,8 @@
       display: block;
     }
 
-    /* TDS + Rating are the accented metrics (amber) */
-    #tds, #rating { color: var(--accent); }
+    /* TIME +/−, TDS + Rating are the accented (amber), editable metrics */
+    #time-val, #tds, #rating { color: var(--accent); }
 
     /* Time cell with +/- */
     .time-cell {
@@ -813,7 +814,8 @@
     <div class="bottom-stats">
       <div class="bottom-stat">
         <span class="label">Time +/−</span>
-        <span class="value" id="time-val">0</span>
+        <input class="value-input" type="number" id="time-val"
+          step="1" value="0" inputmode="numeric">
       </div>
       <div class="bottom-stat">
         <span class="label">TDS</span>
@@ -1088,8 +1090,8 @@
         ln.setAttribute('y1', (100 + r0 * Math.sin(a)).toFixed(2));
         ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
         ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
-        ln.setAttribute('stroke', isTop ? '#0B0B0C' : isMinute ? 'rgba(60,60,67,0.35)' : 'rgba(60,60,67,0.16)');
-        ln.setAttribute('stroke-width', isTop ? '2.4' : isMinute ? '1.6' : '1.3');
+        ln.setAttribute('stroke', isTop ? 'rgba(60,60,67,0.55)' : isMinute ? 'rgba(60,60,67,0.45)' : 'rgba(60,60,67,0.16)');
+        ln.setAttribute('stroke-width', isTop ? '3' : isMinute ? '2.3' : '1.3');
         ln.setAttribute('stroke-linecap', 'round');
         g.appendChild(ln);
       }
@@ -1108,12 +1110,11 @@
       arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
       arc.setAttribute('stroke', progColor);
       const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
-      const hand = document.getElementById('t-hand');
-      hand.setAttribute('x1', (100 + 40 * Math.cos(a)).toFixed(2));
-      hand.setAttribute('y1', (100 + 40 * Math.sin(a)).toFixed(2));
+      const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
+      hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
+      hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
-      hand.setAttribute('stroke', progColor);
       document.getElementById('t-ml').textContent = pourTarget(s);
       document.getElementById('t-time').textContent = fmtTime(s);
     }
@@ -1178,14 +1179,14 @@
       step();
     }
 
-    // ── Timer reset (clears the timer + its TIME +/− result only) ─
+    // ── Timer reset (zeroes the clock only — NOT TIME +/−, which is preserved
+    //    until "new brew" so an evaluated brew isn't lost by an accidental reset) ─
     function resetTimer() {
       inCountdown = false;
       running = false;
       elapsed = 0;
       lastTs = null;
       cancelCountdownAudio();
-      timeDisplay.textContent = '0';
       setTimerLabel('start');
       render(0);
     }
@@ -1209,7 +1210,7 @@
       } else if (running) {               // stop → freeze + record TIME +/−
         running = false;
         lastTs = null;
-        timeDisplay.textContent = Math.round(elapsed - TOTAL) - 2; // −2 reaction-time
+        timeDisplay.value = Math.round(elapsed - TOTAL) - 2; // −2 reaction-time
         setTimerLabel('reset');
       } else if (elapsed > 0) {           // reset → back to zero
         resetTimer();
@@ -1257,7 +1258,7 @@
         bloom: $('bloom').value,
         decay: $('decay').value,
         brewTarget: $('brew-target').value,
-        timeAdj: $('time-val').textContent,
+        timeAdj: $('time-val').value,
         tds: $('tds').value,
         rating: $('rating').value,
         notes: $('notes').value.trim()
@@ -1280,7 +1281,7 @@
       $('notes').value = r.notes;
       growNotes();
       syncAgitate();
-      timeDisplay.textContent = r.timeAdj;
+      timeDisplay.value = r.timeAdj;
       // Programmatic .value changes don't fire 'change', so reset timer manually
       inCountdown = false;
       running = false;
@@ -1393,7 +1394,8 @@
       btn.classList.remove('saved');
     }
     function newBrew() {
-      resetTimer();              // timer + TIME +/− back to zero
+      resetTimer();              // clock back to zero
+      timeDisplay.value = '0';   // TIME +/− is cleared ONLY here (on New brew)
       $('tds').value = '';
       $('rating').value = '';
       setBottomButton('save');
