@@ -43,13 +43,14 @@ install can still be reset by removing the home-screen icon and re-adding it
    (top-right). `Bean`/`History` are amber text buttons.
 2. **Coffee selector** — full-width `Select a coffee ⌄` row (taps to pick a saved bean)
 3. **Stats grid** — 2 rows × 4 columns of editable fields
-4. **Timer dial** — analog clock face (amber sweep hand). Center stacks the pour
-   target over a **▶/⏸/↺ status symbol**; **tapping the dial** cycles start → stop →
-   reset (no visible button).
-5. **Results row** — 4 cells aligned under the recipe grid: **Timer** (live elapsed,
-   black) · **Time +/−** · **TDS** · **Rating** (last three editable, amber)
+4. **Timer dial** — analog clock face (amber sweep hand + thick 4-min progress ring).
+   Center stacks the live **Timer** (grey) over the pour-target number, with a small
+   grey **↺ reset hint** below. **Hold the dial 2s to reset** (no tap action).
+5. **Results row** — 4 cells aligned under the recipe grid: **Time +/−** · **TDS** ·
+   **Brew★** · **Bean★** (all editable; render in amber)
 6. **Notes** — auto-growing textarea
-7. **Save/New button** — black pill that toggles **save brew ⇄ new brew**
+7. **Action button** — single black pill: **tap** = start / stop; **hold 2s** = save
+   brew (then clears for the next cup). Quick taps never save.
 
 ## Stats grid fields and their input types
 
@@ -68,25 +69,35 @@ Agitate keeps a real native `<select>` (so iOS shows its picker) but the select 
 transparent and layered over a `#agitate-num` (bold) + `#agitate-word` (small grey)
 display via `.select-wrap` / `.select-overlay`; `syncAgitate()` keeps them in step.
 
-Results row (4 cells, aligned under the recipe grid): Timer (live elapsed `m:ss`,
-read-only, black), TIME +/− (editable; auto-set by stop, hand-editable for brews
-logged without the timer), TDS (number, 2dp), Rating (integer 0–100). TIME +/−, TDS,
-and Rating render in amber; Timer stays black.
+Results row (4 cells, aligned under the recipe grid): TIME +/− (editable; auto-set by
+stop, hand-editable for brews logged without the timer), TDS (number, 2dp, **blank by
+default**), Brew★, Bean★ — all amber. Live elapsed shows as **Timer** (grey) inside the
+dial, not in this row.
+
+**Brew★** (per-brew technique; select-overlay like Agitate): 1 first · 2 dial · 3 test ·
+4 good · 5 best. Blank by default; **resets to blank on every save and reset.**
+**Bean★** (1 bad · 2 good · 3 v good · 4 excel · 5 stellar): stored *on the selected
+bean*, not the brew — it prefills from the chosen coffee's saved rating, and editing it
+overwrites that bean's rating (persisted on change and on save); it is **not** cleared
+by save/reset. `syncBrewRating()` / `syncBeanRating()` mirror the number+word display;
+`persistBeanRating()` writes Bean★ back onto the bean record.
 
 ## Timer logic
 
 ### Clock face
 - Fixed 4-minute scope (CLOCK_SCOPE = 240 s), regardless of Contact time
-- 8 tick marks (30-second), 1-minute ones heavier; the 12-o'clock mark is a bold
-  `--ink` anchor (cycle start/end). No numeric labels.
-- Outer arc fills over 4 minutes; wraps to a new cycle if brew is longer
-- Amber sweep hand sweeps once per 30-second pour cycle (floats in the outer ring,
-  so the center stays clear)
+- 8 thin tick marks (30-second), 1-minute ones a touch heavier; 12-o'clock is a bold
+  anchor. No numeric labels. (Kept thin — the prominent ring is the progress arc.)
+- Thick outer **progress ring** fills over 4 minutes (arc stroke 3.2, track 2.6);
+  wraps to a new cycle if the brew runs longer.
 - **Progress arc colour** (set per-frame in `render()`): dark grey `#555` for the
-  first 4 minutes, **black** `#000` once past 4:00. The sweep hand is amber; amber is
-  otherwise used only on Bean/History/TDS/Rating/TIME.
-- Center stacks the **cumulative pour target in ml** over the **▶/⏸/↺ status symbol**
-  (not elapsed seconds). Live elapsed time shows as **Timer** in the results row below.
+  first 4 minutes, **black** `#000` once past 4:00.
+- Amber sweep hand (stroke 3.2) sweeps once per 30-second pour cycle, floating in the
+  outer ring so the center stays clear. Amber is otherwise used only on Bean/History
+  and the TIME/TDS/Brew★/Bean★ values.
+- Center stacks the live **Timer** (grey `m:ss`) over the **cumulative pour target in
+  ml** (not elapsed seconds), with a small grey **↺ hint** below (hold the dial 2s to
+  reset). No ▶/⏸ symbol — the bottom button's label carries the action.
 
 ### Pour schedule
 Geometric decay series. Individual pour amounts: x, x·r, x·r², … for n cycles, where:
@@ -100,25 +111,27 @@ The center of the clock shows the **cumulative** pour target for the current cyc
 
 Recalculated automatically when Contact, Decay, or Brew Target changes. Timer also resets on any of those changes.
 
-### Timer — tap the dial (cycles start → stop → reset)
-No visible button: the whole clock dial is the tap target (click listener on
-`.timer-circle-wrap`). The `#t-sym` glyph under the pour target shows the current
-action — ▶ start · ⏸ stop · ↺ reset.
-- **start** (▶): 3-second audio countdown (rising tones G4→A4→C5, then G5 "GO"), then runs
-- **stop** (⏸): freezes timer, writes `round(elapsed − TOTAL) − 2` to TIME +/−
-  (−2 reaction-time correction). Symbol becomes ↺.
-- **reset** (↺): zeroes the clock back to start. **Does NOT touch TIME +/−** — only
-  "new brew" clears that, so an evaluated brew isn't lost to an accidental reset.
-- The timer **counts up past TOTAL** (no cap) so long brews record a positive TIME +/−.
-- Pressing during the countdown cancels it (and its queued tones).
-- `#t-timer` shows total elapsed `m:ss` (live), as the first cell of the results row;
-  it counts past TOTAL. (The earlier in-dial POUR countdown was removed.)
+### Timer + actions (one button + tap-vs-hold)
+Quick taps drive the transient timer; a deliberate 2-second **hold** guards the two
+data actions (save, reset), so during the ~1-hour stop→save window no single accidental
+tap can save early or wipe the brew. `bindPressable(el, {onTap, onHold, holdWhen})`
+distinguishes them; a hold shows a fill that **release-cancels**, and only a completed
+hold fires `onHold`.
 
-### Save / New button (single pill: save brew ⇄ new brew)
-- **save brew**: snapshots the form to history and changes nothing on screen; flips
-  the button to **new brew**.
-- **new brew**: resets the timer + TIME/TDS/Rating for the next cup, leaving the
-  coffee + recipe unchanged (for brewing many cups in a row). Flips back to **save brew**.
+**Bottom button** (`#btn-save`; label `#btn-label` driven by `updateButtonLabel()`):
+- idle → label **start**, tap → 3-second audio countdown (G4→A4→C5, G5 "GO") → runs.
+- running → label **stop**, tap → freezes + writes `round(elapsed − TOTAL) − 2` to
+  TIME +/− (−2 reaction-time). The timer **counts up past TOTAL** (no cap → long brews
+  record a positive TIME +/−). Tap during the countdown cancels it.
+- stopped → label **save brew**, **hold 2s** → `saveBrew()` (push to history, persist
+  Bean★ to the bean, then `clearForNextBrew()`). A quick tap here only flashes
+  "hold to save".
+
+**Dial** — **hold 2s** → `clearForNextBrew()`: zero the clock and blank TIME +/− / TDS /
+Brew★ for the next cup **without saving** (keeps coffee + recipe + Bean★). A tap does nothing.
+
+`clearForNextBrew()` also runs right after a save. Recipe-field changes call the lighter
+`resetTimer()` (clock only).
 
 ### Sound (Web Audio API, no files)
 - Countdown: 392 Hz, 440 Hz, 523 Hz (one per second); GO tone 784 Hz; 30-s marks 880 Hz.
@@ -176,13 +189,16 @@ White background, black text, with **one** restrained accent.
 - **Tokens:** `--ink #0B0B0C` · `--secondary rgba(60,60,67,.6)` ·
   `--tertiary rgba(60,60,67,.34)` · `--hairline rgba(60,60,67,.13)` ·
   `--accent #9A5A2B` (warm amber). **Amber is used on Bean/History (nav), the
-  TIME +/− / TDS / Rating values, and the clock's sweep hand** — not on the progress
-  arc, the status symbol, or the save button.
+  TIME +/− / TDS / Brew★ / Bean★ values, and the clock's sweep hand** — not on the
+  progress arc, the in-dial timer/reset hint, or the action button.
 - Font: `var(--font)` system stack; all numerals `font-variant-numeric: tabular-nums`.
-- Type scale: title 23/700, big pour number 54/700, metric value 21/600, selector &
-  save 17, nav 16, metric label 10/600 uppercase (0.07em), unit 11/500, POUR/TIMER 15.
-- Status symbols (▶/⏸/↺) are inline SVGs coloured grey via `currentColor` — never
-  emoji glyphs (those box-render on iOS).
+- Type scale: title 23/700, big pour number 54/700, metric value 21/600, save 17,
+  nav 16, metric label 10/600 uppercase (0.07em), unit 11/500, in-dial timer 15.
+- The ↺ reset hint is an inline SVG (grey via `currentColor`) — never an emoji glyph
+  (those box-render on iOS).
+- **Screen is locked** (`html,body { overflow:hidden; overscroll-behavior:none }`,
+  body `position:fixed`) so a thumb-swipe can't scroll or rubber-band the page; the
+  brew screen is tuned to fit an iPhone 17 Pro (402×874) at `100dvh`.
 - Grids use the hairline-gap trick: `gap: 0.5px; background: var(--hairline)` with
   white cells, so gaps render as 0.5px dividers.
 - Save button uses full-radius (999px); the timer has no button (tap the dial).

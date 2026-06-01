@@ -27,13 +27,16 @@
 
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
+    /* Lock the screen — no page scroll / rubber-band on iPhone (content fits 100dvh) */
+    html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     body {
       font-family: var(--font);
       background: #ececef;
       display: flex;
       justify-content: center;
       align-items: flex-start;
-      min-height: 100vh;
+      position: fixed;
+      inset: 0;
       -webkit-font-smoothing: antialiased;
       text-rendering: optimizeLegibility;
     }
@@ -203,7 +206,8 @@
       width: 235px;
       height: 235px;
       margin: 0 auto 2px;
-      cursor: pointer;           /* whole dial is the start/stop/reset tap target */
+      cursor: pointer;           /* hold 2s to reset (no tap action) */
+      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
     }
     .timer-circle-wrap:active { opacity: 0.92; }
 
@@ -238,21 +242,44 @@
       font-variant-numeric: tabular-nums;
     }
 
-    .pour-unit {
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--tertiary);
-      margin-top: 2px;
+    /* In-dial live timer (grey, above the pour number) */
+    .dial-timer {
+      font-size: 15px; font-weight: 500; color: var(--secondary);
+      letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
     }
+    /* Grey reset-hint symbol below the pour number (hold the dial 2s to reset) */
+    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex; }
+    .dial-reset svg { width: 17px; height: 17px; display: block; }
 
-    /* status symbol under the pour target: ▶ start / ⏸ stop / ↺ reset (light-grey SVG) */
-    .pour-sym {
-      color: var(--tertiary);
-      margin-top: 3px;
-      line-height: 0;
-      display: flex;
+    /* Hold-to-reset overlay on the dial (2-second press) */
+    .dial-hold {
+      position: absolute; inset: 0; border-radius: 50%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; background: rgba(255,255,255,0.84); pointer-events: none;
     }
-    .pour-sym svg { width: 26px; height: 26px; display: block; }
+    .timer-circle-wrap.holding .dial-hold { display: flex; }
+    .dial-hold .dh-label {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--secondary);
+    }
+    .dial-hold .dh-bar {
+      width: 96px; height: 4px; border-radius: 2px; background: var(--hairline);
+      position: relative; overflow: hidden;
+    }
+    .dial-hold .dh-bar::after {
+      content: ''; position: absolute; inset: 0; background: var(--accent);
+      transform: scaleX(0); transform-origin: left;
+    }
+    .timer-circle-wrap.holding .dial-hold .dh-bar::after {
+      transform: scaleX(1); transition: transform 2s linear;
+    }
+    /* Hold-to-save fill on the brew button (2-second press) */
+    .btn-save .btn-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+      background: var(--accent); transform: scaleX(0); transform-origin: left; z-index: 0;
+    }
+    .btn-save.holding .btn-fill { transform: scaleX(1); transition: transform 2s linear; }
+    .btn-save .btn-label { position: relative; z-index: 1; }
 
     /* ── Bottom Stats Row ── */
     .bottom-stats {
@@ -289,9 +316,8 @@
       display: block;
     }
 
-    /* TIME +/−, TDS + Rating are the accented (amber), editable metrics */
-    #time-val, #tds, #rating { color: var(--accent); }
-    #t-timer { color: var(--ink); }   /* live elapsed — black; amber is reserved for editable results */
+    /* TIME +/−, TDS + the two ratings are the accented (amber) editable metrics */
+    #time-val, #tds, #brew-rating-num, #bean-rating-num { color: var(--accent); }
 
     /* Time cell with +/- */
     .time-cell {
@@ -393,6 +419,8 @@
       margin-top: 16px;
     }
     .btn-save {
+      position: relative;
+      overflow: hidden;
       background: var(--ink);
       color: #fff;
       border: 1.5px solid var(--ink);
@@ -404,6 +432,7 @@
       letter-spacing: -0.2px;
       font-family: inherit;
       transition: transform .12s ease, opacity .15s;
+      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
     }
     .btn-save:active { transform: scale(0.97); opacity: 0.9; }
     .btn-save.saved { background: #fff; color: var(--ink); }
@@ -765,31 +794,32 @@
       <div class="timer-circle-wrap">
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
           <!-- Outer progress track (fixed 4-min face) -->
-          <circle class="t-track" cx="100" cy="100" r="93" stroke-width="1.8"/>
+          <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
           <!-- Progress arc (circ = 2π×93 ≈ 584.34) -->
           <circle id="t-arc" cx="100" cy="100" r="93"
-            stroke-width="2.2" stroke-linecap="round"
+            stroke-width="3.2" stroke-linecap="round"
             stroke-dasharray="584.34" stroke-dashoffset="584.34"
             transform="rotate(-90 100 100)"/>
           <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
           <g id="t-ticks"></g>
           <!-- Floating second hand: one sweep = one 30s pour cycle -->
           <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
-            stroke-width="2.2" stroke-linecap="round"/>
+            stroke-width="3.2" stroke-linecap="round"/>
         </svg>
         <div class="timer-center">
+          <div class="dial-timer" id="t-timer">0:00</div>
           <div class="pour-number" id="t-ml">0</div>
-          <div class="pour-sym" id="t-sym">▶</div>
+          <div class="dial-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></div>
+        </div>
+        <div class="dial-hold" aria-hidden="true">
+          <span class="dh-label">hold to reset</span>
+          <span class="dh-bar"></span>
         </div>
       </div>
     </div>
 
     <!-- Bottom Stats -->
     <div class="bottom-stats">
-      <div class="bottom-stat">
-        <span class="label">Timer</span>
-        <span class="value" id="t-timer">0:00</span>
-      </div>
       <div class="bottom-stat">
         <span class="label">Time +/−</span>
         <input class="value-input" type="number" id="time-val"
@@ -798,12 +828,37 @@
       <div class="bottom-stat">
         <span class="label">TDS</span>
         <input class="value-input" type="number" id="tds"
-          min="0" max="9.99" step="0.01" value="1.72" inputmode="decimal">
+          min="0" max="9.99" step="0.01" value="" inputmode="decimal">
       </div>
       <div class="bottom-stat">
-        <span class="label">Rating</span>
-        <input class="value-input" type="number" id="rating"
-          min="0" max="100" step="1" value="91" inputmode="numeric">
+        <span class="label">Brew★</span>
+        <div class="unit-wrap select-wrap">
+          <span class="value" id="brew-rating-num">—</span>
+          <span class="unit-label" id="brew-rating-word"></span>
+          <select class="select-overlay" id="brew-rating" aria-label="Brew rating">
+            <option value="" selected>—</option>
+            <option value="1">1 (first)</option>
+            <option value="2">2 (dial)</option>
+            <option value="3">3 (test)</option>
+            <option value="4">4 (good)</option>
+            <option value="5">5 (best)</option>
+          </select>
+        </div>
+      </div>
+      <div class="bottom-stat">
+        <span class="label">Bean★</span>
+        <div class="unit-wrap select-wrap">
+          <span class="value" id="bean-rating-num">—</span>
+          <span class="unit-label" id="bean-rating-word"></span>
+          <select class="select-overlay" id="bean-rating" aria-label="Bean rating">
+            <option value="" selected>—</option>
+            <option value="1">1 (bad)</option>
+            <option value="2">2 (good)</option>
+            <option value="3">3 (v good)</option>
+            <option value="4">4 (excel)</option>
+            <option value="5">5 (stellar)</option>
+          </select>
+        </div>
       </div>
     </div>
 
@@ -815,7 +870,7 @@
 
     <!-- Save -->
     <div class="save-row">
-      <button class="btn-save" id="btn-save">save brew</button>
+      <button class="btn-save" id="btn-save"><span class="btn-fill" aria-hidden="true"></span><span class="btn-label" id="btn-label">start</span></button>
     </div>
 
    </section>
@@ -934,17 +989,16 @@
     // ── TIME +/- display ─────────────────────────────────────────
     const timeDisplay = document.getElementById('time-val');
 
-    // Status symbol shown under the pour target — inline SVG (grey, via
-    // currentColor) so it renders as a crisp glyph, not an iOS emoji box.
-    function setTimerLabel(label) {
-      const ICONS = {
-        start: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>',
-        stop:  '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/></svg>',
-        reset: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg>'
-      };
-      const key = label === 'stop' ? 'stop' : label === 'reset' ? 'reset' : 'start';
-      const e = document.getElementById('t-sym');
-      if (e) e.innerHTML = ICONS[key];
+    // The bottom button's label reflects the timer state; driven from render().
+    // labelLocked briefly suppresses updates so a "saved ✓" / hint flash can show.
+    let labelLocked = false;
+    function updateButtonLabel() {
+      if (labelLocked) return;
+      const lab = document.getElementById('btn-label');
+      if (!lab) return;
+      lab.textContent = (running || inCountdown) ? 'stop'
+                      : (elapsed > 0) ? 'save brew'
+                      : 'start';
     }
 
     // Notes textarea grows to fit its content
@@ -962,6 +1016,26 @@
       document.getElementById('agitate-word').textContent = AGITATE_WORDS[v] || '';
     }
     document.getElementById('agitate').addEventListener('change', syncAgitate);
+
+    // Brew★ (per-brew technique) + Bean★ (stored on the bean): number + grey word
+    const BREW_RATINGS = { '1': 'first', '2': 'dial', '3': 'test', '4': 'good', '5': 'best' };
+    const BEAN_RATINGS = { '1': 'bad', '2': 'good', '3': 'v good', '4': 'excel', '5': 'stellar' };
+    function syncRating(selId, numId, wordId, words) {
+      const v = document.getElementById(selId).value;
+      document.getElementById(numId).textContent = v || '—';
+      document.getElementById(wordId).textContent = words[v] || '';
+    }
+    const syncBrewRating = () => syncRating('brew-rating', 'brew-rating-num', 'brew-rating-word', BREW_RATINGS);
+    const syncBeanRating = () => syncRating('bean-rating', 'bean-rating-num', 'bean-rating-word', BEAN_RATINGS);
+    // Write Bean★ back onto the selected bean, overwriting its previous rating
+    function persistBeanRating() {
+      if (!(currentBean && currentBean.id)) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (b) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
+    }
+    document.getElementById('brew-rating').addEventListener('change', syncBrewRating);
+    document.getElementById('bean-rating').addEventListener('change', () => { syncBeanRating(); persistBeanRating(); });
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
     let audioCtx = null;
@@ -1101,6 +1175,7 @@
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
       if (!inCountdown) document.getElementById('t-ml').textContent = pourTarget(s);
       document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
+      updateButtonLabel();
     }
 
     function tick(ts) {
@@ -1133,7 +1208,6 @@
     }
     function startCountdown() {
       inCountdown = true;
-      setTimerLabel('stop');
       const ctx = getAudio();              // resume/unlock audio on this gesture
       const t0 = ctx.currentTime + 0.06;
       countdownNodes = [];
@@ -1162,15 +1236,14 @@
       step();
     }
 
-    // ── Timer reset (zeroes the clock only — NOT TIME +/−, which is preserved
-    //    until "new brew" so an evaluated brew isn't lost by an accidental reset) ─
+    // ── Clock reset (zeroes the clock only; used on recipe-field change). The
+    //    full clear incl. TIME/TDS/Rating is clearForNextBrew() — save / hold-reset. ─
     function resetTimer() {
       inCountdown = false;
       running = false;
       elapsed = 0;
       lastTs = null;
       cancelCountdownAudio();
-      setTimerLabel('start');
       render(0);
     }
 
@@ -1182,25 +1255,35 @@
       });
     });
 
-    // ── Timer button: cycles start → stop → reset → start ─────────
-    // Affects ONLY the timer (and its TIME +/− output) — never TDS/Rating.
-    document.querySelector('.timer-circle-wrap').addEventListener('click', () => {
-      if (inCountdown) {                  // press during countdown → cancel
-        inCountdown = false;
-        cancelCountdownAudio();
-        setTimerLabel('start');
-        render(0);
-      } else if (running) {               // stop → freeze + record TIME +/−
-        running = false;
-        lastTs = null;
-        timeDisplay.value = Math.round(elapsed - TOTAL) - 2; // −2 reaction-time
-        setTimerLabel('reset');
-      } else if (elapsed > 0) {           // reset → back to zero
-        resetTimer();
-      } else {                            // start
-        startCountdown();
-      }
-    });
+    // ── Press helper: distinguishes a quick tap from a 2-second hold ──────
+    // During a hold an element fills (.holding); releasing early cancels, so only
+    // a completed hold fires onHold — committing/clearing actions resist mis-taps.
+    function bindPressable(el, opts) {
+      const { onTap, onHold, holdMs = 2000, holdWhen } = opts;
+      let timer = null, fired = false, down = false;
+      el.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        down = true; fired = false;
+        if (onHold && (!holdWhen || holdWhen())) {
+          el.classList.add('holding');
+          timer = setTimeout(() => {
+            timer = null; fired = true; el.classList.remove('holding'); onHold();
+          }, holdMs);
+        }
+      });
+      const finish = doTap => {
+        if (!down) return; down = false;
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+        if (doTap && !fired && onTap) onTap();
+      };
+      el.addEventListener('pointerup', () => finish(true));
+      el.addEventListener('pointerleave', () => finish(false));
+      el.addEventListener('pointercancel', () => finish(false));
+    }
+
+    // Dial: HOLD 2s to reset everything (no save). A tap does nothing.
+    bindPressable(document.querySelector('.timer-circle-wrap'), { onHold: clearForNextBrew });
 
     // ── Brew history (localStorage) ──────────────────────────────
     const STORE_KEY = 'blackmagic.brews';
@@ -1243,7 +1326,8 @@
         brewTarget: $('brew-target').value,
         timeAdj: $('time-val').value,
         tds: $('tds').value,
-        rating: $('rating').value,
+        brewRating: $('brew-rating').value,
+        beanRating: $('bean-rating').value,
         notes: $('notes').value.trim()
       };
     }
@@ -1260,10 +1344,12 @@
       $('decay').value = r.decay;
       $('brew-target').value = r.brewTarget;
       $('tds').value = r.tds;
-      $('rating').value = r.rating;
+      $('brew-rating').value = r.brewRating || '';   // Bean★ comes from the bean (setBeanBar)
       $('notes').value = r.notes;
       growNotes();
       syncAgitate();
+      syncBrewRating();
+      syncBeanRating();
       timeDisplay.value = r.timeAdj;
       // Programmatic .value changes don't fire 'change', so reset timer manually
       inCountdown = false;
@@ -1271,8 +1357,6 @@
       elapsed = 0;
       lastTs = null;
       cancelCountdownAudio();
-      setTimerLabel('start');
-      setBottomButton('save');
       recalcSchedule();
       render(0);
     }
@@ -1299,7 +1383,8 @@
         card.className = 'brew-card';
         const dose = r.dose ? r.dose + 'g' : '—';
         const tds = r.tds ? 'TDS ' + r.tds : 'TDS —';
-        const rating = r.rating ? '★' + r.rating : '★—';
+        const brewR = r.brewRating || r.rating || '';
+        const rating = brewR ? '★' + brewR : '★—';
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
@@ -1319,7 +1404,8 @@
               <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
               <div class="row"><span class="k">Time +/−</span><span>${r.timeAdj}</span></div>
               <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
-              <div class="row"><span class="k">Rating</span><span>${r.rating || '—'}</span></div>
+              <div class="row"><span class="k">Brew★</span><span>${r.brewRating || r.rating || '—'}</span></div>
+              <div class="row"><span class="k">Bean★</span><span>${r.beanRating || '—'}</span></div>
             </div>
             ${r.notes ? `<div class="bc-notes">${r.notes.replace(/</g, '&lt;')}</div>` : ''}
             <div class="bc-actions">
@@ -1365,33 +1451,51 @@
       $('history-overlay').classList.remove('open');
     }
 
-    // Bottom button toggles save ⇄ new.
-    //  • "save brew" snapshots the brew to history and changes NOTHING on screen.
-    //  • "new brew" then clears the timer + TIME/TDS/Rating for the next cup,
-    //    leaving the coffee + recipe in place (for brewing many cups in a row).
-    let brewSaved = false;
-    function setBottomButton(mode) {        // 'save' | 'new'
-      brewSaved = (mode === 'new');
-      const btn = $('btn-save');
-      btn.textContent = (mode === 'new') ? 'new brew' : 'save brew';
-      btn.classList.remove('saved');
-    }
-    function newBrew() {
-      resetTimer();              // clock back to zero
-      timeDisplay.value = '';    // TIME +/− blanked ONLY here (on New brew)
+    // Clear the brew tab for the next cup — timer + TIME/TDS/Rating — while
+    // keeping the coffee + recipe. Used by both Save and the dial hold-to-reset.
+    function clearForNextBrew() {
+      resetTimer();              // zero the clock
+      timeDisplay.value = '';
       $('tds').value = '';
-      $('rating').value = '';
-      setBottomButton('save');
+      $('brew-rating').value = '';   // Brew★ resets each save/reset; Bean★ stays on the bean
+      syncBrewRating();
+      render(0);
     }
-    $('btn-save').addEventListener('click', () => {
-      if (brewSaved) { newBrew(); return; }
+    function flashSaved() {
+      const lab = $('btn-label'), btn = $('btn-save');
+      labelLocked = true; lab.textContent = 'saved ✓'; btn.classList.add('saved');
+      setTimeout(() => { labelLocked = false; btn.classList.remove('saved'); }, 1200);
+    }
+    function flashHint(msg) {
+      if (labelLocked) return;
+      const lab = $('btn-label');
+      labelLocked = true; lab.textContent = msg;
+      setTimeout(() => { labelLocked = false; }, 900);
+    }
+    function saveBrew() {
       const brews = getBrews();
       brews.push(collectRecord());
       setBrews(brews);
-      const btn = $('btn-save');
-      btn.textContent = 'saved ✓';
-      btn.classList.add('saved');
-      setTimeout(() => setBottomButton('new'), 1200);
+      persistBeanRating();       // commit Bean★ onto the selected bean
+      flashSaved();
+      clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
+    }
+
+    // Bottom button — tap: start / stop (start countdown cancellable);
+    //                 HOLD 2s (only when stopped): save the brew.
+    bindPressable($('btn-save'), {
+      onTap: () => {
+        if (inCountdown) { inCountdown = false; cancelCountdownAudio(); render(0); }
+        else if (running) {
+          running = false; lastTs = null;
+          timeDisplay.value = Math.round(elapsed - TOTAL) - 2;   // −2 reaction-time
+          render(elapsed);
+        }
+        else if (elapsed > 0) { flashHint('hold to save'); }     // stopped: tap hints
+        else { startCountdown(); }                                // idle
+      },
+      onHold: saveBrew,
+      holdWhen: () => (elapsed > 0 && !running && !inCountdown)    // stopped only
     });
 
     $('btn-history').addEventListener('click', openHistory);
@@ -1417,7 +1521,7 @@
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     }
     function brewsToCSV() {
-      const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Rating','Comments'];
+      const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Bean_Rating','Comments'];
       const rows = getBrews().sort((a, b) => a.id - b.id).map(r => [
         r.brewName || '',
         csvDateTime(r.savedAt),
@@ -1432,16 +1536,17 @@
         r.brewTarget || '',
         (r.timeAdj ?? ''),
         r.tds || '',
-        r.rating || '',
+        (r.brewRating || r.rating || ''),
+        r.beanRating || '',
         r.notes || ''
       ]);
       return toCSV(H, rows);
     }
     function beansToCSV() {
-      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Roaster_Notes','Comments'];
+      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Rating','Roaster_Notes','Comments'];
       const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
         b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
-        b.process || '', b.roastDate || '', b.roasterNotes || '', b.myNotes || ''
+        b.process || '', b.roastDate || '', (b.rating || ''), b.roasterNotes || '', b.myNotes || ''
       ]);
       return toCSV(H, rows);
     }
@@ -1596,6 +1701,15 @@
     function setBeanBar(bean) {
       currentBean = bean || null;
       const bar = $('bean-bar');
+      // Bean★ always shows the selected bean's current stored rating
+      let br = '';
+      if (currentBean && currentBean.id) {
+        const stored = getBeans().find(b => b.id === currentBean.id);
+        br = (stored && stored.rating) || currentBean.rating || '';
+        currentBean.rating = br;
+      }
+      $('bean-rating').value = br;
+      syncBeanRating();
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
         $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
@@ -1723,10 +1837,11 @@
     setBeanBar(null);
     showScreen('brew');
     syncAgitate();
+    syncBrewRating();
     // Notes textarea auto-grows with content
     $('notes').addEventListener('input', growNotes);
     growNotes();
-    setTimerLabel('start');   // paint the ▶ status icon
+    updateButtonLabel();
     recalcSchedule();
     render(0);
     requestAnimationFrame(tick);
