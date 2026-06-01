@@ -31,38 +31,49 @@ clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
 `tfdunn`). `.claude/` is gitignored.
 
 ## App layout (top to bottom)
-1. **Header** — "Black Magic" title, live date/time, `history` button (top-right)
-2. **Brew name** — editable text input (defaults to "148 Passenger Isidro Geisha")
+1. **Header** — `Bean` (top-left), "Black Magic" title + live date/time, `History`
+   (top-right). `Bean`/`History` are amber text buttons.
+2. **Coffee selector** — full-width `Select a coffee ⌄` row (taps to pick a saved bean)
 3. **Stats grid** — 2 rows × 4 columns of editable fields
 4. **Timer circle** — analog clock face with floating second hand
-5. **Start / Refresh buttons**
+5. **Timer button** — single pill that cycles **start → stop → reset**
 6. **Bottom row** — TIME +/−, TDS, Rating
-7. **Notes** — free-text input
-8. **Save brew** — black pill button; snapshots the form to history
+7. **Notes** — auto-growing textarea
+8. **Save/New button** — black pill that toggles **save brew ⇄ new brew**
 
 ## Stats grid fields and their input types
 
 | Field | Type | Constraints |
 |---|---|---|
 | Dose | number input | 0–99, step 0.1, one decimal |
-| Grind | number input | 0–99, step 0.1, one decimal |
-| Agitate | select | Zero / Min / Low / Mid / High |
+| Grind | number input | 0–99, step 0.1; shows a small grey "#" *prefix* |
+| Agitate | select (overlay) | 0–4 → none/min/mid/low/high; renders as bold number + small grey word (see below) |
 | Contact | select | 30-second intervals, 1:00–10:00 |
-| Water F° | number input | 0–999, integer |
+| Water | number input | 0–999, integer; shows "°F" suffix (label is "Water") |
 | Bloom | number input | 0–999, integer, shows "ml" suffix |
 | Decay | number input | 0–100, integer, shows "%" suffix |
-| Brew Target | number input | 0–9999, integer, shows "ml" suffix |
+| Target | number input | 0–9999, integer, shows "ml" suffix (label is "Target") |
 
-Bottom row: TIME +/− (read-only, set by stop button), TDS (number, 2dp), Rating (integer 0–100).
+Agitate keeps a real native `<select>` (so iOS shows its picker) but the select is
+transparent and layered over a `#agitate-num` (bold) + `#agitate-word` (small grey)
+display via `.select-wrap` / `.select-overlay`; `syncAgitate()` keeps them in step.
+
+Bottom row: TIME +/− (read-only, set by stop), TDS (number, 2dp), Rating (integer 0–100).
+TDS and Rating values are rendered in the amber accent.
 
 ## Timer logic
 
 ### Clock face
 - Fixed 4-minute scope (CLOCK_SCOPE = 240 s), regardless of Contact time
-- 8 tick marks: 4 light (30-second) + 4 heavier (1-minute)
-- No numeric labels on ticks
+- 8 tick marks (30-second), 1-minute ones heavier; the 12-o'clock mark is a bold
+  `--ink` anchor (cycle start/end). No numeric labels.
 - Outer arc fills over 4 minutes; wraps to a new cycle if brew is longer
-- Second hand sweeps once per 30-second pour cycle (one revolution = one pour interval)
+- Second hand sweeps once per 30-second pour cycle (floats in the outer ring, so
+  the center number stays clear)
+- **Progress colour** (arc + hand, set per-frame in `render()`): dark grey `#555`
+  for the first 4 minutes, **black** `#000` once past 4:00. Amber is *not* used on
+  the clock — only on Bean/History/TDS/Rating.
+- Center shows the **cumulative pour target in ml** (not elapsed seconds)
 
 ### Pour schedule
 Geometric decay series. Individual pour amounts: x, x·r, x·r², … for n cycles, where:
@@ -76,21 +87,40 @@ The center of the clock shows the **cumulative** pour target for the current cyc
 
 Recalculated automatically when Contact, Decay, or Brew Target changes. Timer also resets on any of those changes.
 
-### Start / Stop / Refresh
-- **Start**: 3-second audio countdown (rising tones G4→A4→C5, then G5 "GO"), then timer runs
-- **Stop**: freezes timer, writes `round(elapsed − TOTAL) − 2` to TIME +/− (−2 is a 2-second reaction-time correction)
-- **Refresh**: recalculates schedule from current field values and resets timer to zero
-- Pressing Start during countdown cancels it
+### Timer button (single pill: start → stop → reset)
+- **start**: 3-second audio countdown (rising tones G4→A4→C5, then G5 "GO"), then runs
+- **stop**: freezes timer, writes `round(elapsed − TOTAL) − 2` to TIME +/− (−2 is a
+  reaction-time correction). Button then reads **reset**.
+- **reset**: zeroes the timer and TIME +/− back to start. Affects the timer *only* —
+  never TDS/Rating.
+- The timer **counts up past TOTAL** (no cap) so long brews are recorded as a
+  positive TIME +/−.
+- Pressing during the countdown cancels it (and cancels its queued tones).
+- Label fill: the pill fills ink while running (`stop`); outlined otherwise.
+
+### Save / New button (single pill: save brew ⇄ new brew)
+- **save brew**: snapshots the form to history and changes nothing on screen; flips
+  the button to **new brew**.
+- **new brew**: resets the timer + TIME/TDS/Rating for the next cup, leaving the
+  coffee + recipe unchanged (for brewing many cups in a row). Flips back to **save brew**.
 
 ### Sound (Web Audio API, no files)
-- Countdown: 392 Hz, 440 Hz, 523 Hz (one per second)
-- GO tone: 784 Hz, 0.4 s
-- 30-second brew marks: 880 Hz, 0.18 s
+- Countdown: 392 Hz, 440 Hz, 523 Hz (one per second); GO tone 784 Hz; 30-s marks 880 Hz.
+- All countdown tones are **scheduled on the AudioContext clock at the start gesture**
+  (via `tone(freq, dur, when, vol)`), not fired from `setTimeout`, for reliable iOS
+  playback. `getAudio()` resumes a suspended/interrupted context and recreates a
+  closed one. **Caveat:** the iOS hardware Ring/Silent switch can still mute Web
+  Audio — no web API overrides it (a silent-`<audio>` unmute hack is a possible
+  future add).
 
 ## Key CSS patterns
-- `.value-input` — shared style for all editable stat inputs and selects; hides spinners, centers text (`text-align-last: center` needed for `<select>`)
-- `.unit-wrap` / `.unit-label` — flex wrapper for fields with a unit suffix (%, ml); unit is 10px, #aaa
-- `.unit-wrap .value-input.wide` — 4ch width for Brew Target (4-digit values)
+- `.value-input` — shared style for editable stat inputs/selects; hides spinners,
+  centers text (`text-align-last: center` for `<select>`). 21px/600 tabular.
+- `.unit-wrap` / `.unit-label` — flex wrapper for a unit affix (11px `--tertiary`).
+  `.unit-pre` puts the affix *before* the value (the Grind "#").
+- `.unit-wrap .value-input.wide` — 4ch width for Target (4-digit values)
+- `.select-wrap` / `.select-overlay` — transparent native `<select>` over a
+  formatted number+word display (Agitate)
 
 ## Brew history (Phase 2 — implemented)
 
@@ -124,9 +154,17 @@ delete-by-id never removes the wrong record).
 - Export / import history (JSON) so it survives a browser change
 
 ## Design conventions
-- White background, black text, no accent colors
-- Font: system stack (`-apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif`)
-- Dividers: 1px `#e8e8e8`
-- Stat labels: 9px, uppercase, #888
-- Stat values: 16px, bold, #000
-- Keep it a single HTML file until phase 2 complexity justifies splitting
+Refined via a Claude Design pass; tokens live in `:root` in `index.html`.
+White background, black text, with **one** restrained accent.
+
+- **Tokens:** `--ink #0B0B0C` · `--secondary rgba(60,60,67,.6)` ·
+  `--tertiary rgba(60,60,67,.34)` · `--hairline rgba(60,60,67,.13)` ·
+  `--accent #9A5A2B` (warm amber). **Amber is used only on Bean/History (nav) and
+  the TDS + Rating values** — not on the clock or buttons.
+- Font: `var(--font)` system stack; all numerals `font-variant-numeric: tabular-nums`.
+- Type scale: title 23/700, big pour number 76/700, metric value 21/600, selector &
+  save 17, nav/pills 16, metric label 10/600 uppercase (0.07em), unit 11/500.
+- Grids use the hairline-gap trick: `gap: 0.5px; background: var(--hairline)` with
+  white cells, so gaps render as 0.5px dividers.
+- Pills & save use full-radius (999px); the running timer pill fills `--ink`.
+- Keep it a single HTML file until complexity justifies splitting.

@@ -14,45 +14,62 @@
   <meta name="apple-mobile-web-app-title" content="Black Magic">
   <link rel="apple-touch-icon" href="icon-180.png">
   <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    /* ── Design tokens (from Claude Design handoff) ── */
+    :root {
+      --ink:       #0B0B0C;              /* primary text, ticks, save bg, borders */
+      --secondary: rgba(60,60,67,0.60);  /* labels, date, selector, timer m:ss */
+      --tertiary:  rgba(60,60,67,0.34);  /* units, placeholders, chevron */
+      --hairline:  rgba(60,60,67,0.13);  /* separators / grid gaps */
+      --accent:    #9A5A2B;              /* warm roasted amber — the one accent */
+      --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro',
+              'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
-      background: #f0f0f0;
+      font-family: var(--font);
+      background: #ececef;
       display: flex;
       justify-content: center;
       align-items: flex-start;
       min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
     }
 
     .app {
       background: #fff;
       width: 390px;
       min-height: 100vh;
-      padding: 20px 20px 28px;
+      padding: 20px 22px 28px;
       display: flex;
       flex-direction: column;
       gap: 0;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
     }
 
     /* ── Header ── */
     .header {
       text-align: center;
-      padding-bottom: 10px;
-      border-bottom: 1px solid #e8e8e8;
+      padding: 4px 0 16px;
     }
 
     .header h1 {
-      font-size: 26px;
+      font-size: 23px;
       font-weight: 700;
-      letter-spacing: -0.3px;
-      color: #000;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      line-height: 1.1;
     }
 
     .header .date {
-      font-size: 11px;
-      color: #888;
-      margin-top: 2px;
+      font-size: 12.5px;
+      color: var(--secondary);
+      margin-top: 4px;
+      letter-spacing: 0.1px;
     }
 
     .brew-name {
@@ -61,52 +78,50 @@
       color: #000;
       text-align: center;
       padding: 10px 0 8px;
-      border-bottom: 1px solid #e8e8e8;
+      border-bottom: 1px solid var(--hairline);
     }
 
     /* ── Stats Grid ── */
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      border-bottom: 1px solid #e8e8e8;
+      gap: 0.5px;                       /* gaps render as hairline separators */
+      background: var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
     }
 
     .stats-grid .stat-cell {
-      padding: 8px 6px;
+      background: #fff;
+      padding: 13px 6px 14px;
       text-align: center;
-      border-right: 1px solid #e8e8e8;
     }
 
-    .stats-grid .stat-cell:last-child { border-right: none; }
-    .stats-grid .stat-cell:nth-child(4) { border-right: none; }
-    .stats-grid .stat-cell:nth-child(5) { border-top: 1px solid #e8e8e8; }
-    .stats-grid .stat-cell:nth-child(6) { border-top: 1px solid #e8e8e8; }
-    .stats-grid .stat-cell:nth-child(7) { border-top: 1px solid #e8e8e8; }
-    .stats-grid .stat-cell:nth-child(8) { border-top: 1px solid #e8e8e8; }
-
     .stat-cell .label {
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
-      color: #888;
+      color: var(--secondary);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.07em;
       display: block;
-      margin-bottom: 3px;
+      margin-bottom: 5px;
+      white-space: nowrap;   /* keep every metric label on one line */
     }
 
     .stat-cell .value {
-      font-size: 16px;
-      font-weight: 700;
-      color: #000;
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
       display: block;
-      line-height: 1.1;
+      line-height: 1;
+      letter-spacing: -0.4px;
     }
 
     /* ── Editable stat inputs ── */
     .value-input {
-      font-size: 16px;
-      font-weight: 700;
-      color: #000;
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.4px;
       background: transparent;
       border: none;
       border-bottom: 1px solid transparent;
@@ -114,7 +129,7 @@
       text-align-last: center; /* keeps <select> text centred */
       width: 100%;
       padding: 0;
-      line-height: 1.1;
+      line-height: 1;
       font-family: inherit;
       cursor: pointer;
       -webkit-appearance: none;
@@ -124,7 +139,7 @@
 
     .value-input:focus {
       outline: none;
-      border-bottom-color: #bbb;
+      border-bottom-color: var(--accent);
     }
 
     /* Hide number spinners */
@@ -148,11 +163,29 @@
     }
 
     .unit-label {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 500;
-      color: #aaa;
+      color: var(--tertiary);
       line-height: 1.1;
-      margin-left: 1px;
+      margin-left: 2px;
+    }
+
+    /* Leading unit (e.g. the "#" before Grind) sits to the LEFT of the value */
+    .unit-pre { margin-left: 0; margin-right: 2px; }
+
+    /* Agitate: bold number + small grey word, backed by a transparent native
+       <select> so the iOS picker still works. */
+    .select-wrap { position: relative; }
+    .select-wrap .value {
+      font-size: 21px; font-weight: 600; color: var(--ink);
+      letter-spacing: -0.4px; line-height: 1;
+    }
+    .select-overlay {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0; border: none; background: none;
+      font-family: inherit; font-size: 16px; cursor: pointer;
+      -webkit-appearance: none; appearance: none;
     }
 
     /* ── Timer Area ── */
@@ -166,8 +199,9 @@
 
     .timer-circle-wrap {
       position: relative;
-      width: 240px;
-      height: 240px;
+      width: 280px;
+      height: 280px;
+      margin: 0 auto 4px;
     }
 
     .timer-circle-wrap svg {
@@ -175,6 +209,12 @@
       height: 100%;
       overflow: visible;
     }
+
+    /* Clock strokes — progress is dark grey for the first 4 min, black past it
+       (colour set per-frame in render()). */
+    #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
+    #timer-svg #t-arc   { stroke: #555; transition: stroke-dashoffset 0.1s linear, stroke 0.25s linear; }
+    #timer-svg #t-hand  { stroke: #555; transition: stroke 0.25s linear; }
 
     .timer-center {
       position: absolute;
@@ -187,87 +227,95 @@
     }
 
     .pour-number {
-      font-size: 48px;
+      font-size: 76px;
       font-weight: 700;
-      color: #000;
-      line-height: 1;
-      letter-spacing: -2px;
+      color: var(--ink);
+      line-height: 0.9;
+      letter-spacing: -3px;
       font-variant-numeric: tabular-nums;
     }
 
     .pour-unit {
       font-size: 13px;
       font-weight: 500;
-      color: #777;
+      color: var(--tertiary);
       margin-top: 2px;
     }
 
     .pour-time {
-      font-size: 11px;
-      color: #bbb;
-      margin-top: 8px;
+      font-size: 17px;
+      font-weight: 500;
+      color: var(--secondary);
+      margin-top: 10px;
       font-variant-numeric: tabular-nums;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.5px;
     }
 
     /* ── Start / End Buttons ── */
     .timer-controls {
       display: flex;
-      gap: 60px;
-      margin-top: 14px;
+      gap: 14px;
+      margin-top: 6px;
       align-items: center;
       justify-content: center;
+      padding-bottom: 4px;
     }
 
     .btn-pill {
+      min-width: 132px;
       background: none;
-      border: 1.5px solid #000;
-      border-radius: 20px;
-      font-size: 12px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      font-size: 16px;
       font-weight: 500;
-      color: #000;
-      padding: 5px 22px;
+      color: var(--ink);
+      padding: 12px 26px;
       cursor: pointer;
-      letter-spacing: 0.2px;
+      letter-spacing: -0.2px;
       font-family: inherit;
+      transition: transform .12s ease, background .15s, color .15s, border-color .15s;
     }
 
-    .btn-pill:active { background: #f0f0f0; }
+    .btn-pill:active { transform: scale(0.96); }
+    .btn-pill.active { background: var(--ink); border-color: var(--ink); color: #fff; }
 
     /* ── Bottom Stats Row ── */
     .bottom-stats {
-      display: flex;
-      align-items: stretch;
-      border-top: 1px solid #e8e8e8;
-      border-bottom: 1px solid #e8e8e8;
-      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.5px;
+      background: var(--hairline);
+      border-top: 0.5px solid var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
+      margin-top: 6px;
     }
 
     .bottom-stat {
-      flex: 1;
+      background: #fff;
       text-align: center;
-      padding: 8px 6px;
-      border-right: 1px solid #e8e8e8;
+      padding: 13px 6px 14px;
     }
 
-    .bottom-stat:last-child { border-right: none; }
-
     .bottom-stat .label {
-      font-size: 9px;
+      font-size: 10px;
       font-weight: 600;
-      color: #888;
+      color: var(--secondary);
       text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.07em;
       display: block;
-      margin-bottom: 3px;
+      margin-bottom: 5px;
     }
 
     .bottom-stat .value {
-      font-size: 16px;
-      font-weight: 700;
-      color: #000;
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.4px;
       display: block;
     }
+
+    /* TDS + Rating are the accented metrics (amber) */
+    #tds, #rating { color: var(--accent); }
 
     /* Time cell with +/- */
     .time-cell {
@@ -304,32 +352,36 @@
 
     /* ── Notes ── */
     .notes-section {
-      margin-top: 12px;
-      text-align: center;
+      margin-top: 4px;
     }
 
     .notes-label {
+      text-align: center;
       font-size: 13px;
       font-weight: 600;
-      color: #000;
-      letter-spacing: 0.2px;
+      color: var(--ink);
+      letter-spacing: 0.02em;
+      padding: 14px 0 8px;
+      border-top: 0.5px solid var(--hairline);
     }
 
     .notes-input {
+      display: block;
       width: 100%;
-      margin-top: 6px;
       border: none;
-      border-bottom: 1px solid #e8e8e8;
-      font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
-      color: #555;
-      padding: 4px 0;
-      font-family: inherit;
       outline: none;
+      resize: none;
+      overflow: hidden;
+      font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
+      color: var(--ink);
+      line-height: 1.4;
+      padding: 2px 0 4px;
+      font-family: inherit;
       background: transparent;
       text-align: center;
     }
 
-    .notes-input::placeholder { color: #bbb; }
+    .notes-input::placeholder { color: var(--tertiary); }
 
     /* ── Header history button ── */
     .header { position: relative; }
@@ -338,14 +390,14 @@
       top: 0; right: 0;
       background: none;
       border: none;
-      font-size: 11px;
-      color: #888;
+      font-size: 16px;
+      color: var(--accent);
       cursor: pointer;
       font-family: inherit;
-      font-weight: 600; letter-spacing: 0.8px;
-      padding: 2px 0;
+      font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0;
     }
-    .history-btn:active { color: #000; }
+    .history-btn:active { opacity: 0.45; }
 
     /* ── Editable brew name ── */
     input.brew-name {
@@ -365,19 +417,20 @@
       margin-top: 16px;
     }
     .btn-save {
-      background: #000;
+      background: var(--ink);
       color: #fff;
-      border: 1.5px solid #000;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-      padding: 7px 34px;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 15px 44px;
       cursor: pointer;
-      letter-spacing: 0.3px;
+      letter-spacing: -0.2px;
       font-family: inherit;
+      transition: transform .12s ease, opacity .15s;
     }
-    .btn-save:active { background: #333; }
-    .btn-save.saved { background: #fff; color: #000; }
+    .btn-save:active { transform: scale(0.97); opacity: 0.9; }
+    .btn-save.saved { background: #fff; color: var(--ink); }
 
     /* ── History overlay ── */
     .history-overlay {
@@ -497,12 +550,12 @@
       position: absolute;
       top: 0; left: 0;
       background: none; border: none;
-      font-size: 11px; color: #888;
+      font-size: 16px; color: var(--accent);
       cursor: pointer; font-family: inherit;
-      font-weight: 600; letter-spacing: 0.8px;
-      padding: 2px 0;
+      font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0;
     }
-    .nav-btn:active { color: #000; }
+    .nav-btn:active { opacity: 0.45; }
 
     /* ── Screens ── */
     .screen[hidden] { display: none; }
@@ -562,16 +615,20 @@
       width: 100%;
       background: transparent;
       border: none;
-      border-bottom: 1px solid #e8e8e8;
+      border-top: 0.5px solid var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
       font-family: inherit;
-      padding: 9px 0 8px;
+      padding: 13px 0 12px;
       cursor: pointer;
-      display: flex; flex-direction: column; align-items: center; gap: 1px;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      transition: background .15s;
     }
-    .bean-bar:active { background: #fafafa; }
-    .bean-bar-name { font-size: 15px; font-weight: 500; color: #000; }
-    .bean-bar:not(.has-bean) .bean-bar-name { color: #bbb; }
-    .bean-bar-roast { font-size: 10px; color: #aaa; letter-spacing: 0.2px; }
+    .bean-bar:active { background: rgba(60,60,67,0.04); }
+    .bean-bar-row { display: flex; align-items: center; gap: 8px; }
+    .bean-bar-name { font-size: 17px; font-weight: 500; color: var(--ink); letter-spacing: -0.2px; }
+    .bean-bar:not(.has-bean) .bean-bar-name { color: var(--secondary); }
+    .bean-bar-chev { color: var(--tertiary); flex: none; }
+    .bean-bar-roast { font-size: 11px; color: var(--tertiary); letter-spacing: 0.2px; }
 
     /* ── Two-button save row (BEAN input) ── */
     .save-row.two { gap: 10px; }
@@ -622,15 +679,18 @@
 
     <!-- Header -->
     <div class="header">
-      <button class="nav-btn" id="btn-to-bean">BEAN</button>
+      <button class="nav-btn" id="btn-to-bean">Bean</button>
       <h1>Black Magic</h1>
       <div class="date" id="date-display"></div>
-      <button class="history-btn" id="btn-history">HISTORY</button>
+      <button class="history-btn" id="btn-history">History</button>
     </div>
 
     <!-- Selected coffee (tap to choose a bean) -->
     <button class="bean-bar" id="bean-bar" type="button">
-      <span class="bean-bar-name" id="bb-name">Select a coffee</span>
+      <span class="bean-bar-row">
+        <span class="bean-bar-name" id="bb-name">Select a coffee</span>
+        <svg class="bean-bar-chev" width="12" height="7" viewBox="0 0 12 7" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
       <span class="bean-bar-roast" id="bb-roast"></span>
     </button>
 
@@ -643,18 +703,25 @@
       </div>
       <div class="stat-cell">
         <span class="label">Grind</span>
-        <input class="value-input" type="number" id="grind"
-          min="0" max="99" step="0.1" value="8" inputmode="decimal">
+        <div class="unit-wrap">
+          <span class="unit-label unit-pre">#</span>
+          <input class="value-input" type="number" id="grind"
+            min="0" max="99" step="0.1" value="8" inputmode="decimal">
+        </div>
       </div>
       <div class="stat-cell">
         <span class="label">Agitate</span>
-        <select class="value-input" id="agitate">
-          <option value="0">0 (none)</option>
-          <option value="1">1 (min)</option>
-          <option value="2" selected>2 (low)</option>
-          <option value="3">3 (mid)</option>
-          <option value="4">4 (high)</option>
-        </select>
+        <div class="unit-wrap select-wrap">
+          <span class="value" id="agitate-num">2</span>
+          <span class="unit-label" id="agitate-word">low</span>
+          <select class="select-overlay" id="agitate" aria-label="Agitate">
+            <option value="0">0 (none)</option>
+            <option value="1">1 (min)</option>
+            <option value="2" selected>2 (low)</option>
+            <option value="3">3 (mid)</option>
+            <option value="4">4 (high)</option>
+          </select>
+        </div>
       </div>
       <div class="stat-cell">
         <span class="label">Contact</span>
@@ -681,9 +748,12 @@
         </select>
       </div>
       <div class="stat-cell">
-        <span class="label">Water F°</span>
-        <input class="value-input" type="number" id="water"
-          min="0" max="999" step="1" value="208" inputmode="numeric">
+        <span class="label">Water</span>
+        <div class="unit-wrap">
+          <input class="value-input" type="number" id="water"
+            min="0" max="999" step="1" value="208" inputmode="numeric">
+          <span class="unit-label">°F</span>
+        </div>
       </div>
       <div class="stat-cell">
         <span class="label">Bloom</span>
@@ -702,7 +772,7 @@
         </div>
       </div>
       <div class="stat-cell">
-        <span class="label">Brew Target</span>
+        <span class="label">Target</span>
         <div class="unit-wrap">
           <input class="value-input wide" type="number" id="brew-target"
             min="0" max="9999" step="1" value="350" inputmode="numeric">
@@ -715,18 +785,18 @@
     <div class="timer-section">
       <div class="timer-circle-wrap">
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
-          <!-- Outer 8-min progress track -->
-          <circle cx="100" cy="100" r="93" stroke="#ebebeb" stroke-width="5"/>
-          <!-- 8-min arc (circ = 2π×93 ≈ 584.34) -->
+          <!-- Outer progress track (fixed 4-min face) -->
+          <circle class="t-track" cx="100" cy="100" r="93" stroke-width="1.8"/>
+          <!-- Progress arc (circ = 2π×93 ≈ 584.34) -->
           <circle id="t-arc" cx="100" cy="100" r="93"
-            stroke="#000" stroke-width="5" stroke-linecap="butt"
+            stroke-width="2.2" stroke-linecap="round"
             stroke-dasharray="584.34" stroke-dashoffset="584.34"
             transform="rotate(-90 100 100)"/>
-          <!-- Tick marks: 16 × 30s = 8 min, drawn by JS -->
+          <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
           <g id="t-ticks"></g>
-          <!-- Second hand: floats in outer ring, r=40 (inner) to r=84 (outer) -->
+          <!-- Floating second hand: one sweep = one 30s pour cycle -->
           <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
-            stroke="#000" stroke-width="2" stroke-linecap="round"/>
+            stroke-width="1.6" stroke-linecap="round"/>
         </svg>
         <div class="timer-center">
           <div class="pour-number" id="t-ml">0</div>
@@ -736,7 +806,6 @@
 
       <div class="timer-controls">
         <button class="btn-pill" id="btn-start">start</button>
-        <button class="btn-pill" id="btn-end">refresh</button>
       </div>
     </div>
 
@@ -761,7 +830,7 @@
     <!-- Notes -->
     <div class="notes-section">
       <div class="notes-label">Notes</div>
-      <input class="notes-input" id="notes" type="text" placeholder="Add notes…">
+      <textarea class="notes-input" id="notes" rows="1" placeholder="Add tasting notes…"></textarea>
     </div>
 
     <!-- Save -->
@@ -776,9 +845,9 @@
 
     <!-- Header -->
     <div class="header">
-      <button class="nav-btn" id="btn-to-brew">BREW</button>
+      <button class="nav-btn" id="btn-to-brew">Brew</button>
       <h1>Black Magic</h1>
-      <button class="history-btn" id="btn-history-bean">HISTORY</button>
+      <button class="history-btn" id="btn-history-bean">History</button>
     </div>
 
     <!-- Identity -->
@@ -885,11 +954,35 @@
     // ── TIME +/- display ─────────────────────────────────────────
     const timeDisplay = document.getElementById('time-val');
 
+    // Timer button label ('start' | 'stop' | 'reset'); filled (ink) while running
+    function setTimerLabel(label) {
+      const b = document.getElementById('btn-start');
+      b.textContent = label;
+      b.classList.toggle('active', label === 'stop');
+    }
+
+    // Notes textarea grows to fit its content
+    function growNotes() {
+      const el = document.getElementById('notes');
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+
+    // Agitate: keep the visible number + small grey word synced to the <select>
+    const AGITATE_WORDS = { '0': 'none', '1': 'min', '2': 'low', '3': 'mid', '4': 'high' };
+    function syncAgitate() {
+      const v = document.getElementById('agitate').value;
+      document.getElementById('agitate-num').textContent = v;
+      document.getElementById('agitate-word').textContent = AGITATE_WORDS[v] || '';
+    }
+    document.getElementById('agitate').addEventListener('change', syncAgitate);
+
     // ── Audio (Web Audio API, created on first user gesture) ─────
     let audioCtx = null;
 
     function getAudio() {
-      if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtx || audioCtx.state === 'closed')
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       if (audioCtx.state !== 'running') audioCtx.resume();   // covers 'suspended' + iOS 'interrupted'
       return audioCtx;
     }
@@ -913,21 +1006,27 @@
     }
     ['touchend', 'pointerdown'].forEach(ev => window.addEventListener(ev, unlockAudio));
 
-    function beep(freq, dur, vol = 0.5) {
+    // Schedule a tone on the AudioContext's own clock. Scheduling ahead of time
+    // (rather than firing oscillators from later setTimeouts) is the key to
+    // reliable iOS playback — the countdown queues all its tones at gesture time.
+    function tone(freq, dur, when, vol = 0.5) {
       try {
         const ctx = getAudio();
+        const t0 = (when == null ? ctx.currentTime : when);
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.connect(gain);
         gain.connect(ctx.destination);
         osc.type = 'sine';
         osc.frequency.value = freq;
-        gain.gain.setValueAtTime(vol, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
-        osc.start(ctx.currentTime);
-        osc.stop(ctx.currentTime + dur);
-      } catch(e) {}
+        gain.gain.setValueAtTime(vol, t0);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        osc.start(t0);
+        osc.stop(t0 + dur);
+        return osc;
+      } catch (e) { return null; }
     }
+    function beep(freq, dur, vol = 0.5) { return tone(freq, dur, null, vol); }
 
     // ── Pour schedule (dynamic — rebuilt from CONTACT, DECAY, BREW TARGET) ──
     // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
@@ -981,15 +1080,17 @@
       for (let i = 0; i < n; i++) {
         const tickSecs = (i + 1) * CYCLE_SECS;
         const isMinute = tickSecs % 60 === 0;
+        const isTop = (i === n - 1);   // 12 o'clock — bold cycle anchor (start/end mark)
         const a = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
-        const r0 = 76, r1 = isMinute ? 86 : 81;
+        const r0 = isTop ? 74 : 77, r1 = isTop ? 90 : (isMinute ? 86 : 82);
         const ln = document.createElementNS(ns, 'line');
         ln.setAttribute('x1', (100 + r0 * Math.cos(a)).toFixed(2));
         ln.setAttribute('y1', (100 + r0 * Math.sin(a)).toFixed(2));
         ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
         ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
-        ln.setAttribute('stroke', isMinute ? '#999' : '#ddd');
-        ln.setAttribute('stroke-width', isMinute ? '2' : '1');
+        ln.setAttribute('stroke', isTop ? '#0B0B0C' : isMinute ? 'rgba(60,60,67,0.35)' : 'rgba(60,60,67,0.16)');
+        ln.setAttribute('stroke-width', isTop ? '2.4' : isMinute ? '1.6' : '1.3');
+        ln.setAttribute('stroke-linecap', 'round');
         g.appendChild(ln);
       }
     }
@@ -1002,14 +1103,17 @@
     function render(s) {
       const pos = s % CLOCK_SCOPE;
       const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
-      document.getElementById('t-arc')
-        .setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
+      const progColor = s >= CLOCK_SCOPE ? '#000' : '#555';   // grey first 4 min, black after
+      const arc = document.getElementById('t-arc');
+      arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
+      arc.setAttribute('stroke', progColor);
       const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
       const hand = document.getElementById('t-hand');
       hand.setAttribute('x1', (100 + 40 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y1', (100 + 40 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
+      hand.setAttribute('stroke', progColor);
       document.getElementById('t-ml').textContent = pourTarget(s);
       document.getElementById('t-time').textContent = fmtTime(s);
     }
@@ -1018,9 +1122,10 @@
       if (running) {
         if (lastTs !== null) {
           const prev = elapsed;
-          elapsed = Math.min(elapsed + (ts - lastTs) / 1000, TOTAL);
-          // Beep at each 30-second boundary
-          if (Math.floor(elapsed / CYCLE_SECS) > Math.floor(prev / CYCLE_SECS)) {
+          elapsed = elapsed + (ts - lastTs) / 1000;   // counts up past TOTAL — records long brews
+          // Beep at each 30-second pour boundary, but only for scheduled pours
+          const cyc = Math.floor(elapsed / CYCLE_SECS);
+          if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
             beep(880, 0.18, 0.45);
           }
         }
@@ -1033,18 +1138,28 @@
     }
 
     // ── 3-second countdown before brew starts ────────────────────
-    // Pitches rise G4→A4→C5 to build anticipation; GO tone is G5
+    // Pitches rise G4→A4→C5 to build anticipation; GO tone is G5. All four
+    // tones are scheduled on the audio clock at the start gesture, so iOS plays
+    // them reliably even though the visual countdown runs off setTimeout.
+    let countdownNodes = [];
+    function cancelCountdownAudio() {
+      countdownNodes.forEach(o => { try { o && o.stop(); } catch (e) {} });
+      countdownNodes = [];
+    }
     function startCountdown() {
       inCountdown = true;
-      document.getElementById('btn-start').textContent = 'stop';
-      const pitches = [392, 440, 523];
-      let count = 3;
+      setTimerLabel('stop');
+      const ctx = getAudio();              // resume/unlock audio on this gesture
+      const t0 = ctx.currentTime + 0.06;
+      countdownNodes = [];
+      [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
+      countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
 
+      let count = 3;
       const step = () => {
         if (!inCountdown) return;
         document.getElementById('t-ml').textContent = count;
         document.getElementById('t-time').textContent = '';
-        beep(pitches[3 - count], 0.15, 0.6);
         count--;
         if (count > 0) {
           setTimeout(step, 1000);
@@ -1055,7 +1170,7 @@
             elapsed = 0;
             running = true;
             lastTs = null;
-            beep(784, 0.4, 0.7); // G5 "GO" tone
+            countdownNodes = [];
             render(0);
           }, 1000);
         }
@@ -1063,46 +1178,44 @@
       step();
     }
 
-    // ── Field change → recalc + reset ────────────────────────────
-    ['contact', 'decay', 'brew-target'].forEach(id => {
-      document.getElementById(id).addEventListener('change', () => {
-        inCountdown = false;
-        running = false;
-        elapsed = 0;
-        lastTs = null;
-        document.getElementById('btn-start').textContent = 'start';
-        recalcSchedule();
-        render(0);
-      });
-    });
-
-    // ── Buttons ──────────────────────────────────────────────────
-    document.getElementById('btn-start').addEventListener('click', () => {
-      if (inCountdown) {
-        inCountdown = false;
-        document.getElementById('btn-start').textContent = 'start';
-        render(0);
-        return;
-      }
-      if (!running) {
-        startCountdown();
-      } else {
-        running = false;
-        lastTs = null;
-        document.getElementById('btn-start').textContent = 'start';
-        // Subtract 2 s reaction-time correction
-        timeDisplay.textContent = Math.round(elapsed - TOTAL) - 2;
-      }
-    });
-
-    document.getElementById('btn-end').addEventListener('click', () => {
+    // ── Timer reset (clears the timer + its TIME +/− result only) ─
+    function resetTimer() {
       inCountdown = false;
       running = false;
       elapsed = 0;
       lastTs = null;
-      document.getElementById('btn-start').textContent = 'start';
-      recalcSchedule();
+      cancelCountdownAudio();
+      timeDisplay.textContent = '0';
+      setTimerLabel('start');
       render(0);
+    }
+
+    // ── Field change → recalc schedule + reset timer ─────────────
+    ['contact', 'decay', 'brew-target'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        recalcSchedule();
+        resetTimer();
+      });
+    });
+
+    // ── Timer button: cycles start → stop → reset → start ─────────
+    // Affects ONLY the timer (and its TIME +/− output) — never TDS/Rating.
+    document.getElementById('btn-start').addEventListener('click', () => {
+      if (inCountdown) {                  // press during countdown → cancel
+        inCountdown = false;
+        cancelCountdownAudio();
+        setTimerLabel('start');
+        render(0);
+      } else if (running) {               // stop → freeze + record TIME +/−
+        running = false;
+        lastTs = null;
+        timeDisplay.textContent = Math.round(elapsed - TOTAL) - 2; // −2 reaction-time
+        setTimerLabel('reset');
+      } else if (elapsed > 0) {           // reset → back to zero
+        resetTimer();
+      } else {                            // start
+        startCountdown();
+      }
     });
 
     // ── Brew history (localStorage) ──────────────────────────────
@@ -1165,13 +1278,17 @@
       $('tds').value = r.tds;
       $('rating').value = r.rating;
       $('notes').value = r.notes;
+      growNotes();
+      syncAgitate();
       timeDisplay.textContent = r.timeAdj;
       // Programmatic .value changes don't fire 'change', so reset timer manually
       inCountdown = false;
       running = false;
       elapsed = 0;
       lastTs = null;
-      $('btn-start').textContent = 'start';
+      cancelCountdownAudio();
+      setTimerLabel('start');
+      setBottomButton('save');
       recalcSchedule();
       render(0);
     }
@@ -1264,21 +1381,32 @@
       $('history-overlay').classList.remove('open');
     }
 
+    // Bottom button toggles save ⇄ new.
+    //  • "save brew" snapshots the brew to history and changes NOTHING on screen.
+    //  • "new brew" then clears the timer + TIME/TDS/Rating for the next cup,
+    //    leaving the coffee + recipe in place (for brewing many cups in a row).
+    let brewSaved = false;
+    function setBottomButton(mode) {        // 'save' | 'new'
+      brewSaved = (mode === 'new');
+      const btn = $('btn-save');
+      btn.textContent = (mode === 'new') ? 'new brew' : 'save brew';
+      btn.classList.remove('saved');
+    }
+    function newBrew() {
+      resetTimer();              // timer + TIME +/− back to zero
+      $('tds').value = '';
+      $('rating').value = '';
+      setBottomButton('save');
+    }
     $('btn-save').addEventListener('click', () => {
+      if (brewSaved) { newBrew(); return; }
       const brews = getBrews();
       brews.push(collectRecord());
       setBrews(brews);
-      // Reset the per-brew results for the next brew
-      timeDisplay.textContent = '0';
-      $('tds').value = '';
-      $('rating').value = '';
       const btn = $('btn-save');
       btn.textContent = 'saved ✓';
       btn.classList.add('saved');
-      setTimeout(() => {
-        btn.textContent = 'save brew';
-        btn.classList.remove('saved');
-      }, 1400);
+      setTimeout(() => setBottomButton('new'), 1200);
     });
 
     $('btn-history').addEventListener('click', openHistory);
@@ -1594,6 +1722,10 @@
     attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
     setBeanBar(null);
     showScreen('brew');
+    syncAgitate();
+    // Notes textarea auto-grows with content
+    $('notes').addEventListener('input', growNotes);
+    growNotes();
     recalcSchedule();
     render(0);
     requestAnimationFrame(tick);
