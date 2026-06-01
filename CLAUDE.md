@@ -37,8 +37,9 @@ clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
 3. **Stats grid** — 2 rows × 4 columns of editable fields
 4. **Timer dial** — analog clock face (amber sweep hand). Center stacks the pour
    target over a **▶/⏸/↺ status symbol**; **tapping the dial** cycles start → stop →
-   reset (no visible button). `POUR` / `TIMER` readouts flank just below it.
-5. **Bottom row** — TIME +/− (editable), TDS, Rating
+   reset (no visible button).
+5. **Results row** — 4 cells aligned under the recipe grid: **Timer** (live elapsed,
+   black) · **Time +/−** · **TDS** · **Rating** (last three editable, amber)
 6. **Notes** — auto-growing textarea
 7. **Save/New button** — black pill that toggles **save brew ⇄ new brew**
 
@@ -59,9 +60,10 @@ Agitate keeps a real native `<select>` (so iOS shows its picker) but the select 
 transparent and layered over a `#agitate-num` (bold) + `#agitate-word` (small grey)
 display via `.select-wrap` / `.select-overlay`; `syncAgitate()` keeps them in step.
 
-Bottom row: TIME +/− (editable; auto-set by stop, hand-editable for brews logged
-without the timer), TDS (number, 2dp), Rating (integer 0–100). TIME +/−, TDS, and
-Rating values all render in the amber accent.
+Results row (4 cells, aligned under the recipe grid): Timer (live elapsed `m:ss`,
+read-only, black), TIME +/− (editable; auto-set by stop, hand-editable for brews
+logged without the timer), TDS (number, 2dp), Rating (integer 0–100). TIME +/−, TDS,
+and Rating render in amber; Timer stays black.
 
 ## Timer logic
 
@@ -76,7 +78,7 @@ Rating values all render in the amber accent.
   first 4 minutes, **black** `#000` once past 4:00. The sweep hand is amber; amber is
   otherwise used only on Bean/History/TDS/Rating/TIME.
 - Center stacks the **cumulative pour target in ml** over the **▶/⏸/↺ status symbol**
-  (not elapsed seconds). Live `POUR` / `TIMER` readouts sit just below the dial.
+  (not elapsed seconds). Live elapsed time shows as **Timer** in the results row below.
 
 ### Pour schedule
 Geometric decay series. Individual pour amounts: x, x·r, x·r², … for n cycles, where:
@@ -101,8 +103,8 @@ action — ▶ start · ⏸ stop · ↺ reset.
   "new brew" clears that, so an evaluated brew isn't lost to an accidental reset.
 - The timer **counts up past TOTAL** (no cap) so long brews record a positive TIME +/−.
 - Pressing during the countdown cancels it (and its queued tones).
-- Two readouts flank below the dial: `#t-pour` (POUR — `30 − elapsed%30`, countdown to
-  the next pour; `—` once all pours are done) and `#t-timer` (TIMER — total elapsed `m:ss`).
+- `#t-timer` shows total elapsed `m:ss` (live), as the first cell of the results row;
+  it counts past TOTAL. (The earlier in-dial POUR countdown was removed.)
 
 ### Save / New button (single pill: save brew ⇄ new brew)
 - **save brew**: snapshots the form to history and changes nothing on screen; flips

@@ -245,37 +245,19 @@
       margin-top: 2px;
     }
 
-    /* status symbol under the pour target: ▶ start / ⏸ stop / ↺ reset (grey SVG) */
+    /* status symbol under the pour target: ▶ start / ⏸ stop / ↺ reset (light-grey SVG) */
     .pour-sym {
-      color: var(--secondary);
-      margin-top: 4px;
+      color: var(--tertiary);
+      margin-top: 3px;
       line-height: 0;
       display: flex;
     }
-    .pour-sym svg { width: 20px; height: 20px; display: block; }
-
-    /* ── Timer corner readouts (below the dial) ── */
-    .timer-readouts {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);   /* aligns with the 4-col stats grid */
-      width: 100%;
-      margin-top: 2px;
-    }
-    .timer-readouts .ro { display: flex; flex-direction: column; align-items: center; }
-    .timer-readouts .ro.right { grid-column: 4; }   /* POUR under col 1, TIMER under col 4 */
-    .timer-readouts .lab {
-      font-size: 9px; font-weight: 600; letter-spacing: 0.07em;
-      text-transform: uppercase; color: var(--tertiary); margin-bottom: 2px;
-    }
-    .timer-readouts .val {
-      font-size: 15px; font-weight: 600; letter-spacing: -0.2px;
-      color: var(--secondary); line-height: 1; font-variant-numeric: tabular-nums;
-    }
+    .pour-sym svg { width: 26px; height: 26px; display: block; }
 
     /* ── Bottom Stats Row ── */
     .bottom-stats {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(4, 1fr);
       gap: 0.5px;
       background: var(--hairline);
       border-top: 0.5px solid var(--hairline);
@@ -309,6 +291,7 @@
 
     /* TIME +/−, TDS + Rating are the accented (amber), editable metrics */
     #time-val, #tds, #rating { color: var(--accent); }
+    #t-timer { color: var(--ink); }   /* live elapsed — black; amber is reserved for editable results */
 
     /* Time cell with +/- */
     .time-cell {
@@ -799,15 +782,14 @@
           <div class="pour-sym" id="t-sym">▶</div>
         </div>
       </div>
-
-      <div class="timer-readouts">
-        <div class="ro"><span class="lab">Pour</span><span class="val" id="t-pour">0:30</span></div>
-        <div class="ro right"><span class="lab">Timer</span><span class="val" id="t-timer">0:00</span></div>
-      </div>
     </div>
 
     <!-- Bottom Stats -->
     <div class="bottom-stats">
+      <div class="bottom-stat">
+        <span class="label">Timer</span>
+        <span class="value" id="t-timer">0:00</span>
+      </div>
       <div class="bottom-stat">
         <span class="label">Time +/−</span>
         <input class="value-input" type="number" id="time-val"
@@ -1118,13 +1100,7 @@
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
       if (!inCountdown) document.getElementById('t-ml').textContent = pourTarget(s);
-      // corner readouts: POUR = countdown to the next 30s pour, TIMER = total elapsed
-      let pour;
-      if (running)      pour = (s >= TOTAL) ? '—' : fmtTime(CYCLE_SECS - (s % CYCLE_SECS));
-      else if (s === 0) pour = fmtTime(CYCLE_SECS);   // idle / ready
-      else              pour = '—';                   // stopped
-      document.getElementById('t-pour').textContent = pour;
-      document.getElementById('t-timer').textContent = fmtTime(s);
+      document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
     }
 
     function tick(ts) {
