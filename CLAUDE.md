@@ -165,12 +165,19 @@ White background, black text, with **one** restrained accent.
 
 - **Tokens:** `--ink #0B0B0C` · `--secondary rgba(60,60,67,.6)` ·
   `--tertiary rgba(60,60,67,.34)` · `--hairline rgba(60,60,67,.13)` ·
-  `--accent #9A5A2B` (warm amber). **Amber is used only on Bean/History (nav) and
-  the TDS + Rating values** — not on the clock or buttons.
+  `--accent #9A5A2B` (warm amber). **Amber is used on Bean/History (nav), the
+  TIME +/− / TDS / Rating values, and the clock's sweep hand** — not on the progress
+  arc, the status symbol, or the save button.
 - Font: `var(--font)` system stack; all numerals `font-variant-numeric: tabular-nums`.
-- Type scale: title 23/700, big pour number 76/700, metric value 21/600, selector &
-  save 17, nav/pills 16, metric label 10/600 uppercase (0.07em), unit 11/500.
+- Type scale: title 23/700, big pour number 54/700, metric value 21/600, selector &
+  save 17, nav 16, metric label 10/600 uppercase (0.07em), unit 11/500, POUR/TIMER 15.
+- Status symbols (▶/⏸/↺) are inline SVGs coloured grey via `currentColor` — never
+  emoji glyphs (those box-render on iOS).
 - Grids use the hairline-gap trick: `gap: 0.5px; background: var(--hairline)` with
   white cells, so gaps render as 0.5px dividers.
-- Pills & save use full-radius (999px); the running timer pill fills `--ink`.
+- Save button uses full-radius (999px); the timer has no button (tap the dial).
+- **Fits the screen:** `.app` is `width:100%` (max 440px) × `min-height:100dvh` with
+  `env(safe-area-inset-*)` padding, tuned so the brew screen fits an iPhone 17 Pro
+  (402×874) without scrolling. Dial is 235px; shrink the pour number with it to keep
+  3-digit targets clear of the sweep hand.
 - Keep it a single HTML file until complexity justifies splitting.
