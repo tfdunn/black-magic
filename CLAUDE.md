@@ -30,6 +30,14 @@ that way (never hard-code a leading `/` in asset/manifest/SW references).
 clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
 `tfdunn`). `.claude/` is gitignored.
 
+**Auto-update:** the SW is network-first with `{cache:'no-store'}` (always fetches
+fresh when online; cache is offline fallback only) and `skipWaiting()` +
+`clients.claim()`. `index.html` calls `registration.update()` on load and on every
+`visibilitychange`, and reloads once on `controllerchange` — so reopening the
+installed PWA (while online) pulls the latest version on its own. A stuck old
+install can still be reset by removing the home-screen icon and re-adding it
+(⚠️ that may clear the PWA's `localStorage` — export brews/beans first).
+
 ## App layout (top to bottom)
 1. **Header** — `Bean` (top-left), "Black Magic" title + live date/time, `History`
    (top-right). `Bean`/`History` are amber text buttons.

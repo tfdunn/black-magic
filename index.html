@@ -1696,9 +1696,24 @@
     }
 
     // ── Service worker (offline + installable; no-op on insecure origins) ──
+    // Self-updating: a new SW skipWaiting()s + claims clients → 'controllerchange'
+    // fires → we reload once to show the latest version. We also re-check for a
+    // new SW whenever the app regains focus, so reopening it pulls updates.
     if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () =>
-        navigator.serviceWorker.register('sw.js').catch(() => {}));
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+          reg.update();
+          document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) reg.update();
+          });
+        }).catch(() => {});
+      });
     }
 
     // ── Init ─────────────────────────────────────────────────────
