@@ -736,8 +736,14 @@
 
     /* ── Two-button save row (BEAN input) ── */
     .save-row.two { gap: 10px; }
-    .btn-save.secondary { background: #fff; color: #000; }
+    .btn-save.secondary { background: #fff; color: #000; border: 1.5px solid var(--ink); }
     .btn-save.secondary:active { background: #f0f0f0; }
+
+    /* Brew edit mode: Cancel · Save row replaces the timer button; locked fields dim */
+    .edit-actions { display: flex; gap: 10px; width: 100%; }
+    .edit-actions[hidden] { display: none; }
+    .edit-actions .btn-save { flex: 1; width: auto; min-width: 0; }
+    .locked-field { opacity: 0.4; pointer-events: none; }
 
     /* ── Bean-card actions: prominent "brew this", demoted delete ── */
     .bc-actions .bc-brew { flex: 1; background: #000; color: #fff; border-color: #000; }
@@ -902,6 +908,10 @@
     <!-- Save -->
     <div class="save-row">
       <button class="btn-save" id="btn-save"><span class="btn-fill" aria-hidden="true"></span><span class="btn-label" id="btn-label">start</span></button>
+      <div class="edit-actions" id="edit-actions" hidden>
+        <button type="button" class="btn-save secondary" id="btn-edit-cancel">cancel</button>
+        <button type="button" class="btn-save" id="btn-edit-save">save</button>
+      </div>
     </div>
 
    </section>
@@ -913,7 +923,6 @@
     <div class="header">
       <button class="nav-btn" id="btn-to-brew">Brew</button>
       <h1>Black Magic</h1>
-      <button class="history-btn" id="btn-history-bean">History</button>
     </div>
 
     <!-- List view (default): create-new on top, then beans newest-first -->
@@ -1043,6 +1052,16 @@
       <button type="button" class="act-btn danger" id="bean-act-delete">Delete</button>
     </div>
     <button type="button" class="ed-type" id="bean-act-cancel">Cancel</button>
+  </div></div>
+
+  <!-- Brew action sheet (hold a brew in History → Edit / Delete) -->
+  <div class="ed-bg" id="brew-act-bg"><div class="ed-sheet">
+    <h3 id="brew-act-title">Brew</h3>
+    <div class="act-btns">
+      <button type="button" class="act-btn" id="brew-act-edit">Edit</button>
+      <button type="button" class="act-btn danger" id="brew-act-delete">Delete</button>
+    </div>
+    <button type="button" class="ed-type" id="brew-act-cancel">Cancel</button>
   </div></div>
 
   <script>
@@ -1219,6 +1238,7 @@
     const DRAFT_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target','time-val','tds','brew-rating','bean-rating'];
     let draftTimer = null;
     function saveDraft(){
+      if (editingBrewId) return;   // editing a past brew is not a "draft new cup" — don't persist it
       clearTimeout(draftTimer);
       draftTimer = setTimeout(() => {
         try {
@@ -1595,7 +1615,7 @@
       brews.forEach(r => {
         const idn = brewIdentity(r);
         const card = document.createElement('div');
-        card.className = 'brew-card';
+        card.className = 'brew-card' + (r.locked ? ' locked' : '');
         const dose = r.dose ? r.dose + 'g' : '—';
         const tds = r.tds ? 'TDS ' + r.tds : 'TDS —';
         const brewR = r.brewRating || r.rating || '';
@@ -1626,43 +1646,22 @@
               const esc=s=>s.replace(/</g,'&lt;');
               const parts=[]; if(bw)parts.push('<b>Brew:</b> '+esc(bw)); if(bn)parts.push('<b>Bean:</b> '+esc(bn));
               return parts.length?'<div class="bc-notes">'+parts.join('<br>')+'</div>':''; })()}
-            <div class="bc-actions">
-              <button class="bc-load">load</button>
-              <button class="bc-delete">delete</button>
-            </div>
           </div>`;
         card.querySelector('.bc-name').textContent = idn.brewName;
+        if (r.locked) card.querySelector('.bc-date').classList.add('bc-lock');
 
-        // Tap card toggles detail (ignore taps on the action buttons)
-        card.addEventListener('click', e => {
-          if (e.target.closest('.bc-actions')) return;
-          card.classList.toggle('expanded');
-        });
-        card.querySelector('.bc-load').addEventListener('click', () => {
-          applyRecord(r);
-          closeHistory();
-        });
-        card.querySelector('.bc-delete').addEventListener('click', () => {
-          if (!confirm('Delete this brew?')) return;
-          setBrews(getBrews().filter(b => b.id !== r.id));
-          renderHistory();
-        });
+        // Tap does nothing; hold 2s → Edit / Delete sheet (details live on Edit)
+        bindLongPress(card, { onHold: () => openBrewActions(r) });
 
         list.appendChild(card);
       });
     }
 
-    let shownData = 'brews';   // which dataset the History panel currently shows (for export)
+    let shownData = 'brews';   // dataset the export button writes (beans now export per-bean)
     function openHistory() {
-      if (currentScreen === 'bean') {
-        shownData = 'beans';
-        $('history-title').textContent = 'Beans';
-        renderBeanHistory();
-      } else {
-        shownData = 'brews';
-        $('history-title').textContent = 'Brews';
-        renderHistory();
-      }
+      shownData = 'brews';
+      $('history-title').textContent = 'Brews';
+      renderHistory();
       $('history-overlay').classList.add('open');
     }
     function closeHistory() {
@@ -1696,6 +1695,24 @@
     }
     function saveBrew() {
       const brews = getBrews();
+      if (editingBrewId) {
+        // Update a past brew in place. Bean identity + Bean★/Bean-note were locked
+        // during edit, so preserve them verbatim — never clobber the bean's verdict.
+        const idx = brews.findIndex(b => b.id === editingBrewId);
+        if (idx >= 0) {
+          const old = brews[idx];
+          brews[idx] = Object.assign(collectRecord(), {
+            id: old.id, savedAt: old.savedAt, updatedAt: new Date().toISOString(),
+            beanRating: old.beanRating, beanNote: old.beanNote,
+            locked: old.locked, exportedAt: old.exportedAt
+          });
+          setBrews(brews);
+        }
+        exitBrewEdit();
+        flashSaved();
+        clearForNextBrew();
+        return;
+      }
       brews.push(collectRecord());
       setBrews(brews);
       // Only a freshly-brewed cup updates the bean's evolving note/rating;
@@ -1723,8 +1740,63 @@
       holdWhen: () => (elapsed > 0 && !running && !inCountdown)    // stopped only
     });
 
+    // ── Brew edit mode (edit a past brew in place; identity + verdict locked) ──
+    let editingBrewId = null;
+    let actBrew = null;
+    function enterBrewEdit(r) {
+      applyRecord(r);                 // loads every field; sets loadedFromHistory = true
+      editingBrewId = r.id;
+      $('bean-bar').classList.add('locked-field');                          // change coffee in Bean tab
+      $('bean-rating').closest('.bottom-stat').classList.add('locked-field'); // Bean★ = verdict
+      $('notes-bean').closest('.notes-row').classList.add('locked-field');  // Bean note = verdict
+      $('notes-bean').readOnly = true;
+      $('btn-save').hidden = true;
+      $('edit-actions').hidden = false;
+      clearDraft();   // applyRecord stashed a draft before editingBrewId was set; drop it
+      closeHistory();
+    }
+    function exitBrewEdit() {
+      editingBrewId = null;
+      $('bean-bar').classList.remove('locked-field');
+      $('bean-rating').closest('.bottom-stat').classList.remove('locked-field');
+      $('notes-bean').closest('.notes-row').classList.remove('locked-field');
+      $('notes-bean').readOnly = false;
+      $('btn-save').hidden = false;
+      $('edit-actions').hidden = true;
+    }
+    function openBrewActions(r) {
+      actBrew = r;
+      $('brew-act-title').textContent = brewIdentity(r).brewName || 'Brew';
+      const editBtn = $('brew-act-edit');
+      if (r.locked) {
+        editBtn.textContent = 'Locked — exported' + (r.exportedAt ? ' ' + fmtDateShort(r.exportedAt.slice(0, 10)) : '');
+        editBtn.disabled = true;
+      } else {
+        editBtn.textContent = 'Edit';
+        editBtn.disabled = false;
+      }
+      $('brew-act-bg').classList.add('open');
+    }
+    function closeBrewActions() { $('brew-act-bg').classList.remove('open'); actBrew = null; }
+    $('brew-act-edit').addEventListener('click', () => {
+      if (!actBrew || actBrew.locked) return;
+      const r = actBrew; closeBrewActions();
+      enterBrewEdit(r);
+    });
+    $('brew-act-delete').addEventListener('click', () => {
+      if (!actBrew) return;
+      const r = actBrew;
+      if (!confirm('Delete this brew permanently? This cannot be undone.')) return;
+      closeBrewActions();
+      setBrews(getBrews().filter(b => b.id !== r.id));
+      renderHistory();
+    });
+    $('brew-act-cancel').addEventListener('click', closeBrewActions);
+    $('brew-act-bg').addEventListener('click', e => { if (e.target.id === 'brew-act-bg') closeBrewActions(); });
+    $('btn-edit-cancel').addEventListener('click', () => { exitBrewEdit(); clearForNextBrew(); });
+    $('btn-edit-save').addEventListener('click', saveBrew);
+
     $('btn-history').addEventListener('click', openHistory);
-    $('btn-history-bean').addEventListener('click', openHistory);
     $('btn-history-close').addEventListener('click', closeHistory);
     $('history-overlay').addEventListener('click', e => {
       if (e.target === $('history-overlay')) closeHistory();
