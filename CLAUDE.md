@@ -73,27 +73,42 @@ works for history.
 | Dose | 0.1 | 23 / 24 / 25 / 72 | "g" |
 | Grind | 0.5 | 7 / 8 / 9 / 10 | "#" |
 | Agitate | 1 | 0–4 (none/min/low/mid/high) | choice |
-| Contact | 30s | 4:00 / 4:30 / 5:00 / 6:30 | m:ss |
-| Water | 1 | 196 / 200 / 204 / 208 | "°F" |
-| Bloom | 5 | 80 / 100 / 120 / 300 | "ml" |
+| Contact | 30s | 4:00 / 4:30 / 5:00 / 6:30 (210/240/270/300/390) | m:ss |
+| Water | 1 | 196 / 200 / 204 / 208 / 212 | "°F" |
+| Bloom | 2 | 80 / 100 / 120 / 300 | "ml" |
 | Decay | 1 | 85 / 90 / 95 / 100 | "%" |
 | Target | 10 | 350 / 1050 | "ml" |
 | Time +/− | 1 | −25 / −5 / 5 / 25 | signed; auto-set by stop |
-| TDS | 0.01 | 1.71–1.74 | 2 dp |
-| Brew★ | 1 | 1 first/2 dial/3 test/4 good/5 best | per-brew; blanks on save+reset |
-| Bean★ | 1 | 1 bad/2 good/3 v good/4 excel/5 stellar | stored on the bean (below) |
+| TDS | 0.01 | 1.70–1.74 | 2 dp |
+| Brew★ | 1 | 1 1st / 2 dial / 3 test / 4 good / 5 best | per-brew; blanks on save+reset |
+| Bean★ | 1 | 85 / 90 / 92 / 95 / 98 | **numeric 0–100** score; stored on the bean (below) |
 
 TIME +/−, TDS, Brew★, Bean★ render in amber; a blank field shows "–". Live elapsed shows
-as **Timer** (grey) inside the dial, not in the results row.
+as **Timer** (grey) inside the dial, not in the results row. All editor preset chips sit on
+**one row** (`.ed-chips` is `nowrap`).
 
-**Bean★** is stored *on the selected bean*, not the brew: it prefills from the chosen
-coffee's saved rating and editing it overwrites that bean's `rating` (persisted on change
-and on save via `persistBeanRating()`); it is **not** cleared by save/reset.
+**Bean★** is a **numeric score (0–100)** stored *on the selected bean* (`bean.rating`), not
+the brew: it prefills from the chosen coffee's saved rating and editing it overwrites that
+bean's rating (`persistBeanRating()`); not cleared by save/reset. (Earlier it was a 1–5
+word rating — switched to a number for finer future grading; old 1–5 values display as-is.)
+
+**Notes = two soft-labeled fields** (`#notes-brew`, `#notes-bean`) styled as one block:
+- **Brew** note is per-cup — saved to the brew record (`brewNote`), blanks on save/reset.
+- **Bean** note persists on the selected bean as `bean.tastingNote` — prefills from the
+  bean, and on a fresh save **overwrites** it (`persistBeanNote()`); the evolving verdict.
+- **Guard:** a brew loaded from History sets `loadedFromHistory=true`; re-saving it then
+  does **not** run `persistBeanRating()`/`persistBeanNote()`, so editing an old brew can't
+  clobber the bean's current note/rating.
+- CSV: brews `Comments` = brew note; beans `Comments` = tastingNote (+ any legacy myNotes).
 
 **Draft autosave:** edits are stashed to `localStorage['blackmagic.draft']` (debounced) so
 an unsaved brew survives a close/reopen — `loadDraft()` restores it on launch (recipe +
-ratings + notes + selected coffee, then recomputes the schedule); `clearDraft()` runs on
-save and reset.
+ratings + both notes + selected coffee, then recomputes the schedule); `clearDraft()` runs
+on save and reset.
+
+**Portrait lock:** manifest `orientation:"portrait"` (installed PWA) plus a CSS
+counter-rotate fallback (landscape phone → rotate app −90°) so the brew screen always
+renders portrait regardless of device rotation.
 
 ## Timer logic
 

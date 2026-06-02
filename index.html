@@ -41,6 +41,18 @@
       text-rendering: optimizeLegibility;
     }
 
+    /* Stay portrait regardless of device rotation. The manifest requests portrait
+       for the installed PWA; this counter-rotates the app if iOS rotates anyway
+       (e.g. in a Safari tab). Only fires on a landscape phone (coarse pointer). */
+    @media (orientation: landscape) and (pointer: coarse) and (max-height: 600px) {
+      body {
+        width: 100vh; height: 100vw;
+        transform: rotate(-90deg);
+        transform-origin: top left;
+        left: 100vw; top: 0; inset: auto;
+      }
+    }
+
     .app {
       background: #fff;
       width: 100%;
@@ -347,8 +359,8 @@
     .ed-big .ed-v { font-size: 42px; font-weight: 700; letter-spacing: -1.5px; min-width: 130px;
       text-align: center; font-variant-numeric: tabular-nums; }
     .ed-big .ed-v small { font-size: 18px; font-weight: 500; color: var(--tertiary); }
-    .ed-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
-    .ed-chips .chip { padding: 9px 14px; border-radius: 999px; border: 1.4px solid var(--hairline);
+    .ed-chips { display: flex; flex-wrap: nowrap; gap: 7px; justify-content: center; margin-bottom: 14px; }
+    .ed-chips .chip { padding: 9px 12px; border-radius: 999px; border: 1.4px solid var(--hairline); white-space: nowrap;
       background: #fff; color: var(--ink); font-size: 15px; font-weight: 600; font-family: inherit; }
     .ed-chips .chip.sel { background: var(--ink); color: #fff; border-color: var(--ink); }
     .ed-chips .chip .cw { font-size: 11px; font-weight: 500; opacity: .7; margin-left: 4px; }
@@ -390,24 +402,33 @@
       font-family: inherit;
     }
 
-    /* ── Notes ── */
+    /* ── Notes — two soft-labeled rows reading as one block ──
+       Brew note (transient, per-brew) + Bean note (persists to the bean). */
     .notes-section {
       margin-top: 4px;
-    }
-
-    .notes-label {
-      text-align: center;
-      font-size: 13px;
-      font-weight: 600;
-      color: var(--ink);
-      letter-spacing: 0.02em;
-      padding: 14px 0 8px;
       border-top: 0.5px solid var(--hairline);
+      padding-top: 8px;
     }
-
+    .notes-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 5px 0;
+    }
+    .notes-row + .notes-row { border-top: 0.5px solid var(--hairline); }
+    .notes-tag {
+      flex: none;
+      width: 38px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      padding-top: 2px;
+    }
     .notes-input {
+      flex: 1;
       display: block;
-      width: 100%;
       border: none;
       outline: none;
       resize: none;
@@ -415,12 +436,11 @@
       font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
       color: var(--ink);
       line-height: 1.4;
-      padding: 2px 0 4px;
+      padding: 0;
       font-family: inherit;
       background: transparent;
-      text-align: center;
+      text-align: left;
     }
-
     .notes-input::placeholder { color: var(--tertiary); }
 
     /* ── Header history button ── */
@@ -817,23 +837,25 @@
       <div class="bottom-stat"><span class="label">Brew★</span>
         <button type="button" class="field amber" data-f="brew-rating"></button>
         <select id="brew-rating" hidden>
-          <option value="" selected>—</option><option value="1">1 (first)</option>
+          <option value="" selected>—</option><option value="1">1 (1st)</option>
           <option value="2">2 (dial)</option><option value="3">3 (test)</option>
           <option value="4">4 (good)</option><option value="5">5 (best)</option>
         </select></div>
       <div class="bottom-stat"><span class="label">Bean★</span>
         <button type="button" class="field amber" data-f="bean-rating"></button>
-        <select id="bean-rating" hidden>
-          <option value="" selected>—</option><option value="1">1 (bad)</option>
-          <option value="2">2 (good)</option><option value="3">3 (v good)</option>
-          <option value="4">4 (excel)</option><option value="5">5 (stellar)</option>
-        </select></div>
+        <input type="hidden" id="bean-rating" value=""></div>
     </div>
 
-    <!-- Notes -->
+    <!-- Notes — Brew (transient) over Bean (persists to the selected bean) -->
     <div class="notes-section">
-      <div class="notes-label">Notes</div>
-      <textarea class="notes-input" id="notes" rows="1" placeholder="Add tasting notes…"></textarea>
+      <div class="notes-row">
+        <span class="notes-tag">Brew</span>
+        <textarea class="notes-input" id="notes-brew" rows="1" placeholder="this cup…"></textarea>
+      </div>
+      <div class="notes-row">
+        <span class="notes-tag">Bean</span>
+        <textarea class="notes-input" id="notes-bean" rows="1" placeholder="the coffee…"></textarea>
+      </div>
     </div>
 
     <!-- Save -->
@@ -982,30 +1004,31 @@
                       : 'start';
     }
 
-    // Notes textarea grows to fit its content
+    // Notes textareas grow to fit their content
     function growNotes() {
-      const el = document.getElementById('notes');
-      el.style.height = 'auto';
-      el.style.height = el.scrollHeight + 'px';
+      ['notes-brew','notes-bean'].forEach(id => {
+        const el = document.getElementById(id);
+        el.style.height = 'auto';
+        el.style.height = el.scrollHeight + 'px';
+      });
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
     const AGITATE_WORDS = { '0':'none','1':'min','2':'low','3':'mid','4':'high' };
-    const BREW_RATINGS  = { '1':'first','2':'dial','3':'test','4':'good','5':'best' };
-    const BEAN_RATINGS  = { '1':'bad','2':'good','3':'v good','4':'excel','5':'stellar' };
+    const BREW_RATINGS  = { '1':'1st','2':'dial','3':'test','4':'good','5':'best' };
     const FX = {
       'dose':        {label:'Dose',  step:0.1, dec:1, trim:1, min:0,  max:99,  unit:'g',  presets:[23,24,25,72], type:'num'},
       'grind':       {label:'Grind', step:0.5, dec:1, trim:1, min:0,  max:40,  unit:'#',  presets:[7,8,9,10],    type:'num'},
       'agitate':     {label:'Agitate', step:1, min:0, max:4,  presets:[0,1,2,3,4], type:'choice', words:AGITATE_WORDS},
-      'contact':     {label:'Contact', step:30, min:60, max:600, presets:[240,270,300,390], type:'time'},
-      'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208], type:'num'},
-      'bloom':       {label:'Bloom', step:5, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
+      'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
+      'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
+      'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
       'decay':       {label:'Decay', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
       'time-val':    {label:'Time +/−', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
-      'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.71,1.72,1.73,1.74], type:'num'},
+      'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
-      'bean-rating': {label:'Bean★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BEAN_RATINGS}
+      'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
     };
     const fmtMS  = sec => Math.floor(sec/60) + ':' + String(Math.abs(sec)%60).padStart(2,'0');
     const fmtNum = (c,n) => c.signed ? (n>0?'+':'')+n : c.trim ? String(+(+n).toFixed(c.dec||0)) : c.dec ? (+n).toFixed(c.dec) : String(n);
@@ -1030,6 +1053,13 @@
       if (b) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
     }
     document.getElementById('bean-rating').addEventListener('change', persistBeanRating);
+    // Bean note: overwrite the bean's evolving tasting note with the Bean field
+    function persistBeanNote(){
+      if (!(currentBean && currentBean.id)) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (b) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
+    }
 
     // ── Tap-to-edit sheet ────────────────────────────────────────
     function repeatHold(btn, fn){
@@ -1101,7 +1131,8 @@
       clearTimeout(draftTimer);
       draftTimer = setTimeout(() => {
         try {
-          const d = { notes: $('notes').value, beanId: (currentBean && currentBean.id) || null };
+          const d = { brewNote: $('notes-brew').value, beanNote: $('notes-bean').value,
+                      beanId: (currentBean && currentBean.id) || null };
           DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
           localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
         } catch (e) {}
@@ -1112,8 +1143,10 @@
       let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
       if (!d) return;
       DRAFT_FIELDS.forEach(k => { if (d[k] !== undefined) document.getElementById(k).value = d[k]; });
-      if (d.notes != null) $('notes').value = d.notes;
+      // bean first (it sets the Bean note from the bean), then override from the draft
       if (d.beanId) { const b = getBeans().find(x => x.id === d.beanId); if (b) setBeanBar(b); }
+      if (d.brewNote != null) $('notes-brew').value = d.brewNote;
+      if (d.beanNote != null) $('notes-bean').value = d.beanNote;
     }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
@@ -1238,6 +1271,7 @@
     const CIRC = 2 * Math.PI * 93;
     let elapsed = 0, running = false, lastTs = null;
     let inCountdown = false;
+    let loadedFromHistory = false;   // true while editing a brew loaded from History
 
     function render(s) {
       const pos = s % CLOCK_SCOPE;
@@ -1407,7 +1441,8 @@
         tds: $('tds').value,
         brewRating: $('brew-rating').value,
         beanRating: $('bean-rating').value,
-        notes: $('notes').value.trim()
+        brewNote: $('notes-brew').value.trim(),
+        beanNote: $('notes-bean').value.trim()
       };
     }
 
@@ -1424,10 +1459,17 @@
       $('brew-target').value = r.brewTarget;
       $('tds').value = r.tds;
       $('brew-rating').value = r.brewRating || '';   // Bean★ comes from the bean (setBeanBar)
-      $('notes').value = r.notes;
+      // Show the record exactly as saved (setBeanBar already filled the live bean note)
+      $('notes-brew').value = r.brewNote || r.notes || '';
+      $('notes-bean').value = r.beanNote || '';
+      $('bean-rating').value = (r.beanRating != null ? r.beanRating : '');
+      renderField('bean-rating');
       growNotes();
       timeDisplay.value = r.timeAdj;
       renderAllFields();
+      // A brew loaded from history is being edited, not freshly brewed: re-saving it
+      // must NOT overwrite the bean's current note/rating with these old values.
+      loadedFromHistory = true;
       saveDraft();
       // Programmatic .value changes don't fire 'change', so reset timer manually
       inCountdown = false;
@@ -1485,7 +1527,10 @@
               <div class="row"><span class="k">Brew★</span><span>${r.brewRating || r.rating || '—'}</span></div>
               <div class="row"><span class="k">Bean★</span><span>${r.beanRating || '—'}</span></div>
             </div>
-            ${r.notes ? `<div class="bc-notes">${r.notes.replace(/</g, '&lt;')}</div>` : ''}
+            ${(() => { const bw=(r.brewNote||r.notes||'').trim(), bn=(r.beanNote||'').trim();
+              const esc=s=>s.replace(/</g,'&lt;');
+              const parts=[]; if(bw)parts.push('<b>Brew:</b> '+esc(bw)); if(bn)parts.push('<b>Bean:</b> '+esc(bn));
+              return parts.length?'<div class="bc-notes">'+parts.join('<br>')+'</div>':''; })()}
             <div class="bc-actions">
               <button class="bc-load">load</button>
               <button class="bc-delete">delete</button>
@@ -1536,7 +1581,10 @@
       timeDisplay.value = '';
       $('tds').value = '';
       $('brew-rating').value = '';   // Brew★ resets each save/reset; Bean★ stays on the bean
+      $('notes-brew').value = '';    // Brew note is per-cup; Bean note persists
+      growNotes();
       renderAllFields();
+      loadedFromHistory = false;
       clearDraft();
       render(0);
     }
@@ -1555,7 +1603,9 @@
       const brews = getBrews();
       brews.push(collectRecord());
       setBrews(brews);
-      persistBeanRating();       // commit Bean★ onto the selected bean
+      // Only a freshly-brewed cup updates the bean's evolving note/rating;
+      // editing a loaded past brew must not clobber the bean's current verdict.
+      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); }
       flashSaved();
       clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
     }
@@ -1618,7 +1668,7 @@
         r.tds || '',
         (r.brewRating || r.rating || ''),
         r.beanRating || '',
-        r.notes || ''
+        (r.brewNote || r.notes || '')                                    // brew-side note
       ]);
       return toCSV(H, rows);
     }
@@ -1626,7 +1676,8 @@
       const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Rating','Roaster_Notes','Comments'];
       const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
         b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
-        b.process || '', b.roastDate || '', (b.rating || ''), b.roasterNotes || '', b.myNotes || ''
+        b.process || '', b.roastDate || '', (b.rating || ''), b.roasterNotes || '',
+        [b.tastingNote, b.myNotes].filter(Boolean).join(' — ')           // verdict + any legacy My Notes
       ]);
       return toCSV(H, rows);
     }
@@ -1790,6 +1841,15 @@
       }
       $('bean-rating').value = br;
       renderField('bean-rating');
+      // Bean note: prefill the evolving tasting note stored on the bean
+      let bn = '';
+      if (currentBean && currentBean.id) {
+        const stored = getBeans().find(b => b.id === currentBean.id);
+        bn = (stored && stored.tastingNote) || currentBean.tastingNote || '';
+        currentBean.tastingNote = bn;
+      }
+      $('notes-bean').value = bn;
+      growNotes();
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
         $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
@@ -1917,7 +1977,8 @@
     attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
     setBeanBar(null);
     showScreen('brew');
-    $('notes').addEventListener('input', () => { growNotes(); saveDraft(); });
+    $('notes-brew').addEventListener('input', () => { growNotes(); saveDraft(); });
+    $('notes-bean').addEventListener('input', () => { growNotes(); saveDraft(); });
     loadDraft();              // restore an unsaved brew from a previous session, if any
     renderAllFields();
     growNotes();
