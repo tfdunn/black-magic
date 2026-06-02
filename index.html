@@ -664,7 +664,42 @@
       letter-spacing: 0.4px; display: block; margin-bottom: 4px;
     }
     .value-input::placeholder { color: #ccc; font-weight: 500; }
+    /* Bean cells hold free text (e.g. "Anaerobic Natural") — size to fit the cell */
+    .bean-cell .value-input { font-size: 16px; font-weight: 600; width: 100%; }
     .bean-date { font-size: 16px; width: 100%; min-height: 34px; padding: 5px 0; }
+    .bean-cell .chips { display: flex; gap: 5px; justify-content: center; margin-top: 7px; }
+    .bean-cell .chips button {
+      font-family: inherit; font-size: 11px; font-weight: 600; color: #888;
+      background: #f4f4f4; border: none; border-radius: 999px; padding: 3px 10px; cursor: pointer;
+    }
+    .bean-cell .chips button:active { background: var(--ink); color: #fff; }
+
+    /* ── Bean tab: list-first + form ── */
+    .bean-new {
+      width: 100%; padding: 14px; margin-top: 8px; border-radius: 14px;
+      border: 1.5px dashed var(--hairline); background: #fff;
+      font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
+    }
+    .bean-new:active { background: #f6f6f6; }
+    .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px;
+      max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .bean-back {
+      background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
+      padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
+    }
+    .bean-back:active { color: var(--ink); }
+    .brew-card.locked { opacity: 0.55; }
+    .brew-card.holding { background: #f0f0f0; transition: background .15s; }
+    .bc-lock { font-size: 10px; color: var(--accent); font-weight: 600; letter-spacing: 0.3px; }
+
+    /* Bean action sheet buttons (reuses .ed-bg / .ed-sheet) */
+    .act-btns { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+    .act-btn { width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--ink);
+      background: #fff; color: var(--ink); font-family: inherit; font-size: 16px; font-weight: 600; }
+    .act-btn:active { background: var(--ink); color: #fff; }
+    .act-btn:disabled { border-color: var(--hairline); color: var(--secondary); font-weight: 500;
+      font-size: 13px; background: #fafafa; }
 
     .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
     .text-field .label {
@@ -879,6 +914,16 @@
       <button class="history-btn" id="btn-history-bean">History</button>
     </div>
 
+    <!-- List view (default): create-new on top, then beans newest-first -->
+    <div id="bean-list-view">
+      <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
+      <div class="bean-list" id="bean-list"></div>
+    </div>
+
+    <!-- Form view: create or edit a bean -->
+    <div id="bean-form-view" hidden>
+    <button class="bean-back" id="btn-bean-back" type="button">‹ Beans</button>
+
     <!-- Identity -->
     <input class="bean-name" id="bean-name" type="text" placeholder="Bean name">
     <div class="ac">
@@ -899,14 +944,9 @@
       </div>
       <div class="bean-cell">
         <span class="label">Process</span>
-        <select class="value-input" id="bean-process">
-          <option value="" selected>—</option>
-          <option>Washed</option>
-          <option>Natural</option>
-          <option>Honey</option>
-          <option>Hybrid</option>
-          <option value="__other">Other…</option>
-        </select>
+        <div class="ac">
+          <input class="value-input" id="bean-process" type="text" placeholder="—" autocomplete="off">
+        </div>
       </div>
       <div class="bean-cell">
         <span class="label">Varietal</span>
@@ -916,17 +956,28 @@
       </div>
     </div>
 
-    <!-- Process (other) — shown when Process = Other… -->
-    <div class="text-field" id="process-other-row" hidden>
-      <span class="label">Process (other)</span>
-      <input id="bean-process-other" type="text" placeholder="Type process…">
-    </div>
-
     <!-- Roast date -->
     <div class="bean-grid one-col">
       <div class="bean-cell">
         <span class="label">Roast Date</span>
         <input class="value-input bean-date" id="bean-roast" type="date">
+      </div>
+    </div>
+
+    <!-- Bag -->
+    <div class="bean-grid">
+      <div class="bean-cell">
+        <span class="label">Bag Size (g)</span>
+        <input class="value-input" id="bean-bagsize" type="text" inputmode="decimal" placeholder="—" autocomplete="off">
+        <div class="chips" id="bagsize-chips">
+          <button type="button" data-g="250">250</button>
+          <button type="button" data-g="340">340</button>
+          <button type="button" data-g="454">454</button>
+        </div>
+      </div>
+      <div class="bean-cell">
+        <span class="label"># Bags</span>
+        <input class="value-input" id="bean-bagcount" type="text" inputmode="numeric" placeholder="—" autocomplete="off">
       </div>
     </div>
 
@@ -945,6 +996,8 @@
       <button class="btn-save" id="btn-save-bean">save bean</button>
     </div>
 
+    </div><!-- /bean-form-view -->
+
    </section>
 
   </div>
@@ -956,6 +1009,9 @@
         <h2 id="history-title">History</h2>
         <div class="hh-actions">
           <button class="history-export" id="btn-export">export</button>
+          <button class="history-export" id="btn-backup">backup</button>
+          <button class="history-export" id="btn-restore">restore</button>
+          <input type="file" id="restore-file" accept="application/json,.json" hidden>
           <button class="history-close" id="btn-history-close">&times;</button>
         </div>
       </div>
@@ -974,6 +1030,16 @@
     <div class="ed-chips" id="ed-chips"></div>
     <button type="button" class="ed-type" id="ed-type">type a value</button>
     <button type="button" class="ed-done" id="ed-done">Done</button>
+  </div></div>
+
+  <!-- Bean action sheet (hold a bean → Edit / Export) -->
+  <div class="ed-bg" id="bean-act-bg"><div class="ed-sheet">
+    <h3 id="bean-act-title">Bean</h3>
+    <div class="act-btns">
+      <button type="button" class="act-btn" id="bean-act-edit">Edit</button>
+      <button type="button" class="act-btn" id="bean-act-export">Export</button>
+    </div>
+    <button type="button" class="ed-type" id="bean-act-cancel">Cancel</button>
   </div></div>
 
   <script>
@@ -1072,7 +1138,7 @@
       if (!(currentBean && currentBean.id)) return;
       const beans = getBeans();
       const b = beans.find(x => x.id === currentBean.id);
-      if (b) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
+      if (b && !b.locked) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
     }
     document.getElementById('bean-rating').addEventListener('change', persistBeanRating);
     // Bean note: overwrite the bean's evolving tasting note with the Bean field
@@ -1080,7 +1146,7 @@
       if (!(currentBean && currentBean.id)) return;
       const beans = getBeans();
       const b = beans.find(x => x.id === currentBean.id);
-      if (b) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
+      if (b && !b.locked) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
     }
 
     // ── Tap-to-edit sheet ────────────────────────────────────────
@@ -1470,7 +1536,10 @@
 
     // Write a record back into the live form
     function applyRecord(r) {
-      setBeanBar((r.beanId || r.beanName || r.brewName) ? { id: r.beanId || null, name: r.beanName || r.brewName, roaster: r.beanRoaster || '', roastDate: r.roastDate || '' } : null);
+      const live = !r.locked && liveBean(r.beanId);
+      setBeanBar(live ? live
+        : (r.beanId || r.beanName || r.brewName) ? { id: r.beanId || null, name: r.beanName || r.brewName, roaster: r.beanRoaster || '', roastDate: r.roastDate || '' }
+        : null);
       $('dose').value = r.dose;
       $('grind').value = r.grind;
       $('agitate').value = r.agitate;
@@ -1521,6 +1590,7 @@
       }
 
       brews.forEach(r => {
+        const idn = brewIdentity(r);
         const card = document.createElement('div');
         card.className = 'brew-card';
         const dose = r.dose ? r.dose + 'g' : '—';
@@ -1535,7 +1605,7 @@
           <div class="bc-stats">${dose} · ${tds} · ${rating}</div>
           <div class="bc-detail">
             <div class="bc-grid">
-              <div class="row"><span class="k">Roast</span><span>${r.roastDate ? fmtDateShort(r.roastDate) : '—'}</span></div>
+              <div class="row"><span class="k">Roast</span><span>${idn.roastDate ? fmtDateShort(idn.roastDate) : '—'}</span></div>
               <div class="row"><span class="k">Dose</span><span>${r.dose || '—'} g</span></div>
               <div class="row"><span class="k">Grind</span><span>${r.grind || '—'}</span></div>
               <div class="row"><span class="k">Agitate</span><span>${r.agitateText}</span></div>
@@ -1558,7 +1628,7 @@
               <button class="bc-delete">delete</button>
             </div>
           </div>`;
-        card.querySelector('.bc-name').textContent = r.brewName;
+        card.querySelector('.bc-name').textContent = idn.brewName;
 
         // Tap card toggles detail (ignore taps on the action buttons)
         card.addEventListener('click', e => {
@@ -1672,12 +1742,23 @@
       const p = n => String(n).padStart(2, '0');
       return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
     }
+    // ── Live reference: an UNLOCKED brew shows its bean's CURRENT identity (so a
+    // typo fix flows through); a LOCKED brew keeps the snapshot frozen at export. ──
+    function liveBean(id) { return id ? getBeans().find(b => b.id === id) : null; }
+    function brewIdentity(r) {
+      if (!r.locked) {
+        const b = liveBean(r.beanId);
+        if (b) return { brewName: composeName(b), beanName: b.name || '', beanRoaster: b.roaster || '', roastDate: b.roastDate || '' };
+      }
+      return { brewName: r.brewName || 'Untitled brew', beanName: r.beanName || '', beanRoaster: r.beanRoaster || '', roastDate: r.roastDate || '' };
+    }
+
     function brewsToCSV() {
       const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Bean_Rating','Comments'];
       const rows = getBrews().sort((a, b) => a.id - b.id).map(r => [
-        r.brewName || '',
+        brewIdentity(r).brewName,
         csvDateTime(r.savedAt),
-        r.beanRoaster || '',
+        brewIdentity(r).beanRoaster,
         r.dose || '',
         r.grind || '',
         r.water || '',
@@ -1695,16 +1776,73 @@
       return toCSV(H, rows);
     }
     function beansToCSV() {
-      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Rating','Roaster_Notes','Comments'];
+      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments'];
       const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
         b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
-        b.process || '', b.roastDate || '', (b.rating || ''), b.roasterNotes || '',
+        b.process || '', b.roastDate || '', b.bagSize || '', b.bagCount || '', (b.rating || ''), b.roasterNotes || '',
         [b.tastingNote, b.myNotes].filter(Boolean).join(' — ')           // verdict + any legacy My Notes
       ]);
       return toCSV(H, rows);
     }
-    function downloadCSV(filename, text) {
-      const blob = new Blob([text], { type: 'text/csv;charset=utf-8;' });
+
+    // Per-bean flat export: one row per linked brew, the bean's columns prepended
+    // (paste-ready for the journal). With no brews yet, emits a single bean row.
+    function safeFile(s) { return (String(s || 'bean').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '')) || 'bean'; }
+    function beanBrewCSV(bean, brews) {
+      const H = ['Bean','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Bean_Rating','Roaster_Notes','Tasting_Note',
+        'Brew_Date','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Brew_Comments'];
+      const beanCols = [bean.name || '', bean.roaster || '', bean.country || '', bean.region || '', bean.varietal || '',
+        bean.process || '', bean.roastDate || '', bean.bagSize || '', bean.bagCount || '', (bean.rating || ''),
+        bean.roasterNotes || '', [bean.tastingNote, bean.myNotes].filter(Boolean).join(' — ')];
+      const brewCols = r => [
+        csvDateTime(r.savedAt), r.dose || '', r.grind || '', r.water || '',
+        r.contact ? parseInt(r.contact) / 60 : '', r.bloom || '',
+        (r.decay !== '' && r.decay != null) ? parseFloat(r.decay) / 100 : '',
+        (r.agitate == null ? '' : r.agitate), r.brewTarget || '', (r.timeAdj ?? ''), r.tds || '',
+        (r.brewRating || r.rating || ''), (r.brewNote || r.notes || '')
+      ];
+      const rows = brews.length
+        ? brews.sort((a, b) => a.id - b.id).map(r => beanCols.concat(brewCols(r)))
+        : [beanCols.concat(new Array(13).fill(''))];
+      return toCSV(H, rows);
+    }
+    // Export a bean (+ its brews) to a file, then FREEZE & LOCK both so they match
+    // the exported copy and can't drift from the spreadsheet afterward.
+    function exportBean(bean) {
+      const beans = getBeans();
+      const target = beans.find(x => x.id === bean.id);
+      if (!target) return;
+      const brews = getBrews();
+      const linked = brews.filter(r => r.beanId === target.id);
+      downloadCSV(safeFile([target.roaster, target.name].filter(Boolean).join(' ')) + '.csv', beanBrewCSV(target, linked));
+      const now = new Date().toISOString();
+      linked.forEach(r => {
+        r.beanName = target.name || ''; r.beanRoaster = target.roaster || '';
+        r.roastDate = target.roastDate || ''; r.brewName = composeName(target);
+        r.locked = true; r.exportedAt = now;
+      });
+      target.locked = true; target.exportedAt = now;
+      setBrews(brews); setBeans(beans);
+    }
+
+    // ── Full JSON backup / restore (survives a browser change or PWA reinstall) ──
+    function exportJSON() {
+      const data = { app: 'black-magic', version: 1, exportedAt: new Date().toISOString(), beans: getBeans(), brews: getBrews() };
+      downloadCSV('black-magic-backup.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8;');
+    }
+    function importJSON(text) {
+      let data;
+      try { data = JSON.parse(text); } catch (_) { alert('That doesn’t look like a Black Magic backup file.'); return; }
+      if (!data || !Array.isArray(data.beans) || !Array.isArray(data.brews)) {
+        alert('That doesn’t look like a Black Magic backup file.'); return;
+      }
+      if (!confirm('Restore ' + data.beans.length + ' beans and ' + data.brews.length + ' brews? This REPLACES all current data on this device.')) return;
+      setBeans(data.beans); setBrews(data.brews);
+      if (shownData === 'beans') renderBeanHistory(); else renderHistory();
+      alert('Restored ' + data.beans.length + ' beans and ' + data.brews.length + ' brews.');
+    }
+    function downloadCSV(filename, text, mime) {
+      const blob = new Blob([text], { type: mime || 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url; a.download = filename;
@@ -1719,6 +1857,18 @@
       btn.textContent = 'exported ✓';
       setTimeout(() => { btn.textContent = orig; }, 1400);
     });
+    $('btn-backup').addEventListener('click', () => {
+      exportJSON();
+      const btn = $('btn-backup'), orig = btn.textContent;
+      btn.textContent = 'saved ✓';
+      setTimeout(() => { btn.textContent = orig; }, 1400);
+    });
+    $('btn-restore').addEventListener('click', () => $('restore-file').click());
+    $('restore-file').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) { const reader = new FileReader(); reader.onload = () => importJSON(reader.result); reader.readAsText(file); }
+      e.target.value = '';   // allow re-importing the same file
+    });
 
     // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
     let currentScreen = 'brew';
@@ -1726,6 +1876,7 @@
       currentScreen = name;
       $('screen-brew').hidden = (name !== 'brew');
       $('screen-bean').hidden = (name !== 'bean');
+      if (name === 'bean') showBeanList();
     }
     $('btn-to-bean').addEventListener('click', () => showScreen('bean'));
     $('btn-to-brew').addEventListener('click', () => showScreen('brew'));
@@ -1753,7 +1904,9 @@
         'Sagebrush','Sey','Tandem','Vigilante','Volcanica'],
       varietal: ['Aji','Bourbon','Bourbon Aji','Caturra','Gesha','Java','Kona Typica',
         'Mejorado','Papayo','Parainema','Peaberry','Pink Bourbon','Red Catuai','Rosado',
-        'SL28','SL34','Sidra','Sudan Rume','Tabi','Typica','Wush Wush','Yellow Caturra']
+        'SL28','SL34','Sidra','Sudan Rume','Tabi','Typica','Wush Wush','Yellow Caturra'],
+      process: ['Washed','Natural','Honey','Anaerobic','Anaerobic Natural',
+        'Carbonic Maceration','Wet Hulled','Hybrid']
     };
 
     // Options = seed ∪ values already used in saved beans (living list)
@@ -1800,53 +1953,122 @@
       });
     }
 
-    // Process "Other…" reveals a free-text field
-    $('bean-process').addEventListener('change', e => {
-      $('process-other-row').hidden = e.target.value !== '__other';
-    });
-
     function collectBean() {
-      let process = $('bean-process').value;
-      if (process === '__other') process = $('bean-process-other').value.trim();
       return {
-        id: nextBeanId(),
-        savedAt: new Date().toISOString(),
         name: $('bean-name').value.trim(),
         roaster: $('bean-roaster').value.trim(),
         country: $('bean-country').value.trim(),
         region: $('bean-region').value.trim(),
-        process,
+        process: $('bean-process').value.trim(),
         varietal: $('bean-varietal').value.trim(),
         roastDate: $('bean-roast').value,           // yyyy-mm-dd
+        bagSize: $('bean-bagsize').value.trim(),
+        bagCount: $('bean-bagcount').value.trim(),
         roasterNotes: $('bean-rnotes').value.trim(),
         myNotes: $('bean-mynotes').value.trim()
       };
     }
 
     function clearBeanForm() {
-      ['bean-name','bean-roaster','bean-country','bean-region','bean-varietal',
-       'bean-roast','bean-rnotes','bean-mynotes','bean-process-other']
+      ['bean-name','bean-roaster','bean-country','bean-region','bean-process','bean-varietal',
+       'bean-roast','bean-bagsize','bean-bagcount','bean-rnotes','bean-mynotes']
         .forEach(id => $(id).value = '');
-      $('bean-process').value = '';
-      $('process-other-row').hidden = true;
     }
 
+    let editingBeanId = null;   // null = creating new; otherwise updating in place
+
     function saveBean() {
-      const bean = collectBean();
-      if (!bean.name) { alert('Add a bean name first.'); return null; }
+      const data = collectBean();
+      if (!data.name) { alert('Add a bean name first.'); return null; }
       const beans = getBeans();
-      beans.push(bean);
+      let bean;
+      if (editingBeanId) {
+        bean = beans.find(b => b.id === editingBeanId);
+        if (!bean) { editingBeanId = null; return saveBean(); }   // vanished — save as new
+        if (bean.locked) { alert('This bean is locked (already exported) and can’t be edited.'); return null; }
+        Object.assign(bean, data, { updatedAt: new Date().toISOString() });  // keeps rating/tastingNote
+      } else {
+        bean = Object.assign({ id: nextBeanId(), savedAt: new Date().toISOString() }, data);
+        beans.push(bean);
+      }
       setBeans(beans);
+      // Live-reference: editing the selected coffee refreshes the brew bar immediately
+      if (currentBean && currentBean.id === bean.id) setBeanBar(bean);
       clearBeanForm();
+      editingBeanId = null;
       return bean;
     }
     $('btn-save-bean').addEventListener('click', () => {
       if (!saveBean()) return;
-      const btn = $('btn-save-bean');
-      btn.textContent = 'saved ✓';
-      btn.classList.add('saved');
-      setTimeout(() => { btn.textContent = 'save bean'; btn.classList.remove('saved'); }, 1400);
+      showBeanList();
     });
+
+    // List ⇄ form navigation within the Bean tab
+    function showBeanList() {
+      $('bean-list-view').hidden = false;
+      $('bean-form-view').hidden = true;
+      renderBeanList();
+    }
+    function showBeanForm() {
+      $('bean-list-view').hidden = true;
+      $('bean-form-view').hidden = false;
+    }
+    function populateBeanForm(b) {
+      $('bean-name').value = b.name || '';
+      $('bean-roaster').value = b.roaster || '';
+      $('bean-country').value = b.country || '';
+      $('bean-region').value = b.region || '';
+      $('bean-process').value = b.process || '';
+      $('bean-varietal').value = b.varietal || '';
+      $('bean-roast').value = b.roastDate || '';
+      $('bean-bagsize').value = b.bagSize || '';
+      $('bean-bagcount').value = b.bagCount || '';
+      $('bean-rnotes').value = b.roasterNotes || '';
+      $('bean-mynotes').value = b.myNotes || '';
+    }
+    $('btn-new-bean').addEventListener('click', () => {
+      clearBeanForm();
+      editingBeanId = null;
+      $('btn-save-bean').textContent = 'save bean';
+      showBeanForm();
+    });
+    $('btn-bean-back').addEventListener('click', showBeanList);
+    function renderBeanList() { renderBeanHistory('manage', $('bean-list')); }
+
+    // Bean action sheet (hold a bean in the list → Edit / Export)
+    let actBean = null;
+    function openBeanActions(b) {
+      actBean = b;
+      $('bean-act-title').textContent = b.name || 'Bean';
+      const editBtn = $('bean-act-edit');
+      if (b.locked) {
+        editBtn.textContent = 'Locked — exported' + (b.exportedAt ? ' ' + fmtDateShort(b.exportedAt.slice(0, 10)) : '');
+        editBtn.disabled = true;
+        $('bean-act-export').textContent = 'Export again';
+      } else {
+        editBtn.textContent = 'Edit';
+        editBtn.disabled = false;
+        $('bean-act-export').textContent = 'Export';
+      }
+      $('bean-act-bg').classList.add('open');
+    }
+    function closeBeanActions() { $('bean-act-bg').classList.remove('open'); actBean = null; }
+    $('bean-act-edit').addEventListener('click', () => {
+      if (!actBean || actBean.locked) return;
+      const b = actBean; closeBeanActions();
+      populateBeanForm(b);
+      editingBeanId = b.id;
+      $('btn-save-bean').textContent = 'update bean';
+      showBeanForm();
+    });
+    $('bean-act-export').addEventListener('click', () => {
+      if (!actBean) return;
+      const b = actBean; closeBeanActions();
+      exportBean(b);
+      renderBeanList();
+    });
+    $('bean-act-cancel').addEventListener('click', closeBeanActions);
+    $('bean-act-bg').addEventListener('click', e => { if (e.target.id === 'bean-act-bg') closeBeanActions(); });
 
     // ── Selected coffee (links a brew to a bean) ─────────────────
     let currentBean = null;
@@ -1903,9 +2125,38 @@
         : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     }
 
-    // mode: 'browse' (history — expand, brew-this, demoted delete) | 'pick' (tap to select)
-    function renderBeanHistory(mode = 'browse') {
-      const list = $('history-list');
+    // Scroll-safe long-press for list cards: no preventDefault (so the list still
+    // scrolls), and any finger movement cancels both the hold and the tap.
+    function bindLongPress(el, { onTap, onHold, holdMs = 2000 }) {
+      let timer = null, fired = false, sx = 0, sy = 0, moved = false;
+      el.addEventListener('pointerdown', e => {
+        fired = false; moved = false; sx = e.clientX; sy = e.clientY;
+        el.classList.add('holding');
+        timer = setTimeout(() => { timer = null; fired = true; el.classList.remove('holding'); onHold && onHold(); }, holdMs);
+      });
+      el.addEventListener('pointermove', e => {
+        if (!timer && !moved) return;
+        if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) {
+          moved = true;
+          if (timer) { clearTimeout(timer); timer = null; }
+          el.classList.remove('holding');
+        }
+      });
+      el.addEventListener('pointerup', () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+        if (!fired && !moved && onTap) onTap();
+      });
+      el.addEventListener('pointercancel', () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+      });
+    }
+
+    // mode: 'browse' (history overlay — expand, brew-this, delete) | 'pick' (tap to
+    // select on brew screen) | 'manage' (bean tab list — tap expand, hold → Edit/Export)
+    function renderBeanHistory(mode = 'browse', listEl = $('history-list')) {
+      const list = listEl;
       const beans = getBeans().sort((a, b) => b.id - a.id);
       list.innerHTML = '';
       if (!beans.length) {
@@ -1914,8 +2165,9 @@
       }
       beans.forEach(b => {
         const card = document.createElement('div');
-        card.className = 'brew-card';
+        card.className = 'brew-card' + (b.locked ? ' locked' : '');
         const roast = b.roastDate ? fmtDateShort(b.roastDate) : '—';
+        const bag = b.bagSize ? (b.bagSize + ' g' + (b.bagCount ? ' × ' + b.bagCount : '')) : '—';
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
@@ -1930,13 +2182,16 @@
               <div class="row"><span class="k">Process</span><span class="v v-process"></span></div>
               <div class="row"><span class="k">Varietal</span><span class="v v-varietal"></span></div>
               <div class="row"><span class="k">Roast</span><span>${roast}</span></div>
+              <div class="row"><span class="k">Bag</span><span>${bag}</span></div>
+              <div class="row"><span class="k">Bean★</span><span>${b.rating || '—'}</span></div>
             </div>
             <div class="bc-notes" hidden></div>
             <div class="bc-actions"><button class="bc-brew">brew this</button></div>
             <button class="bc-delete-link">delete bean</button>
           </div>`;
         card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
-        card.querySelector('.bc-date').textContent = 'roast ' + roast;
+        card.querySelector('.bc-date').textContent = b.locked ? 'exported' : 'roast ' + roast;
+        if (b.locked) card.querySelector('.bc-date').classList.add('bc-lock');
         card.querySelector('.bc-stats').textContent =
           [b.roaster, [b.country, b.process].filter(Boolean).join(' · ')]
             .filter(Boolean).join(' · ') || '—';
@@ -1956,7 +2211,15 @@
           card.querySelector('.bc-actions').remove();
           card.querySelector('.bc-delete-link').remove();
           card.addEventListener('click', () => selectBean(b));
-        } else {
+        } else if (mode === 'manage') {
+          // Tap expands; hold 2s → Edit / Export sheet (actions live there)
+          card.querySelector('.bc-actions').remove();
+          card.querySelector('.bc-delete-link').remove();
+          bindLongPress(card, {
+            onTap: () => card.classList.toggle('expanded'),
+            onHold: () => openBeanActions(b)
+          });
+        } else {  // browse
           card.addEventListener('click', e => {
             if (e.target.closest('.bc-actions') || e.target.closest('.bc-delete-link')) return;
             card.classList.toggle('expanded');
@@ -1997,6 +2260,10 @@
     attachAutocomplete($('bean-country'), () => optionsFor('country', SEED.country));
     attachAutocomplete($('bean-roaster'), () => optionsFor('roaster', SEED.roaster));
     attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
+    attachAutocomplete($('bean-process'), () => optionsFor('process', SEED.process));
+    $('bagsize-chips').addEventListener('click', e => {
+      const g = e.target.dataset.g; if (g) $('bean-bagsize').value = g;
+    });
     setBeanBar(null);
     showScreen('brew');
     $('notes-brew').addEventListener('input', () => { growNotes(); saveDraft(); });
