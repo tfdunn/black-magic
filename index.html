@@ -432,7 +432,11 @@
       border: none;
       outline: none;
       resize: none;
-      overflow: hidden;
+      /* Cap at ~2 lines; longer notes scroll WITHIN the field so the page stays
+         locked to one screen (recipe/dial/save never move, save never pushed off). */
+      max-height: 2.8em;          /* ~2 lines at line-height 1.4 */
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
       color: var(--ink);
       line-height: 1.4;
@@ -1004,12 +1008,14 @@
                       : 'start';
     }
 
-    // Notes textareas grow to fit their content
+    // Notes textareas grow to fit content, up to the CSS max-height (~2 lines);
+    // beyond that the field scrolls internally so the page never grows.
     function growNotes() {
       ['notes-brew','notes-bean'].forEach(id => {
         const el = document.getElementById(id);
         el.style.height = 'auto';
-        el.style.height = el.scrollHeight + 'px';
+        const cap = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
+        el.style.height = Math.min(el.scrollHeight, cap) + 'px';
       });
     }
 

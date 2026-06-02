@@ -92,7 +92,10 @@ the brew: it prefills from the chosen coffee's saved rating and editing it overw
 bean's rating (`persistBeanRating()`); not cleared by save/reset. (Earlier it was a 1–5
 word rating — switched to a number for finer future grading; old 1–5 values display as-is.)
 
-**Notes = two soft-labeled fields** (`#notes-brew`, `#notes-bean`) styled as one block:
+**Notes = two soft-labeled fields** (`#notes-brew`, `#notes-bean`) styled as one block.
+Each field **caps at ~2 lines** (`max-height: 2.8em`) and **scrolls internally** past that,
+so the page stays locked to one screen and the action button is never pushed off-screen
+(`growNotes()` clamps auto-grow to the CSS max-height). Behaviour:
 - **Brew** note is per-cup — saved to the brew record (`brewNote`), blanks on save/reset.
 - **Bean** note persists on the selected bean as `bean.tastingNote` — prefills from the
   bean, and on a fresh save **overwrites** it (`persistBeanNote()`); the evolving verdict.
