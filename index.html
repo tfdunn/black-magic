@@ -700,6 +700,8 @@
     .act-btn:active { background: var(--ink); color: #fff; }
     .act-btn:disabled { border-color: var(--hairline); color: var(--secondary); font-weight: 500;
       font-size: 13px; background: #fafafa; }
+    .act-btn.danger { border-color: #e3b7b7; color: #c0392b; }
+    .act-btn.danger:active { background: #c0392b; border-color: #c0392b; color: #fff; }
 
     .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
     .text-field .label {
@@ -1038,6 +1040,7 @@
     <div class="act-btns">
       <button type="button" class="act-btn" id="bean-act-edit">Edit</button>
       <button type="button" class="act-btn" id="bean-act-export">Export</button>
+      <button type="button" class="act-btn danger" id="bean-act-delete">Delete</button>
     </div>
     <button type="button" class="ed-type" id="bean-act-cancel">Cancel</button>
   </div></div>
@@ -2067,6 +2070,15 @@
       exportBean(b);
       renderBeanList();
     });
+    $('bean-act-delete').addEventListener('click', () => {
+      if (!actBean) return;
+      const b = actBean;
+      if (!confirm('Delete “' + (b.name || 'this bean') + '” permanently? This cannot be undone.')) return;
+      closeBeanActions();
+      setBeans(getBeans().filter(x => x.id !== b.id));
+      if (currentBean && currentBean.id === b.id) { setBeanBar(null); saveDraft(); }   // clear the brew bar if it pointed here
+      renderBeanList();
+    });
     $('bean-act-cancel').addEventListener('click', closeBeanActions);
     $('bean-act-bg').addEventListener('click', e => { if (e.target.id === 'bean-act-bg') closeBeanActions(); });
 
@@ -2110,14 +2122,9 @@
       closeHistory();
       showScreen('brew');
     }
-    // Tap the coffee bar → pick from saved beans
-    function openBeanPicker() {
-      shownData = 'beans';
-      $('history-title').textContent = 'Choose coffee';
-      renderBeanHistory('pick');
-      $('history-overlay').classList.add('open');
-    }
-    $('bean-bar').addEventListener('click', openBeanPicker);
+    // Tap the coffee bar → open the Bean tab (same action as the Bean nav button);
+    // pick a coffee there by tapping it in the list.
+    $('bean-bar').addEventListener('click', () => showScreen('bean'));
 
     function fmtDateShort(ymd) {
       const dt = new Date(ymd + 'T00:00:00');
@@ -2153,8 +2160,8 @@
       });
     }
 
-    // mode: 'browse' (history overlay — expand, brew-this, delete) | 'pick' (tap to
-    // select on brew screen) | 'manage' (bean tab list — tap expand, hold → Edit/Export)
+    // mode: 'browse' (history overlay — expand, brew-this, delete) |
+    // 'manage' (bean tab list — tap selects the coffee, hold → Edit/Export/Delete)
     function renderBeanHistory(mode = 'browse', listEl = $('history-list')) {
       const list = listEl;
       const beans = getBeans().sort((a, b) => b.id - a.id);
@@ -2206,17 +2213,13 @@
           n.hidden = false;
         }
 
-        if (mode === 'pick') {
-          // Whole card selects this coffee; no expand, no delete
-          card.querySelector('.bc-actions').remove();
-          card.querySelector('.bc-delete-link').remove();
-          card.addEventListener('click', () => selectBean(b));
-        } else if (mode === 'manage') {
-          // Tap expands; hold 2s → Edit / Export sheet (actions live there)
+        if (mode === 'manage') {
+          // Tap selects this coffee for the next brew; hold 2s → Edit / Export / Delete.
+          // No expand — bean details live on the Edit screen.
           card.querySelector('.bc-actions').remove();
           card.querySelector('.bc-delete-link').remove();
           bindLongPress(card, {
-            onTap: () => card.classList.toggle('expanded'),
+            onTap: () => selectBean(b),
             onHold: () => openBeanActions(b)
           });
         } else {  // browse
