@@ -1240,27 +1240,35 @@
     const DRAFT_KEY = 'blackmagic.draft';
     const DRAFT_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target','time-val','tds','brew-rating','bean-rating'];
     let draftTimer = null;
+    // Serialize the live brew form into a plain object (used by draft autosave AND
+    // by the edit-from-History "side trip" snapshot).
+    function currentDraftObject(){
+      const d = { brewNote: $('notes-brew').value, beanNote: $('notes-bean').value,
+                  beanId: (currentBean && currentBean.id) || null };
+      DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
+      return d;
+    }
+    function applyDraftObject(d){
+      if (!d) return;
+      DRAFT_FIELDS.forEach(k => { if (d[k] !== undefined) document.getElementById(k).value = d[k]; });
+      // bean first (it sets the Bean note from the bean), then override from the object
+      if (d.beanId) { const b = getBeans().find(x => x.id === d.beanId); setBeanBar(b || null); }
+      else setBeanBar(null);
+      if (d.brewNote != null) $('notes-brew').value = d.brewNote;
+      if (d.beanNote != null) $('notes-bean').value = d.beanNote;
+    }
     function saveDraft(){
       if (editingBrewId) return;   // editing a past brew is not a "draft new cup" — don't persist it
       clearTimeout(draftTimer);
       draftTimer = setTimeout(() => {
-        try {
-          const d = { brewNote: $('notes-brew').value, beanNote: $('notes-bean').value,
-                      beanId: (currentBean && currentBean.id) || null };
-          DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
-          localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
-        } catch (e) {}
+        if (editingBrewId) return;   // an edit began during the debounce — don't persist it
+        try { localStorage.setItem(DRAFT_KEY, JSON.stringify(currentDraftObject())); } catch (e) {}
       }, 300);
     }
     function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
     function loadDraft(){
       let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
-      if (!d) return;
-      DRAFT_FIELDS.forEach(k => { if (d[k] !== undefined) document.getElementById(k).value = d[k]; });
-      // bean first (it sets the Bean note from the bean), then override from the draft
-      if (d.beanId) { const b = getBeans().find(x => x.id === d.beanId); if (b) setBeanBar(b); }
-      if (d.brewNote != null) $('notes-brew').value = d.brewNote;
-      if (d.beanNote != null) $('notes-bean').value = d.beanNote;
+      applyDraftObject(d);
     }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
@@ -1713,7 +1721,9 @@
         }
         exitBrewEdit();
         flashSaved();
-        clearForNextBrew();
+        // Side trip done — return to the cup we were brewing, untouched
+        if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
+        else clearForNextBrew();
         return;
       }
       brews.push(collectRecord());
@@ -1746,16 +1756,34 @@
     // ── Brew edit mode (edit a past brew in place; identity + verdict locked) ──
     let editingBrewId = null;
     let actBrew = null;
+    let preEditState = null;          // the in-progress cup, snapshotted while we side-trip into edit
+
+    // Editing a brew from History is a side trip — snapshot the live cup on the way
+    // in, restore it on the way out (Cancel or Save) so the current brew is untouched.
+    function captureBrewState(){
+      return { draft: currentDraftObject(), elapsed, running, inCountdown, loadedFromHistory };
+    }
+    function restoreBrewState(s){
+      applyDraftObject(s.draft);
+      renderAllFields(); growNotes();
+      recalcSchedule();
+      loadedFromHistory = s.loadedFromHistory;
+      inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
+      cancelCountdownAudio();
+      render(elapsed);                // the rAF loop keeps the button label correct from here
+    }
+
     function enterBrewEdit(r) {
+      preEditState = captureBrewState();   // remember the cup we're brewing
+      editingBrewId = r.id;           // set first so applyRecord's saveDraft() no-ops
       applyRecord(r);                 // loads every field; sets loadedFromHistory = true
-      editingBrewId = r.id;
       $('bean-bar').classList.add('locked-field');                          // change coffee in Bean tab
       $('bean-rating').closest('.bottom-stat').classList.add('locked-field'); // Bean★ = verdict
       $('notes-bean').closest('.notes-row').classList.add('locked-field');  // Bean note = verdict
       $('notes-bean').readOnly = true;
       $('btn-save').hidden = true;
       $('edit-actions').hidden = false;
-      clearDraft();   // applyRecord stashed a draft before editingBrewId was set; drop it
+      clearTimeout(draftTimer); clearDraft();   // cancel any pending write + drop the saved draft
       closeHistory();
     }
     function exitBrewEdit() {
@@ -1796,7 +1824,11 @@
     });
     $('brew-act-cancel').addEventListener('click', closeBrewActions);
     $('brew-act-bg').addEventListener('click', e => { if (e.target.id === 'brew-act-bg') closeBrewActions(); });
-    $('btn-edit-cancel').addEventListener('click', () => { exitBrewEdit(); clearForNextBrew(); });
+    $('btn-edit-cancel').addEventListener('click', () => {
+      exitBrewEdit();
+      if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
+      else clearForNextBrew();
+    });
     $('btn-edit-save').addEventListener('click', saveBrew);
 
     $('btn-history').addEventListener('click', openHistory);
