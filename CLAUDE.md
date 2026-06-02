@@ -52,35 +52,48 @@ install can still be reset by removing the home-screen icon and re-adding it
 7. **Action button** — single black pill: **tap** = start / stop; **hold 2s** = save
    brew (then clears for the next cup). Quick taps never save.
 
-## Stats grid fields and their input types
+## Fields & number entry (tap-to-edit)
 
-| Field | Type | Constraints |
-|---|---|---|
-| Dose | number input | 0–99, step 0.1; shows "g" suffix |
-| Grind | number input | 0–99, step 0.1; shows a small grey "#" suffix |
-| Agitate | select (overlay) | 0–4 → none/min/mid/low/high; renders as bold number + small grey word (see below) |
-| Contact | select | 30-second intervals, 1:00–10:00 |
-| Water | number input | 0–999, integer; shows "°F" suffix (label is "Water") |
-| Bloom | number input | 0–999, integer, shows "ml" suffix |
-| Decay | number input | 0–100, integer, shows "%" suffix |
-| Target | number input | 0–9999, integer, shows "ml" suffix (label is "Target") |
+Every editable field on the brew screen (recipe grid + results row) is a **tap-to-edit**
+cell: the visible value is a `.field` button; tapping it opens one shared bottom-sheet
+editor (`#ed-bg`) with a big −/+ stepper (hold-to-repeat), preset chips, and a
+"type a value" escape for arbitrary entry. No on-screen keyboard in normal use, and the
+stepper makes **TIME +/− negatives** possible (the iOS numeric keypad has no minus).
 
-Agitate keeps a real native `<select>` (so iOS shows its picker) but the select is
-transparent and layered over a `#agitate-num` (bold) + `#agitate-word` (small grey)
-display via `.select-wrap` / `.select-overlay`; `syncAgitate()` keeps them in step.
+Under the hood each field keeps a **hidden `<input>`/`<select>`** as its data store (ids
+unchanged: `dose grind agitate contact water bloom decay brew-target time-val tds
+brew-rating bean-rating`) so the pour-schedule recalc, history, CSV, and ratings logic
+read/write `.value` exactly as before. The editor writes the store, dispatches `change`
+(firing recalc / bean-persist), then `renderField()` repaints the button. `FX` holds each
+field's config; choice fields keep a hidden `<select>` so `selectedOptions[0].text` still
+works for history.
 
-Results row (4 cells, aligned under the recipe grid): TIME +/− (editable; auto-set by
-stop, hand-editable for brews logged without the timer), TDS (number, 2dp, **blank by
-default**), Brew★, Bean★ — all amber. Live elapsed shows as **Timer** (grey) inside the
-dial, not in this row.
+| Field | Step | Presets | Notes |
+|---|---|---|---|
+| Dose | 0.1 | 23 / 24 / 25 / 72 | "g" |
+| Grind | 0.5 | 7 / 8 / 9 / 10 | "#" |
+| Agitate | 1 | 0–4 (none/min/low/mid/high) | choice |
+| Contact | 30s | 4:00 / 4:30 / 5:00 / 6:30 | m:ss |
+| Water | 1 | 196 / 200 / 204 / 208 | "°F" |
+| Bloom | 5 | 80 / 100 / 120 / 300 | "ml" |
+| Decay | 1 | 85 / 90 / 95 / 100 | "%" |
+| Target | 10 | 350 / 1050 | "ml" |
+| Time +/− | 1 | −25 / −5 / 5 / 25 | signed; auto-set by stop |
+| TDS | 0.01 | 1.71–1.74 | 2 dp |
+| Brew★ | 1 | 1 first/2 dial/3 test/4 good/5 best | per-brew; blanks on save+reset |
+| Bean★ | 1 | 1 bad/2 good/3 v good/4 excel/5 stellar | stored on the bean (below) |
 
-**Brew★** (per-brew technique; select-overlay like Agitate): 1 first · 2 dial · 3 test ·
-4 good · 5 best. Blank by default; **resets to blank on every save and reset.**
-**Bean★** (1 bad · 2 good · 3 v good · 4 excel · 5 stellar): stored *on the selected
-bean*, not the brew — it prefills from the chosen coffee's saved rating, and editing it
-overwrites that bean's rating (persisted on change and on save); it is **not** cleared
-by save/reset. `syncBrewRating()` / `syncBeanRating()` mirror the number+word display;
-`persistBeanRating()` writes Bean★ back onto the bean record.
+TIME +/−, TDS, Brew★, Bean★ render in amber; a blank field shows "–". Live elapsed shows
+as **Timer** (grey) inside the dial, not in the results row.
+
+**Bean★** is stored *on the selected bean*, not the brew: it prefills from the chosen
+coffee's saved rating and editing it overwrites that bean's `rating` (persisted on change
+and on save via `persistBeanRating()`); it is **not** cleared by save/reset.
+
+**Draft autosave:** edits are stashed to `localStorage['blackmagic.draft']` (debounced) so
+an unsaved brew survives a close/reopen — `loadDraft()` restores it on launch (recipe +
+ratings + notes + selected coffee, then recomputes the schedule); `clearDraft()` runs on
+save and reset.
 
 ## Timer logic
 

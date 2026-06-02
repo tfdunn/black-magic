@@ -316,8 +316,46 @@
       display: block;
     }
 
-    /* TIME +/−, TDS + the two ratings are the accented (amber) editable metrics */
-    #time-val, #tds, #brew-rating-num, #bean-rating-num { color: var(--accent); }
+    /* ── Tap-to-edit field buttons (recipe + results) ── */
+    .field {
+      -webkit-appearance: none; appearance: none; background: none; border: none;
+      font-family: inherit; padding: 0; cursor: pointer; width: 100%;
+      display: flex; align-items: baseline; justify-content: center; gap: 2px;
+    }
+    .field:active { opacity: 0.5; }
+    .field .fnum, .field .dash {
+      font-size: 21px; font-weight: 600; letter-spacing: -0.4px; line-height: 1;
+      color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    .field .fu, .field .fw { font-size: 11px; font-weight: 500; color: var(--tertiary); }
+    .field .fw { margin-left: 4px; }
+    /* TIME +/−, TDS, Brew★, Bean★ values are amber */
+    .field.amber .fnum, .field.amber .dash { color: var(--accent); }
+
+    /* ── Tap-to-edit sheet ── */
+    .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
+      align-items: flex-end; justify-content: center; z-index: 60; }
+    .ed-bg.open { display: flex; }
+    .ed-sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 22px 22px 0 0;
+      padding: 16px 20px calc(22px + env(safe-area-inset-bottom)); }
+    .ed-sheet h3 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--secondary); text-align: center; margin-bottom: 16px; }
+    .ed-big { display: flex; align-items: center; justify-content: center; gap: 22px; margin-bottom: 16px; }
+    .ed-big button { width: 58px; height: 58px; border-radius: 50%; border: 1.5px solid var(--ink);
+      background: #fff; font-size: 28px; color: var(--ink); line-height: 1; font-family: inherit; }
+    .ed-big button:active { background: var(--ink); color: #fff; }
+    .ed-big .ed-v { font-size: 42px; font-weight: 700; letter-spacing: -1.5px; min-width: 130px;
+      text-align: center; font-variant-numeric: tabular-nums; }
+    .ed-big .ed-v small { font-size: 18px; font-weight: 500; color: var(--tertiary); }
+    .ed-chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 14px; }
+    .ed-chips .chip { padding: 9px 14px; border-radius: 999px; border: 1.4px solid var(--hairline);
+      background: #fff; color: var(--ink); font-size: 15px; font-weight: 600; font-family: inherit; }
+    .ed-chips .chip.sel { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .ed-chips .chip .cw { font-size: 11px; font-weight: 500; opacity: .7; margin-left: 4px; }
+    .ed-type { display: block; margin: 0 auto 14px; background: none; border: none;
+      color: var(--secondary); font-family: inherit; font-size: 12.5px; text-decoration: underline; }
+    .ed-done { display: block; width: 100%; padding: 14px; border-radius: 999px; background: var(--ink);
+      color: #fff; border: none; font-family: inherit; font-size: 16px; font-weight: 600; }
 
     /* Time cell with +/- */
     .time-cell {
@@ -701,92 +739,42 @@
 
     <!-- Stats Grid -->
     <div class="stats-grid">
-      <div class="stat-cell">
-        <span class="label">Dose</span>
-        <div class="unit-wrap">
-          <input class="value-input wide" type="number" id="dose"
-            min="0" max="99" step="0.1" value="24.8" inputmode="decimal">
-          <span class="unit-label">g</span>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Grind</span>
-        <div class="unit-wrap">
-          <input class="value-input" type="number" id="grind"
-            min="0" max="99" step="0.1" value="8" inputmode="decimal">
-          <span class="unit-label">#</span>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Agitate</span>
-        <div class="unit-wrap select-wrap">
-          <span class="value" id="agitate-num">2</span>
-          <span class="unit-label" id="agitate-word">low</span>
-          <select class="select-overlay" id="agitate" aria-label="Agitate">
-            <option value="0">0 (none)</option>
-            <option value="1">1 (min)</option>
-            <option value="2" selected>2 (low)</option>
-            <option value="3">3 (mid)</option>
-            <option value="4">4 (high)</option>
-          </select>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Contact</span>
-        <select class="value-input" id="contact">
-          <option value="60">1:00</option>
-          <option value="90">1:30</option>
-          <option value="120">2:00</option>
-          <option value="150">2:30</option>
-          <option value="180">3:00</option>
-          <option value="210">3:30</option>
-          <option value="240">4:00</option>
-          <option value="270" selected>4:30</option>
-          <option value="300">5:00</option>
-          <option value="330">5:30</option>
-          <option value="360">6:00</option>
-          <option value="390">6:30</option>
-          <option value="420">7:00</option>
-          <option value="450">7:30</option>
-          <option value="480">8:00</option>
-          <option value="510">8:30</option>
-          <option value="540">9:00</option>
-          <option value="570">9:30</option>
+      <div class="stat-cell"><span class="label">Dose</span>
+        <button type="button" class="field" data-f="dose"></button>
+        <input type="hidden" id="dose" value="24.8"></div>
+      <div class="stat-cell"><span class="label">Grind</span>
+        <button type="button" class="field" data-f="grind"></button>
+        <input type="hidden" id="grind" value="8"></div>
+      <div class="stat-cell"><span class="label">Agitate</span>
+        <button type="button" class="field" data-f="agitate"></button>
+        <select id="agitate" hidden>
+          <option value="0">0 (none)</option><option value="1">1 (min)</option>
+          <option value="2" selected>2 (low)</option><option value="3">3 (mid)</option>
+          <option value="4">4 (high)</option>
+        </select></div>
+      <div class="stat-cell"><span class="label">Contact</span>
+        <button type="button" class="field" data-f="contact"></button>
+        <select id="contact" hidden>
+          <option value="60">1:00</option><option value="90">1:30</option><option value="120">2:00</option>
+          <option value="150">2:30</option><option value="180">3:00</option><option value="210">3:30</option>
+          <option value="240">4:00</option><option value="270" selected>4:30</option><option value="300">5:00</option>
+          <option value="330">5:30</option><option value="360">6:00</option><option value="390">6:30</option>
+          <option value="420">7:00</option><option value="450">7:30</option><option value="480">8:00</option>
+          <option value="510">8:30</option><option value="540">9:00</option><option value="570">9:30</option>
           <option value="600">10:00</option>
-        </select>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Water</span>
-        <div class="unit-wrap">
-          <input class="value-input" type="number" id="water"
-            min="0" max="999" step="1" value="208" inputmode="numeric">
-          <span class="unit-label">°F</span>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Bloom</span>
-        <div class="unit-wrap">
-          <input class="value-input" type="number" id="bloom"
-            min="0" max="999" step="1" value="72" inputmode="numeric">
-          <span class="unit-label">ml</span>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Decay</span>
-        <div class="unit-wrap">
-          <input class="value-input" type="number" id="decay"
-            min="0" max="100" step="1" value="90" inputmode="numeric">
-          <span class="unit-label">%</span>
-        </div>
-      </div>
-      <div class="stat-cell">
-        <span class="label">Target</span>
-        <div class="unit-wrap">
-          <input class="value-input wide" type="number" id="brew-target"
-            min="0" max="9999" step="1" value="350" inputmode="numeric">
-          <span class="unit-label">ml</span>
-        </div>
-      </div>
+        </select></div>
+      <div class="stat-cell"><span class="label">Water</span>
+        <button type="button" class="field" data-f="water"></button>
+        <input type="hidden" id="water" value="208"></div>
+      <div class="stat-cell"><span class="label">Bloom</span>
+        <button type="button" class="field" data-f="bloom"></button>
+        <input type="hidden" id="bloom" value="72"></div>
+      <div class="stat-cell"><span class="label">Decay</span>
+        <button type="button" class="field" data-f="decay"></button>
+        <input type="hidden" id="decay" value="90"></div>
+      <div class="stat-cell"><span class="label">Target</span>
+        <button type="button" class="field" data-f="brew-target"></button>
+        <input type="hidden" id="brew-target" value="350"></div>
     </div>
 
     <!-- Timer -->
@@ -820,46 +808,26 @@
 
     <!-- Bottom Stats -->
     <div class="bottom-stats">
-      <div class="bottom-stat">
-        <span class="label">Time +/−</span>
-        <input class="value-input" type="number" id="time-val"
-          step="1" value="0" inputmode="numeric">
-      </div>
-      <div class="bottom-stat">
-        <span class="label">TDS</span>
-        <input class="value-input" type="number" id="tds"
-          min="0" max="9.99" step="0.01" value="" inputmode="decimal">
-      </div>
-      <div class="bottom-stat">
-        <span class="label">Brew★</span>
-        <div class="unit-wrap select-wrap">
-          <span class="value" id="brew-rating-num">—</span>
-          <span class="unit-label" id="brew-rating-word"></span>
-          <select class="select-overlay" id="brew-rating" aria-label="Brew rating">
-            <option value="" selected>—</option>
-            <option value="1">1 (first)</option>
-            <option value="2">2 (dial)</option>
-            <option value="3">3 (test)</option>
-            <option value="4">4 (good)</option>
-            <option value="5">5 (best)</option>
-          </select>
-        </div>
-      </div>
-      <div class="bottom-stat">
-        <span class="label">Bean★</span>
-        <div class="unit-wrap select-wrap">
-          <span class="value" id="bean-rating-num">—</span>
-          <span class="unit-label" id="bean-rating-word"></span>
-          <select class="select-overlay" id="bean-rating" aria-label="Bean rating">
-            <option value="" selected>—</option>
-            <option value="1">1 (bad)</option>
-            <option value="2">2 (good)</option>
-            <option value="3">3 (v good)</option>
-            <option value="4">4 (excel)</option>
-            <option value="5">5 (stellar)</option>
-          </select>
-        </div>
-      </div>
+      <div class="bottom-stat"><span class="label">Time +/−</span>
+        <button type="button" class="field amber" data-f="time-val"></button>
+        <input type="hidden" id="time-val" value=""></div>
+      <div class="bottom-stat"><span class="label">TDS</span>
+        <button type="button" class="field amber" data-f="tds"></button>
+        <input type="hidden" id="tds" value=""></div>
+      <div class="bottom-stat"><span class="label">Brew★</span>
+        <button type="button" class="field amber" data-f="brew-rating"></button>
+        <select id="brew-rating" hidden>
+          <option value="" selected>—</option><option value="1">1 (first)</option>
+          <option value="2">2 (dial)</option><option value="3">3 (test)</option>
+          <option value="4">4 (good)</option><option value="5">5 (best)</option>
+        </select></div>
+      <div class="bottom-stat"><span class="label">Bean★</span>
+        <button type="button" class="field amber" data-f="bean-rating"></button>
+        <select id="bean-rating" hidden>
+          <option value="" selected>—</option><option value="1">1 (bad)</option>
+          <option value="2">2 (good)</option><option value="3">3 (v good)</option>
+          <option value="4">4 (excel)</option><option value="5">5 (stellar)</option>
+        </select></div>
     </div>
 
     <!-- Notes -->
@@ -969,6 +937,19 @@
     </div>
   </div>
 
+  <!-- Tap-to-edit sheet -->
+  <div class="ed-bg" id="ed-bg"><div class="ed-sheet">
+    <h3 id="ed-title">Dose</h3>
+    <div class="ed-big">
+      <button type="button" id="ed-minus">−</button>
+      <span class="ed-v" id="ed-val">–</span>
+      <button type="button" id="ed-plus">+</button>
+    </div>
+    <div class="ed-chips" id="ed-chips"></div>
+    <button type="button" class="ed-type" id="ed-type">type a value</button>
+    <button type="button" class="ed-done" id="ed-done">Done</button>
+  </div></div>
+
   <script>
     // ── Date display (live — updates while open and on re-focus) ──
     const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
@@ -1008,34 +989,132 @@
       el.style.height = el.scrollHeight + 'px';
     }
 
-    // Agitate: keep the visible number + small grey word synced to the <select>
-    const AGITATE_WORDS = { '0': 'none', '1': 'min', '2': 'low', '3': 'mid', '4': 'high' };
-    function syncAgitate() {
-      const v = document.getElementById('agitate').value;
-      document.getElementById('agitate-num').textContent = v;
-      document.getElementById('agitate-word').textContent = AGITATE_WORDS[v] || '';
-    }
-    document.getElementById('agitate').addEventListener('change', syncAgitate);
+    // ── Field word maps + tap-to-edit config ────────────────────
+    const AGITATE_WORDS = { '0':'none','1':'min','2':'low','3':'mid','4':'high' };
+    const BREW_RATINGS  = { '1':'first','2':'dial','3':'test','4':'good','5':'best' };
+    const BEAN_RATINGS  = { '1':'bad','2':'good','3':'v good','4':'excel','5':'stellar' };
+    const FX = {
+      'dose':        {label:'Dose',  step:0.1, dec:1, trim:1, min:0,  max:99,  unit:'g',  presets:[23,24,25,72], type:'num'},
+      'grind':       {label:'Grind', step:0.5, dec:1, trim:1, min:0,  max:40,  unit:'#',  presets:[7,8,9,10],    type:'num'},
+      'agitate':     {label:'Agitate', step:1, min:0, max:4,  presets:[0,1,2,3,4], type:'choice', words:AGITATE_WORDS},
+      'contact':     {label:'Contact', step:30, min:60, max:600, presets:[240,270,300,390], type:'time'},
+      'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208], type:'num'},
+      'bloom':       {label:'Bloom', step:5, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
+      'decay':       {label:'Decay', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
+      'time-val':    {label:'Time +/−', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
+      'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.71,1.72,1.73,1.74], type:'num'},
+      'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
+      'bean-rating': {label:'Bean★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BEAN_RATINGS}
+    };
+    const fmtMS  = sec => Math.floor(sec/60) + ':' + String(Math.abs(sec)%60).padStart(2,'0');
+    const fmtNum = (c,n) => c.signed ? (n>0?'+':'')+n : c.trim ? String(+(+n).toFixed(c.dec||0)) : c.dec ? (+n).toFixed(c.dec) : String(n);
 
-    // Brew★ (per-brew technique) + Bean★ (stored on the bean): number + grey word
-    const BREW_RATINGS = { '1': 'first', '2': 'dial', '3': 'test', '4': 'good', '5': 'best' };
-    const BEAN_RATINGS = { '1': 'bad', '2': 'good', '3': 'v good', '4': 'excel', '5': 'stellar' };
-    function syncRating(selId, numId, wordId, words) {
-      const v = document.getElementById(selId).value;
-      document.getElementById(numId).textContent = v || '—';
-      document.getElementById(wordId).textContent = words[v] || '';
+    // Render one field's display button from its hidden store element
+    function renderField(key){
+      const c = FX[key], el = document.getElementById(key), btn = document.querySelector('.field[data-f="'+key+'"]');
+      if (!c || !el || !btn) return;
+      const v = el.value;
+      if (v === '' || v == null) { btn.innerHTML = '<span class="dash">–</span>'; return; }
+      if (c.type === 'choice') { const w = c.words[v]; btn.innerHTML = '<span class="fnum">'+v+'</span>'+(w?'<span class="fw">'+w+'</span>':''); return; }
+      if (c.type === 'time')   { btn.innerHTML = '<span class="fnum">'+fmtMS(parseInt(v))+'</span>'; return; }
+      btn.innerHTML = '<span class="fnum">'+fmtNum(c, parseFloat(v))+'</span>'+(c.unit?'<span class="fu">'+c.unit+'</span>':'');
     }
-    const syncBrewRating = () => syncRating('brew-rating', 'brew-rating-num', 'brew-rating-word', BREW_RATINGS);
-    const syncBeanRating = () => syncRating('bean-rating', 'bean-rating-num', 'bean-rating-word', BEAN_RATINGS);
+    function renderAllFields(){ Object.keys(FX).forEach(renderField); }
+
     // Write Bean★ back onto the selected bean, overwriting its previous rating
-    function persistBeanRating() {
+    function persistBeanRating(){
       if (!(currentBean && currentBean.id)) return;
       const beans = getBeans();
       const b = beans.find(x => x.id === currentBean.id);
       if (b) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
     }
-    document.getElementById('brew-rating').addEventListener('change', syncBrewRating);
-    document.getElementById('bean-rating').addEventListener('change', () => { syncBeanRating(); persistBeanRating(); });
+    document.getElementById('bean-rating').addEventListener('change', persistBeanRating);
+
+    // ── Tap-to-edit sheet ────────────────────────────────────────
+    function repeatHold(btn, fn){
+      let to, iv;
+      const start = e => { e.preventDefault(); fn(); to = setTimeout(() => iv = setInterval(fn, 75), 380); };
+      const stop  = () => { clearTimeout(to); clearInterval(iv); };
+      btn.addEventListener('pointerdown', start);
+      ['pointerup','pointerleave','pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+    }
+    let edKey = null, edVal = '';
+    function edShow(){
+      const c = FX[edKey];
+      let h;
+      if (edVal === '' || edVal == null) h = '–';
+      else if (c.type === 'choice') { const w = c.words[edVal]; h = edVal + (w?' <small>'+w+'</small>':''); }
+      else if (c.type === 'time')   h = fmtMS(edVal);
+      else h = fmtNum(c, edVal) + (c.unit?' <small>'+c.unit+'</small>':'');
+      document.getElementById('ed-val').innerHTML = h;
+      [...document.getElementById('ed-chips').children].forEach(ch => ch.classList.toggle('sel', String(ch.dataset.p) === String(edVal)));
+    }
+    function edStep(dir){
+      const c = FX[edKey];
+      const base = (edVal === '' || edVal == null) ? (c.presets[0] != null ? +c.presets[0] : c.min) : +edVal;
+      let nv = +(base + dir*c.step).toFixed(2);
+      edVal = Math.min(c.max, Math.max(c.min, nv));
+      edShow();
+    }
+    function openEditor(key){
+      edKey = key; const c = FX[key]; const raw = document.getElementById(key).value;
+      edVal = (raw === '' || raw == null) ? '' : +raw;
+      document.getElementById('ed-title').textContent = c.label;
+      const ch = document.getElementById('ed-chips'); ch.innerHTML = '';
+      c.presets.forEach(p => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.p = p;
+        if (c.type === 'choice') { const w = c.words[p]; b.innerHTML = p + (w?'<span class="cw">'+w+'</span>':''); }
+        else if (c.type === 'time') b.textContent = fmtMS(p);
+        else b.textContent = fmtNum(c, p);
+        b.onclick = () => { edVal = +p; edShow(); };
+        ch.append(b);
+      });
+      document.getElementById('ed-type').style.display = c.type === 'num' ? 'block' : 'none';
+      edShow();
+      document.getElementById('ed-bg').classList.add('open');
+    }
+    function edCommit(){
+      const el = document.getElementById(edKey);
+      el.value = (edVal === '' || edVal == null) ? '' : String(edVal);
+      el.dispatchEvent(new Event('change', { bubbles: true }));  // recalc / bean-persist listeners
+      renderField(edKey);
+      saveDraft();
+      document.getElementById('ed-bg').classList.remove('open');
+    }
+    repeatHold(document.getElementById('ed-minus'), () => edStep(-1));
+    repeatHold(document.getElementById('ed-plus'),  () => edStep(1));
+    document.getElementById('ed-type').onclick = () => {
+      const c = FX[edKey];
+      const t = prompt(c.label + (c.unit?' ('+c.unit+')':''), edVal === '' ? '' : String(edVal));
+      if (t != null && t.trim() !== '') { const n = parseFloat(t); if (!isNaN(n)) { edVal = Math.min(c.max, Math.max(c.min, n)); edShow(); } }
+    };
+    document.getElementById('ed-done').onclick = edCommit;
+    document.getElementById('ed-bg').onclick = e => { if (e.target === document.getElementById('ed-bg')) document.getElementById('ed-bg').classList.remove('open'); };
+    document.addEventListener('click', e => { const b = e.target.closest('.field'); if (b && b.dataset.f) openEditor(b.dataset.f); });
+
+    // ── Draft autosave: preserve an unsaved brew across close/reopen ──
+    const DRAFT_KEY = 'blackmagic.draft';
+    const DRAFT_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target','time-val','tds','brew-rating','bean-rating'];
+    let draftTimer = null;
+    function saveDraft(){
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => {
+        try {
+          const d = { notes: $('notes').value, beanId: (currentBean && currentBean.id) || null };
+          DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
+          localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+        } catch (e) {}
+      }, 300);
+    }
+    function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+    function loadDraft(){
+      let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
+      if (!d) return;
+      DRAFT_FIELDS.forEach(k => { if (d[k] !== undefined) document.getElementById(k).value = d[k]; });
+      if (d.notes != null) $('notes').value = d.notes;
+      if (d.beanId) { const b = getBeans().find(x => x.id === d.beanId); if (b) setBeanBar(b); }
+    }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
     let audioCtx = null;
@@ -1347,10 +1426,9 @@
       $('brew-rating').value = r.brewRating || '';   // Bean★ comes from the bean (setBeanBar)
       $('notes').value = r.notes;
       growNotes();
-      syncAgitate();
-      syncBrewRating();
-      syncBeanRating();
       timeDisplay.value = r.timeAdj;
+      renderAllFields();
+      saveDraft();
       // Programmatic .value changes don't fire 'change', so reset timer manually
       inCountdown = false;
       running = false;
@@ -1458,7 +1536,8 @@
       timeDisplay.value = '';
       $('tds').value = '';
       $('brew-rating').value = '';   // Brew★ resets each save/reset; Bean★ stays on the bean
-      syncBrewRating();
+      renderAllFields();
+      clearDraft();
       render(0);
     }
     function flashSaved() {
@@ -1489,6 +1568,7 @@
         else if (running) {
           running = false; lastTs = null;
           timeDisplay.value = Math.round(elapsed - TOTAL) - 2;   // −2 reaction-time
+          renderField('time-val'); saveDraft();
           render(elapsed);
         }
         else if (elapsed > 0) { flashHint('hold to save'); }     // stopped: tap hints
@@ -1709,7 +1789,7 @@
         currentBean.rating = br;
       }
       $('bean-rating').value = br;
-      syncBeanRating();
+      renderField('bean-rating');
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
         $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
@@ -1722,6 +1802,7 @@
     }
     function selectBean(bean) {
       setBeanBar(bean);
+      saveDraft();
       closeHistory();
       showScreen('brew');
     }
@@ -1836,10 +1917,9 @@
     attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
     setBeanBar(null);
     showScreen('brew');
-    syncAgitate();
-    syncBrewRating();
-    // Notes textarea auto-grows with content
-    $('notes').addEventListener('input', growNotes);
+    $('notes').addEventListener('input', () => { growNotes(); saveDraft(); });
+    loadDraft();              // restore an unsaved brew from a previous session, if any
+    renderAllFields();
     growNotes();
     updateButtonLabel();
     recalcSchedule();
