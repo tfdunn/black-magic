@@ -1959,13 +1959,15 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
+    // Generic EXPORT = a full dump of BOTH datasets (no locking; re-runnable). Two
+    // files → your two spreadsheet sheets. Staggered so iOS doesn't drop the 2nd.
     $('btn-export').addEventListener('click', () => {
-      if (shownData === 'beans') downloadCSV('beans.csv', beansToCSV());
-      else downloadCSV('brews.csv', brewsToCSV());
+      downloadCSV('brews.csv', brewsToCSV());
+      setTimeout(() => downloadCSV('beans.csv', beansToCSV()), 700);
       const btn = $('btn-export');
       const orig = btn.textContent;
       btn.textContent = 'exported ✓';
-      setTimeout(() => { btn.textContent = orig; }, 1400);
+      setTimeout(() => { btn.textContent = orig; }, 1600);
     });
     $('btn-backup').addEventListener('click', () => {
       exportJSON();
