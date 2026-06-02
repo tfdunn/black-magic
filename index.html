@@ -432,9 +432,9 @@
       border: none;
       outline: none;
       resize: none;
-      /* Cap at ~2 lines; longer notes scroll WITHIN the field so the page stays
-         locked to one screen (recipe/dial/save never move, save never pushed off). */
-      max-height: 2.8em;          /* ~2 lines at line-height 1.4 */
+      /* Heights are set by growNotes(): the two fields share a fixed ~4-line budget,
+         each taking only what its content needs (the short one yields to the long
+         one). Overflow scrolls within the field, so the page stays one screen. */
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
@@ -1008,15 +1008,31 @@
                       : 'start';
     }
 
-    // Notes textareas grow to fit content, up to the CSS max-height (~2 lines);
-    // beyond that the field scrolls internally so the page never grows.
+    // Notes: the Brew + Bean fields share a fixed ~4-line budget. Each takes only
+    // the lines its content needs; the short field yields its slack to the long one
+    // (exploits the Brew↔Bean anti-correlation). Only when BOTH want more than their
+    // half does anything scroll. Total footprint is constant → page stays one screen.
+    const NOTES_BUDGET_LINES = 4;
     function growNotes() {
-      ['notes-brew','notes-bean'].forEach(id => {
-        const el = document.getElementById(id);
-        el.style.height = 'auto';
-        const cap = parseFloat(getComputedStyle(el).maxHeight) || Infinity;
-        el.style.height = Math.min(el.scrollHeight, cap) + 'px';
-      });
+      const brew = document.getElementById('notes-brew'), bean = document.getElementById('notes-bean');
+      const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
+      const budget = NOTES_BUDGET_LINES * lh;
+      // natural content height of each (uncapped)
+      const need = {};
+      [brew, bean].forEach(el => { el.style.height = 'auto'; need[el.id] = el.scrollHeight; });
+      const half = budget / 2;
+      let hBrew, hBean;
+      if (need['notes-brew'] + need['notes-bean'] <= budget) {
+        hBrew = need['notes-brew']; hBean = need['notes-bean'];      // both fit
+      } else if (need['notes-brew'] <= half) {
+        hBrew = need['notes-brew']; hBean = budget - hBrew;          // brew short → bean takes the rest
+      } else if (need['notes-bean'] <= half) {
+        hBean = need['notes-bean']; hBrew = budget - hBean;          // bean short → brew takes the rest
+      } else {
+        hBrew = half; hBean = half;                                  // both long → split evenly, both scroll
+      }
+      brew.style.height = Math.max(lh, hBrew) + 'px';
+      bean.style.height = Math.max(lh, hBean) + 'px';
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────

@@ -1,5 +1,5 @@
 // Black Magic service worker — caches the app shell for offline use.
-const CACHE = 'blackmagic-v19';
+const CACHE = 'blackmagic-v20';
 const ASSETS = [
   './',
   './index.html',
