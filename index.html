@@ -1864,11 +1864,13 @@
     }
 
     function brewsToCSV() {
-      const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Bean_Rating','Comments'];
-      const rows = getBrews().sort((a, b) => a.id - b.id).map(r => [
-        brewIdentity(r).brewName,
+      const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Bean_Rating','Comments','ID','Bean_ID'];
+      const rows = getBrews().sort((a, b) => a.id - b.id).map(r => {
+        const idn = brewIdentity(r);
+        return [
+        idn.brewName,
         csvDateTime(r.savedAt),
-        brewIdentity(r).beanRoaster,
+        idn.beanRoaster,
         r.dose || '',
         r.grind || '',
         r.water || '',
@@ -1881,16 +1883,19 @@
         r.tds || '',
         (r.brewRating || r.rating || ''),
         r.beanRating || '',
-        (r.brewNote || r.notes || '')                                    // brew-side note
-      ]);
+        (r.brewNote || r.notes || ''),                                   // brew-side note
+        r.id,                                                            // stable key for Excel upsert
+        (r.beanId || '')                                                 // foreign key → bean
+      ]; });
       return toCSV(H, rows);
     }
     function beansToCSV() {
-      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments'];
+      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments','ID'];
       const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
         b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
         b.process || '', b.roastDate || '', b.bagSize || '', b.bagCount || '', (b.rating || ''), b.roasterNotes || '',
-        [b.tastingNote, b.myNotes].filter(Boolean).join(' — ')           // verdict + any legacy My Notes
+        [b.tastingNote, b.myNotes].filter(Boolean).join(' — '),           // verdict + any legacy My Notes
+        b.id                                                              // stable key for Excel upsert
       ]);
       return toCSV(H, rows);
     }
@@ -1899,21 +1904,21 @@
     // (paste-ready for the journal). With no brews yet, emits a single bean row.
     function safeFile(s) { return (String(s || 'bean').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '')) || 'bean'; }
     function beanBrewCSV(bean, brews) {
-      const H = ['Bean','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Bean_Rating','Roaster_Notes','Tasting_Note',
-        'Brew_Date','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Brew_Comments'];
+      const H = ['Bean','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Bean_Rating','Roaster_Notes','Tasting_Note','Bean_ID',
+        'Brew_Date','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Brew_Comments','Brew_ID'];
       const beanCols = [bean.name || '', bean.roaster || '', bean.country || '', bean.region || '', bean.varietal || '',
         bean.process || '', bean.roastDate || '', bean.bagSize || '', bean.bagCount || '', (bean.rating || ''),
-        bean.roasterNotes || '', [bean.tastingNote, bean.myNotes].filter(Boolean).join(' — ')];
+        bean.roasterNotes || '', [bean.tastingNote, bean.myNotes].filter(Boolean).join(' — '), bean.id];
       const brewCols = r => [
         csvDateTime(r.savedAt), r.dose || '', r.grind || '', r.water || '',
         r.contact ? parseInt(r.contact) / 60 : '', r.bloom || '',
         (r.decay !== '' && r.decay != null) ? parseFloat(r.decay) / 100 : '',
         (r.agitate == null ? '' : r.agitate), r.brewTarget || '', (r.timeAdj ?? ''), r.tds || '',
-        (r.brewRating || r.rating || ''), (r.brewNote || r.notes || '')
+        (r.brewRating || r.rating || ''), (r.brewNote || r.notes || ''), r.id
       ];
       const rows = brews.length
         ? brews.sort((a, b) => a.id - b.id).map(r => beanCols.concat(brewCols(r)))
-        : [beanCols.concat(new Array(13).fill(''))];
+        : [beanCols.concat(new Array(14).fill(''))];
       return toCSV(H, rows);
     }
     // Export a bean (+ its brews) to a file, then FREEZE & LOCK both so they match
