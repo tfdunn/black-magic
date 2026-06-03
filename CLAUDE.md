@@ -40,10 +40,12 @@ install can still be reset by removing the home-screen icon and re-adding it
 
 ## App layout (top to bottom)
 1. **Header** — Brew screen: `Bean` (top-left), title + live date/time, `History`
-   (top-right). Bean screen: `Brew` (top-left), title, **no History button**
-   (removed — the Bean tab *is* the bean list). `Bean`/`Brew`/`History` are amber.
-2. **Coffee selector** — full-width `Select a coffee ⌄` row. Tapping it opens the
-   **Bean tab** (same as the `Bean` button); you pick a coffee by tapping it in the list.
+   (top-right). Bean screen: `Brew` (top-left), title; in the **bean form** an amber
+   `Beans` appears top-right (cancel → list). All nav text is amber.
+2. **Coffee selector** — full-width `Select a coffee ⌄` row. Opens the Bean tab in
+   **`'attach'` mode**: tapping a bean swaps the coffee **without touching the recipe**
+   (vs the top-left `Bean` button → `'manage'` mode, where Brew loads the bean's recipe).
+   See "Bean tab — two entry modes".
 3. **Stats grid** — 2 rows × 4 columns of editable fields
 4. **Timer dial** — analog clock face (amber sweep hand + thick 4-min progress ring).
    Center stacks the live **Timer** (grey) over the pour-target number, with a small
@@ -159,8 +161,13 @@ hold fires `onHold`.
   TIME +/− (−2 reaction-time). The timer **counts up past TOTAL** (no cap → long brews
   record a positive TIME +/−). Tap during the countdown cancels it.
 - stopped → label **save brew**, **hold 2s** → `saveBrew()` (push to history, persist
-  Bean★ to the bean, then `clearForNextBrew()`). A quick tap here only flashes
-  "hold to save".
+  Bean★ + Bean note + **best recipe** to the bean, then `clearForNextBrew()`). A quick
+  tap here only flashes "hold to save".
+
+**Brew timestamp:** a saved brew's `savedAt` is the **start time** (the instant "GO"
+fires and the timer starts), not the hold-to-save time — captured in `brewStartedAt`,
+used by `collectRecord()`, and round-tripped through the draft so a stopped-but-unsaved
+brew keeps its real time. Editing a past brew preserves its original `savedAt`.
 
 **Dial** — **hold 2s** → `clearForNextBrew()`: zero the clock and blank TIME +/− / TDS /
 Brew★ for the next cup **without saving** (keeps coffee + recipe + Bean★). A tap does nothing.
@@ -190,35 +197,86 @@ Brew★ for the next cup **without saving** (keeps coffee + recipe + Bean★). A
 
 > Deep detail + rationale live in memory `bean-data-model.md`. Summary here.
 
-### Data model — live reference, freeze on export
+### Data model — live reference
 Beans in `localStorage['blackmagic.beans']`, brews in `['blackmagic.brews']` (JSON
 arrays; per-browser, no backend). A brew links to its bean by `beanId`. While a
 record is **unlocked**, a brew's bean identity (name/roaster/roastDate/brewName) is
 resolved **live** from the current bean (`brewIdentity()`) — so fixing a bean typo
 flows through to every unlocked brew; the snapshot fields on the brew are a fallback
-for deleted beans. Records carry `locked` + `exportedAt`: **per-bean export freezes**
-the bean's current values into its linked brews and locks both; locked records ignore
-live lookup and refuse edits. `nextId()`/`nextBeanId()` = `max(Date.now(),
-maxExisting+1)` → stable unique keys (also the Excel match key).
+for deleted beans. `locked`/`exportedAt` remain in the model for any records frozen by
+the (now-retired) per-bean export, but **no current path creates new locks**; locked
+records still ignore live lookup and refuse edits. `nextId()`/`nextBeanId()` =
+`max(Date.now(), maxExisting+1)` → stable unique keys (also the Excel match key).
 
-### Bean tab (list-first)
-Reached by the header **Bean** button *or* by tapping the coffee bar (both →
-`showScreen('bean')`). Opens to a reverse-chron bean list with **＋ create new bean**
-pinned on top (`renderBeanHistory('manage', …)`).
-- **Tap a bean** → selects it as the current coffee, returns to brew.
-- **Hold 2s** → action sheet **Edit · Export · Delete** (Delete confirmed; Edit
-  disabled on locked beans). Edit loads the form (`editingBeanId`, updates in place).
-- Form fields: name, roaster, **country/region/process/varietal** (all free-text +
-  learning autocomplete via `optionsFor()` = seed ∪ saved values; Process used to be
-  a `<select>`), roast date, **Bag Size (g)** (chips 250/340/454) + **# Bags**,
-  roaster notes, my notes. Bean★ + tasting note live on the bean, edited from the brew screen.
+### Best recipe (evolves on the bean, like Bean★/tasting note)
+Each bean carries a **best recipe** — the 8 input fields stored as
+`bestDose/bestGrind/bestAgitate/bestContact/bestWater/bestBloom/bestDecay/bestTarget`
++ a `bestRecipeRating` tier. New beans seed the **default recipe** (`DEFAULT_RECIPE`:
+24g · 8# · agitate 1/min · 4:30 · 208°F · 85ml · 90% · 350ml) at tier 0.
+- **Write (tier-protected, `persistBestRecipe()`):** on a fresh save with Brew★ ≥ 4,
+  if `brewRating ≥ bean.bestRecipeRating`, the brew's recipe is copied onto the bean and
+  the tier set to that rating — so a later 4★ never clobbers a 5★. Guarded by
+  `loadedFromHistory` (editing a past brew never writes), same as Bean★/note.
+- **Manual edit:** the bean form shows the best recipe as **editable** `.field` cells
+  (`best-*`, reusing the brew screen's tap-to-edit `#ed-bg`; FX configs cloned via
+  `RECIPE_MAP`). Hand-editing an existing recipe sets `bestRecipeRating = 5` (a deliberate
+  "this is best"), so only a 5★ brew or another edit can replace it.
+
+### Bean tab (list-first) — two entry modes
+Reached two ways, distinguished by `beanPickMode` (set on the way in):
+- **Coffee bar** (top-center "Select a coffee ⌄") → `'attach'`: **tap a bean swaps the
+  coffee + Bean★ + bean note but leaves the recipe alone** (`selectBean`), returning to
+  brew immediately. The quick mid-cup swap.
+- **Bean button** (top-left nav) → `'manage'`: tap a bean → action sheet
+  **Brew · Edit · Delete** (Delete confirmed; Edit disabled on locked beans).
+  - **Brew** (`brewFromBean`) → start a **fresh cup**: coffee + recipe + Bean★ + bean
+    note all loaded from the bean's **best recipe** (changes coffee AND recipe). Always enabled.
+  - **Edit** loads the form (`editingBeanId`, updates in place).
+
+Both open the same reverse-chron list (`renderBeanHistory('manage', …)`) with **＋ create
+new bean** pinned on top. No long-press anymore — plain tap (scroll-safe; a scroll gesture
+doesn't fire `click`).
+
+**New/Edit Bean form** (top → bottom): name · roaster · `Country | Process` ·
+`Region | Varietal` · **`Roast Date | Bags @ Size`** (Roast Date is 50% so its divider
+lines up with the rows above; the right cell combines **# Bags `@` Bag Size** into one tight
+unit, e.g. "2 @ 12oz") · **Roaster Notes** · **Best recipe** (centered header aligned with
+Roaster Notes; editable 8-field grid whose **values render amber** to signal they're editable
+— override the default even before the 1st brew) · **`Bean ★ | Bean Notes`** (the bean's
+verdict — editable here too; Bean★ shown larger) · **save/update bean**.
+- **Header (form view):** grey "‹ Beans" removed; **three exits** — amber **Brew**
+  (top-left, `btn-to-brew`) = cancel→brew; amber **Beans** (top-right, `btn-to-beanlist`,
+  shown only in the form) = cancel→list; **save/update bean** (bottom) = save→list. Cancels
+  reset `editingBeanId` + clear the form.
+- **Free-text fields** (country/region/process/varietal/roaster) use learning autocomplete
+  (`optionsFor()` = seed ∪ saved; **5 most-used pinned**, rest alphabetical). Region has no
+  seed list — it learns purely from saved values.
+- **Bag Size** = constrained list (`BAG_SIZES`: 100g/250g/350g/1000g/4oz…32oz) + type-other,
+  default **250g**; stored as a label, converted to grams on CSV (`bagSizeToGrams`, oz×28.35).
+  **# Bags** = a constrained **1–6** tap-to-edit field (FX `bean-bagcount`), default 1. New
+  beans also seed the default recipe.
+- **Bean★ + Bean Notes** (`bf-rating` cloned from `bean-rating`; `bean-tasting` →
+  `tastingNote`) are editable on the form *and* from the brew screen — same stored fields.
+  Both render **amber** (they're the bean's two key "verdicts"). Bean Notes is an
+  auto-growing textarea capped at **7 lines** then scrolls; **Roaster Notes** likewise caps
+  at **2 lines** (`growCapped(el, maxLines)`; `growBeanForm()` sizes both on open). The caps
+  keep **save bean** on screen on an iPhone 17 Pro (~11 raw lines fit at 402×874, trimmed
+  for the safe areas + the 2-line Roaster Notes).
+- **My Notes merged away:** the legacy `myNotes` field was removed from the form (it
+  overlapped Bean Notes). Existing `myNotes` data is preserved (`Object.assign` doesn't
+  clobber absent keys) and still exported (appended to beans `Comments`).
+- **First brew of a bean:** `brewFromBean` sets Brew★ = 1 ("1st") when the bean has no
+  saved brews yet.
 
 ### Brew history (slide-up overlay — **Brew screen only**)
 Header **History** opens `#history-overlay`; its head = **EXPORT · BACKUP · RESTORE · ×**.
-- Cards newest-first, compact `dose · TDS · ★` line. **Tap does nothing; hold 2s →
-  Edit · Delete** (Delete confirmed; Edit disabled on locked brews). `bindLongPress`
-  (scroll-safe, ~500ms; no `preventDefault`, movement cancels) drives the hold; cards
-  set `user-select:none`/`-webkit-touch-callout:none` so iOS doesn't hijack with text-select.
+- Cards newest-first, compact `dose · TDS · ★` line. **Tap → action sheet
+  Brew · Edit · Delete** (Delete confirmed; Edit disabled on locked brews; Brew always
+  enabled). Plain `click` — no long-press.
+- **Brew** (`brewFromBrew`) → start a **fresh cup**: coffee + **recipe from that brew's
+  snapshot**, but Bean★ + bean note from the **live bean** (latest). ("Remake this cup.")
+  Contrast with **Brew-from-bean**, which pulls the recipe from the bean's best recipe.
+  Both go through `startBrewWith()` (clears brew-only fields, `editingBrewId=null`).
 - **Edit** = in-place update (`editingBrewId`): loads the brew into the Brew tab with
   **bean identity + Bean★ + Bean note LOCKED** (dimmed `.locked-field`, read-only —
   protects the bean's evolving verdict); recipe + Time/TDS/Brew★/Brew-note editable.
@@ -233,37 +291,45 @@ Brew: `id, savedAt, brewName, beanId, beanName, beanRoaster, roastDate, dose, gr
 agitate(+Text), contact(+Text), water, bloom, decay, brewTarget, timeAdj, tds,
 brewRating, beanRating, brewNote, beanNote, locked, exportedAt, updatedAt`.
 Bean: `id, savedAt, name, roaster, country, region, process, varietal, roastDate,
-bagSize, bagCount, roasterNotes, myNotes, rating, tastingNote, locked, exportedAt, updatedAt`.
+bagSize, bagCount, roasterNotes, myNotes, rating, tastingNote,
+bestDose/bestGrind/bestAgitate/bestContact/bestWater/bestBloom/bestDecay/bestTarget,
+bestRecipeRating, locked, exportedAt, updatedAt`.
 
-### Export model (three paths)
+### Export model (two paths)
 - **EXPORT** (overlay) — full dump of **both** `brews.csv` + `beans.csv`, all records,
   **no locking**, re-runnable (staggered 700ms for iOS). The Excel feed.
-- **Per-bean Export** (bean hold sheet) — one flat CSV (bean cols prepended to each of
-  its brews), then **freezes + locks** that bean and its brews ("commit a finished coffee").
 - **BACKUP / RESTORE** — full JSON of beans+brews (`exportJSON`/`importJSON`); the
   PWA-reinstall safety net (RESTORE replaces all data).
+- (Per-bean export + freeze/lock was **retired** — the global EXPORT is the only feed.)
 - All CSVs carry stable **ID** keys for Excel upsert: beans `ID`; brews `ID` + `Bean_ID`
-  (FK); per-bean file `Bean_ID` + `Brew_ID`. Unit conversions on export: `Time_Aim` =
-  contact secs→min, `Pour_Decay` = %→fraction, `Output` = brewTarget.
+  (FK). Unit conversions on export: `Time_Aim` = contact secs→min, `Pour_Decay` = %→fraction,
+  `Output` = brewTarget. **beans.csv** also carries the best recipe as
+  `Best_Dose/Best_Grind/Best_Temp/Best_Time_Aim/Best_Bloom/Best_Pour_Decay/Best_Agitate/Best_Output`
+  (same unit conventions: `Best_Time_Aim` = min, `Best_Pour_Decay` = fraction).
 
 ## Excel integration
-Workbook `~/Downloads/TFD Coffee Log 2026 Claude.xlsm` (ListObjects `BeanLog`,
+Workbook `~/Downloads/TFD Coffee Log 2026 Claude.xlsx` (ListObjects `BeanLog`,
 `BrewLog`) ingests the CSVs via a VBA **upsert** macro `ImportBlackMagic` (source:
 `~/Downloads/BlackMagicImport.bas`): matches by app `ID` (stored Text), appends new /
 updates existing rows, assigns next `Bag` to new beans, writes only app-input columns
 and leaves Excel formula columns alone (Combo_Name, Pour1, EY*/EQV*, and brew
-Bag/Country/Roaster derived via `XLOOKUP` on `Bean_ID`). **Mac VBA constraints (cost a
-lot of debugging):** Excel-for-Mac has NO `FileDialog`, `Scripting.Dictionary`, or
-`FileSystemObject` — the macro uses `GetOpenFilename` (no Win-style filter), VBA
-`Collection`, and native binary read + a hand-rolled UTF-8 decoder. **Never open the
-CSVs directly in Excel** — it converts 13-digit IDs to `1.78E+12` and collapses them.
-Pour1 (geometric first pour) = `Output·(1−r)/(1−r^n)`, `n = Time_Aim/0.5`.
+Bag/Country/Roaster derived via `XLOOKUP` on `Bean_ID`). The macro maps **csv→xl** by
+parallel `csvH`/`xlH` arrays, so differing names are fine. **Best recipe → BeanLog:**
+only `Best_Grind→Grind`, `Best_Temp→Temp`, `Best_Time_Aim→Contact` map in (those are the
+only recipe columns BeanLog has — the other dial knobs are held constant); units already
+match (Grind ~7–9, Temp °F, Contact min). Bean★ → BeanLog `Rating`: the **production**
+workbook renamed its `Grade` column to `Rating`, so the macro's `Rating→Rating` mapping
+lands (the stale Downloads copy still says `Grade` — rename it there too if you re-import).
+**Mac VBA constraints (cost a lot of debugging):** Excel-for-Mac has NO `FileDialog`,
+`Scripting.Dictionary`, or `FileSystemObject` — the macro uses `GetOpenFilename` (no
+Win-style filter), VBA `Collection`, and native binary read + a hand-rolled UTF-8 decoder.
+**Never open the CSVs directly in Excel** — it converts 13-digit IDs to `1.78E+12` and
+collapses them. Pour1 (geometric first pour) = `Output·(1−r)/(1−r^n)`, `n = Time_Aim/0.5`.
 
 ## Phase 3 ideas (not yet started)
 - Chart TDS or Rating over time
 - Compare brews side by side
-- "Use this recipe to brew now" (a separate action from Edit, which always returns to
-  the current cup)
+- ("Use this recipe to brew now" is **done** — the Brew action on bean/brew cards.)
 
 ## Design conventions
 Refined via a Claude Design pass; tokens live in `:root` in `index.html`.
@@ -272,8 +338,9 @@ White background, black text, with **one** restrained accent.
 - **Tokens:** `--ink #0B0B0C` · `--secondary rgba(60,60,67,.6)` ·
   `--tertiary rgba(60,60,67,.34)` · `--hairline rgba(60,60,67,.13)` ·
   `--accent #9A5A2B` (warm amber). **Amber is used on Bean/History (nav), the
-  TIME +/− / TDS / Brew★ / Bean★ values, and the clock's sweep hand** — not on the
-  progress arc, the in-dial timer/reset hint, or the action button.
+  TIME +/− / TDS / Brew★ / Bean★ values, the bean form's Bean★ + Bean Notes (the two
+  "verdicts") + its best-recipe values (amber = editable), and the clock's sweep hand** —
+  not on the progress arc, the in-dial timer/reset hint, or the action button.
 - Font: `var(--font)` system stack; all numerals `font-variant-numeric: tabular-nums`.
 - Type scale: title 23/700, big pour number 54/700, metric value 21/600, save 17,
   nav 16, metric label 10/600 uppercase (0.07em), unit 11/500, in-dial timer 15.

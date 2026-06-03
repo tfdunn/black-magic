@@ -674,13 +674,34 @@
     .value-input::placeholder { color: #ccc; font-weight: 500; }
     /* Bean cells hold free text (e.g. "Anaerobic Natural") — size to fit the cell */
     .bean-cell .value-input { font-size: 16px; font-weight: 600; width: 100%; }
-    .bean-date { font-size: 16px; width: 100%; min-height: 34px; padding: 5px 0; }
+    .bean-date { font-size: 14px; width: 100%; min-height: 20px; line-height: 20px; padding: 0; }
     .bean-cell .chips { display: flex; gap: 5px; justify-content: center; margin-top: 7px; }
     .bean-cell .chips button {
       font-family: inherit; font-size: 11px; font-weight: 600; color: #888;
       background: #f4f4f4; border: none; border-radius: 999px; padding: 3px 10px; cursor: pointer;
     }
     .bean-cell .chips button:active { background: var(--ink); color: #fff; }
+    /* Combined "# Bags @ Size" — the two read as one tight unit */
+    .bags-vol { display: flex; align-items: baseline; justify-content: center; gap: 5px; }
+    .bags-vol .bags-count { width: auto; }
+    .bags-vol .bags-count .fnum, .bags-vol .bags-count .dash { font-size: 16px; }
+    .bags-at { color: var(--tertiary); font-size: 14px; }
+    .ac.bags-size { width: auto; flex: 0 0 auto; }
+    .bags-size .value-input { width: 5ch; text-align: left; }
+    /* Bean★ + tasting note (the bean's current verdict) */
+    .verdict-row { display: flex; align-items: flex-start; gap: 14px;
+      padding: 9px 6px 10px; border-bottom: 1px solid #e8e8e8; }
+    .verdict-row .label { font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 4px; }
+    .verdict-rating { flex: 0 0 auto; text-align: center; }
+    .verdict-rating .field { background: none; border: none; min-width: 44px; padding: 2px 0; }
+    .verdict-rating .field .fnum, .verdict-rating .field .dash { font-size: 28px; }
+    .verdict-note-wrap { flex: 1; text-align: left; }
+    .verdict-note-wrap .label { text-align: left; }
+    .verdict-note { width: 100%; font-size: 15px; font-weight: 500; color: var(--accent);
+      background: transparent; border: none; outline: none; font-family: inherit; padding: 2px 0;
+      line-height: 20px; resize: none; overflow-y: auto; display: block; }
+    .verdict-note::placeholder { color: #ccc; }
 
     /* ── Bean tab: list-first + form ── */
     .bean-new {
@@ -692,6 +713,12 @@
     .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px;
       max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    /* Section header — matches the centered ROASTER NOTES label */
+    .bean-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+      color: #888; text-align: center; margin: 12px 0 2px; }
+    #bean-form-view .stats-grid { margin-bottom: 4px; }
+    /* Best-recipe values render amber (signals editable) + slightly smaller than Bean★ */
+    .best-grid .field .fnum, .best-grid .field .dash { color: var(--accent); font-size: 17px; }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -716,11 +743,12 @@
       font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
       letter-spacing: 0.4px; display: block; margin-bottom: 5px; text-align: center;
     }
-    .text-field input {
+    .text-field input, .text-field textarea {
       width: 100%; border: none; outline: none; background: transparent;
       font-family: inherit; font-size: 16px; color: #555; text-align: center;
     }
-    .text-field input::placeholder { color: #ccc; }
+    .text-field textarea { line-height: 20px; resize: none; overflow-y: auto; display: block; padding: 0; }
+    .text-field input::placeholder, .text-field textarea::placeholder { color: #ccc; }
 
     /* ── Selected-coffee bar (BREW screen) ── */
     .bean-bar {
@@ -931,6 +959,7 @@
     <div class="header">
       <button class="nav-btn" id="btn-to-brew">Brew</button>
       <h1>Black Magic</h1>
+      <button class="history-btn" id="btn-to-beanlist" hidden>Beans</button>
     </div>
 
     <!-- List view (default): create-new on top, then beans newest-first -->
@@ -941,7 +970,6 @@
 
     <!-- Form view: create or edit a bean -->
     <div id="bean-form-view" hidden>
-    <button class="bean-back" id="btn-bean-back" type="button">‹ Beans</button>
 
     <!-- Identity -->
     <input class="bean-name" id="bean-name" type="text" placeholder="Bean name">
@@ -949,7 +977,7 @@
       <input class="roaster" id="bean-roaster" type="text" placeholder="Roaster" autocomplete="off">
     </div>
 
-    <!-- Origin -->
+    <!-- Origin (Country | Process · Region | Varietal) -->
     <div class="bean-grid">
       <div class="bean-cell">
         <span class="label">Country</span>
@@ -958,13 +986,15 @@
         </div>
       </div>
       <div class="bean-cell">
-        <span class="label">Region</span>
-        <input class="value-input" id="bean-region" type="text" placeholder="—">
-      </div>
-      <div class="bean-cell">
         <span class="label">Process</span>
         <div class="ac">
           <input class="value-input" id="bean-process" type="text" placeholder="—" autocomplete="off">
+        </div>
+      </div>
+      <div class="bean-cell">
+        <span class="label">Region</span>
+        <div class="ac">
+          <input class="value-input" id="bean-region" type="text" placeholder="—" autocomplete="off">
         </div>
       </div>
       <div class="bean-cell">
@@ -975,39 +1005,71 @@
       </div>
     </div>
 
-    <!-- Roast date -->
-    <div class="bean-grid one-col">
+    <!-- Roast Date | Bags @ Size (# Bags and volume read as one) -->
+    <div class="bean-grid">
       <div class="bean-cell">
         <span class="label">Roast Date</span>
         <input class="value-input bean-date" id="bean-roast" type="date">
       </div>
-    </div>
-
-    <!-- Bag -->
-    <div class="bean-grid">
       <div class="bean-cell">
-        <span class="label">Bag Size (g)</span>
-        <input class="value-input" id="bean-bagsize" type="text" inputmode="decimal" placeholder="—" autocomplete="off">
-        <div class="chips" id="bagsize-chips">
-          <button type="button" data-g="250">250</button>
-          <button type="button" data-g="340">340</button>
-          <button type="button" data-g="454">454</button>
+        <span class="label">Bags @ Size</span>
+        <div class="bags-vol">
+          <button type="button" class="field bags-count" data-f="bean-bagcount"></button>
+          <input type="hidden" id="bean-bagcount">
+          <span class="bags-at">@</span>
+          <div class="ac bags-size">
+            <input class="value-input" id="bean-bagsize" type="text" placeholder="250g" autocomplete="off">
+          </div>
         </div>
       </div>
-      <div class="bean-cell">
-        <span class="label"># Bags</span>
-        <input class="value-input" id="bean-bagcount" type="text" inputmode="numeric" placeholder="—" autocomplete="off">
-      </div>
     </div>
 
-    <!-- Notes -->
+    <!-- Roaster's printed notes (from the bag) -->
     <div class="text-field">
       <span class="label">Roaster Notes</span>
-      <input id="bean-rnotes" type="text" placeholder="From the bag…">
+      <textarea id="bean-rnotes" rows="1" placeholder="From the bag…"></textarea>
     </div>
-    <div class="text-field">
-      <span class="label">My Notes</span>
-      <input id="bean-mynotes" type="text" placeholder="Optional…">
+
+    <!-- Best recipe (seeded with defaults; evolves from 4–5★ brews; amber values = editable) -->
+    <div class="bean-section-label">Best recipe</div>
+    <div class="stats-grid best-grid">
+      <div class="stat-cell"><span class="label">Dose</span>
+        <button type="button" class="field" data-f="best-dose"></button>
+        <input type="hidden" id="best-dose"></div>
+      <div class="stat-cell"><span class="label">Grind</span>
+        <button type="button" class="field" data-f="best-grind"></button>
+        <input type="hidden" id="best-grind"></div>
+      <div class="stat-cell"><span class="label">Agitate</span>
+        <button type="button" class="field" data-f="best-agitate"></button>
+        <input type="hidden" id="best-agitate"></div>
+      <div class="stat-cell"><span class="label">Contact</span>
+        <button type="button" class="field" data-f="best-contact"></button>
+        <input type="hidden" id="best-contact"></div>
+      <div class="stat-cell"><span class="label">Water</span>
+        <button type="button" class="field" data-f="best-water"></button>
+        <input type="hidden" id="best-water"></div>
+      <div class="stat-cell"><span class="label">Bloom</span>
+        <button type="button" class="field" data-f="best-bloom"></button>
+        <input type="hidden" id="best-bloom"></div>
+      <div class="stat-cell"><span class="label">Decay</span>
+        <button type="button" class="field" data-f="best-decay"></button>
+        <input type="hidden" id="best-decay"></div>
+      <div class="stat-cell"><span class="label">Target</span>
+        <button type="button" class="field" data-f="best-target"></button>
+        <input type="hidden" id="best-target"></div>
+    </div>
+
+    <!-- Your verdict: Bean★ + the evolving tasting note (both live on the bean) -->
+    <div class="verdict-row">
+      <div class="verdict-rating">
+        <span class="label">Bean ★</span>
+        <button type="button" class="field amber" data-f="bf-rating"></button>
+        <input type="hidden" id="bf-rating">
+      </div>
+      <div class="verdict-note-wrap">
+        <span class="label">Bean Notes</span>
+        <textarea id="bean-tasting" class="verdict-note" rows="1" placeholder="Tasting verdict…"></textarea>
+      </div>
     </div>
 
     <!-- Save -->
@@ -1055,17 +1117,18 @@
   <div class="ed-bg" id="bean-act-bg"><div class="ed-sheet">
     <h3 id="bean-act-title">Bean</h3>
     <div class="act-btns">
+      <button type="button" class="act-btn" id="bean-act-brew">Brew</button>
       <button type="button" class="act-btn" id="bean-act-edit">Edit</button>
-      <button type="button" class="act-btn" id="bean-act-export">Export</button>
       <button type="button" class="act-btn danger" id="bean-act-delete">Delete</button>
     </div>
     <button type="button" class="ed-type" id="bean-act-cancel">Cancel</button>
   </div></div>
 
-  <!-- Brew action sheet (hold a brew in History → Edit / Delete) -->
+  <!-- Brew action sheet (tap a brew in History → Brew / Edit / Delete) -->
   <div class="ed-bg" id="brew-act-bg"><div class="ed-sheet">
     <h3 id="brew-act-title">Brew</h3>
     <div class="act-btns">
+      <button type="button" class="act-btn" id="brew-act-brew">Brew</button>
       <button type="button" class="act-btn" id="brew-act-edit">Edit</button>
       <button type="button" class="act-btn danger" id="brew-act-delete">Delete</button>
     </div>
@@ -1148,6 +1211,14 @@
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
       'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
     };
+    // The bean's editable "best recipe" reuses the same 8 input editors, keyed best-*.
+    const RECIPE_MAP = [['dose','best-dose'],['grind','best-grind'],['agitate','best-agitate'],
+      ['contact','best-contact'],['water','best-water'],['bloom','best-bloom'],
+      ['decay','best-decay'],['brew-target','best-target']];
+    RECIPE_MAP.forEach(([base, bk]) => FX[bk] = Object.assign({}, FX[base]));
+    FX['bf-rating'] = Object.assign({}, FX['bean-rating']);   // Bean★ editor on the bean form
+    FX['bean-bagcount'] = {label:'# Bags', step:1, min:1, max:6, presets:[1,2,3,4,5,6], type:'num'};
+    const DEFAULT_RECIPE = { dose:'24', grind:'8', agitate:'1', contact:'270', water:'208', bloom:'85', decay:'90', brewTarget:'350' };
     const fmtMS  = sec => Math.floor(sec/60) + ':' + String(Math.abs(sec)%60).padStart(2,'0');
     const fmtNum = (c,n) => c.signed ? (n>0?'+':'')+n : c.trim ? String(+(+n).toFixed(c.dec||0)) : c.dec ? (+n).toFixed(c.dec) : String(n);
 
@@ -1177,6 +1248,44 @@
       const beans = getBeans();
       const b = beans.find(x => x.id === currentBean.id);
       if (b && !b.locked) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
+    }
+    // Best recipe (tier-protected): a fresh brew rated 4–5★ writes its recipe onto the
+    // bean, but only if it ties or beats the recipe's stored tier — so a later 4★ never
+    // clobbers a 5★. Manual edits on the Bean screen set the tier to 5 (see saveBean).
+    const RECIPE_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target'];
+    const BEST_KEYS = { dose:'bestDose', grind:'bestGrind', agitate:'bestAgitate', contact:'bestContact',
+      water:'bestWater', bloom:'bestBloom', decay:'bestDecay', 'brew-target':'bestTarget' };
+    function persistBestRecipe(){
+      if (!(currentBean && currentBean.id)) return;
+      const br = parseInt(document.getElementById('brew-rating').value);
+      if (!(br >= 4)) return;                                   // only 4★ / 5★ brews evolve the recipe
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (!b || b.locked) return;
+      if (br < (b.bestRecipeRating || 0)) return;               // tier protection
+      RECIPE_FIELDS.forEach(f => b[BEST_KEYS[f]] = document.getElementById(f).value);
+      b.bestRecipeRating = br;
+      setBeans(beans);
+      Object.assign(currentBean, b);
+    }
+    // bean.best* → brew-style recipe object (falls back to defaults per field)
+    function beanToRecipe(b){
+      const r = {};
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const v = b[BEST_KEYS[f]];
+        r[k] = (v === undefined || v === null || v === '') ? DEFAULT_RECIPE[k] : v;
+      });
+      return r;
+    }
+    // Write a brew-style recipe object into the bean form's best-* fields
+    function setBeanRecipeFields(rec){
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const bk = f === 'brew-target' ? 'best-target' : 'best-' + f;
+        document.getElementById(bk).value = rec[k] ?? '';
+        renderField(bk);
+      });
     }
 
     // ── Tap-to-edit sheet ────────────────────────────────────────
@@ -1249,7 +1358,7 @@
     // by the edit-from-History "side trip" snapshot).
     function currentDraftObject(){
       const d = { brewNote: $('notes-brew').value, beanNote: $('notes-bean').value,
-                  beanId: (currentBean && currentBean.id) || null };
+                  beanId: (currentBean && currentBean.id) || null, brewStartedAt };
       DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
       return d;
     }
@@ -1261,6 +1370,7 @@
       else setBeanBar(null);
       if (d.brewNote != null) $('notes-brew').value = d.brewNote;
       if (d.beanNote != null) $('notes-bean').value = d.beanNote;
+      if (d.brewStartedAt !== undefined) brewStartedAt = d.brewStartedAt;
     }
     function saveDraft(){
       if (editingBrewId) return;   // editing a past brew is not a "draft new cup" — don't persist it
@@ -1397,6 +1507,7 @@
     // ── Timer state ──────────────────────────────────────────────
     const CIRC = 2 * Math.PI * 93;
     let elapsed = 0, running = false, lastTs = null;
+    let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
     let loadedFromHistory = false;   // true while editing a brew loaded from History
 
@@ -1468,6 +1579,7 @@
             elapsed = 0;
             running = true;
             lastTs = null;
+            brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
             render(0);
           }, 1000);
@@ -1483,6 +1595,7 @@
       running = false;
       elapsed = 0;
       lastTs = null;
+      brewStartedAt = null;
       cancelCountdownAudio();
       render(0);
     }
@@ -1548,7 +1661,7 @@
       const agitate = $('agitate'), contact = $('contact');
       return {
         id: nextId(),
-        savedAt: new Date().toISOString(),
+        savedAt: brewStartedAt || new Date().toISOString(),   // brew start time, not the hold-to-save time
         brewName: currentBean ? composeName(currentBean) : 'Untitled brew',
         beanId: currentBean ? currentBean.id : null,
         beanName: currentBean ? (currentBean.name || '') : '',
@@ -1666,8 +1779,8 @@
         card.querySelector('.bc-name').textContent = idn.brewName;
         if (r.locked) card.querySelector('.bc-date').classList.add('bc-lock');
 
-        // Tap does nothing; hold 2s → Edit / Delete sheet (details live on Edit)
-        bindLongPress(card, { onHold: () => openBrewActions(r) });
+        // Tap → Brew / Edit / Delete sheet (details live on Edit)
+        card.addEventListener('click', () => openBrewActions(r));
 
         list.appendChild(card);
       });
@@ -1735,7 +1848,7 @@
       setBrews(brews);
       // Only a freshly-brewed cup updates the bean's evolving note/rating;
       // editing a loaded past brew must not clobber the bean's current verdict.
-      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); }
+      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); persistBestRecipe(); }
       flashSaved();
       clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
     }
@@ -1800,6 +1913,42 @@
       $('btn-save').hidden = false;
       $('edit-actions').hidden = true;
     }
+    // ── "Brew this" — start a FRESH cup (not an edit) from a recipe source ──
+    // From a bean: recipe + Bean★ + bean note all come from the bean's best recipe.
+    // From a past brew: recipe comes from that brew; Bean★ + note from the LIVE bean.
+    function startBrewWith(bean, recipe){
+      if (editingBrewId) { exitBrewEdit(); preEditState = null; }
+      editingBrewId = null;
+      loadedFromHistory = false;
+      setBeanBar(bean || null);                 // sets currentBean + Bean★ + Bean note from the bean
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        document.getElementById(f).value = recipe[k] ?? '';
+      });
+      $('time-val').value = ''; $('tds').value = ''; $('brew-rating').value = '';
+      $('notes-brew').value = '';               // fresh cup — clear brew-only fields
+      resetTimer();
+      recalcSchedule();
+      renderAllFields();
+      growNotes();
+      saveDraft();
+      closeBrewActions(); closeBeanActions(); closeHistory();
+      showScreen('brew');
+    }
+    function brewFromBean(b){
+      const live = liveBean(b.id) || b;
+      startBrewWith(live, beanToRecipe(live));
+      // First brew of a bean → Brew★ = 1 ("1st brew with this bean")
+      if (live.id && !getBrews().some(r => r.beanId === live.id)) {
+        $('brew-rating').value = '1'; renderField('brew-rating'); saveDraft();
+      }
+    }
+    function brewFromBrew(r){
+      const live = liveBean(r.beanId);
+      const bean = live || { id: r.beanId || null, name: r.beanName || '', roaster: r.beanRoaster || '', roastDate: r.roastDate || '' };
+      startBrewWith(bean, { dose:r.dose, grind:r.grind, agitate:r.agitate, contact:r.contact,
+        water:r.water, bloom:r.bloom, decay:r.decay, brewTarget:r.brewTarget });
+    }
     function openBrewActions(r) {
       actBrew = r;
       $('brew-act-title').textContent = brewIdentity(r).brewName || 'Brew';
@@ -1814,6 +1963,11 @@
       $('brew-act-bg').classList.add('open');
     }
     function closeBrewActions() { $('brew-act-bg').classList.remove('open'); actBrew = null; }
+    $('brew-act-brew').addEventListener('click', () => {
+      if (!actBrew) return;
+      const r = actBrew; closeBrewActions();
+      brewFromBrew(r);
+    });
     $('brew-act-edit').addEventListener('click', () => {
       if (!actBrew || actBrew.locked) return;
       const r = actBrew; closeBrewActions();
@@ -1894,55 +2048,31 @@
       ]; });
       return toCSV(H, rows);
     }
+    // Bag size may be a label like "250g" or "12oz" — Excel's Bag_Size_g wants grams.
+    function bagSizeToGrams(v) {
+      if (v == null || v === '') return '';
+      const m = String(v).trim().toLowerCase().match(/^([\d.]+)\s*(g|oz)?$/);
+      if (!m) return v;                                   // unrecognized → pass through
+      const n = parseFloat(m[1]);
+      return m[2] === 'oz' ? Math.round(n * 28.3495) : Math.round(n);
+    }
     function beansToCSV() {
-      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments','ID'];
+      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments','ID',
+        'Best_Dose','Best_Grind','Best_Temp','Best_Time_Aim','Best_Bloom','Best_Pour_Decay','Best_Agitate','Best_Output'];
       const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
         b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
-        b.process || '', b.roastDate || '', b.bagSize || '', b.bagCount || '', (b.rating || ''), b.roasterNotes || '',
+        b.process || '', b.roastDate || '', bagSizeToGrams(b.bagSize), b.bagCount || '', (b.rating || ''), b.roasterNotes || '',
         [b.tastingNote, b.myNotes].filter(Boolean).join(' — '),           // verdict + any legacy My Notes
-        b.id                                                              // stable key for Excel upsert
+        b.id,                                                             // stable key for Excel upsert
+        // Best recipe — same unit conventions as BrewLog (contact→min, decay→fraction, target=output)
+        b.bestDose || '', b.bestGrind || '', b.bestWater || '',
+        b.bestContact ? parseInt(b.bestContact) / 60 : '',
+        b.bestBloom || '',
+        (b.bestDecay !== '' && b.bestDecay != null) ? parseFloat(b.bestDecay) / 100 : '',
+        (b.bestAgitate == null ? '' : b.bestAgitate),
+        b.bestTarget || ''
       ]);
       return toCSV(H, rows);
-    }
-
-    // Per-bean flat export: one row per linked brew, the bean's columns prepended
-    // (paste-ready for the journal). With no brews yet, emits a single bean row.
-    function safeFile(s) { return (String(s || 'bean').replace(/[^\w.-]+/g, '_').replace(/^_+|_+$/g, '')) || 'bean'; }
-    function beanBrewCSV(bean, brews) {
-      const H = ['Bean','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Bean_Rating','Roaster_Notes','Tasting_Note','Bean_ID',
-        'Brew_Date','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Brew_Comments','Brew_ID'];
-      const beanCols = [bean.name || '', bean.roaster || '', bean.country || '', bean.region || '', bean.varietal || '',
-        bean.process || '', bean.roastDate || '', bean.bagSize || '', bean.bagCount || '', (bean.rating || ''),
-        bean.roasterNotes || '', [bean.tastingNote, bean.myNotes].filter(Boolean).join(' — '), bean.id];
-      const brewCols = r => [
-        csvDateTime(r.savedAt), r.dose || '', r.grind || '', r.water || '',
-        r.contact ? parseInt(r.contact) / 60 : '', r.bloom || '',
-        (r.decay !== '' && r.decay != null) ? parseFloat(r.decay) / 100 : '',
-        (r.agitate == null ? '' : r.agitate), r.brewTarget || '', (r.timeAdj ?? ''), r.tds || '',
-        (r.brewRating || r.rating || ''), (r.brewNote || r.notes || ''), r.id
-      ];
-      const rows = brews.length
-        ? brews.sort((a, b) => a.id - b.id).map(r => beanCols.concat(brewCols(r)))
-        : [beanCols.concat(new Array(14).fill(''))];
-      return toCSV(H, rows);
-    }
-    // Export a bean (+ its brews) to a file, then FREEZE & LOCK both so they match
-    // the exported copy and can't drift from the spreadsheet afterward.
-    function exportBean(bean) {
-      const beans = getBeans();
-      const target = beans.find(x => x.id === bean.id);
-      if (!target) return;
-      const brews = getBrews();
-      const linked = brews.filter(r => r.beanId === target.id);
-      downloadCSV(safeFile([target.roaster, target.name].filter(Boolean).join(' ')) + '.csv', beanBrewCSV(target, linked));
-      const now = new Date().toISOString();
-      linked.forEach(r => {
-        r.beanName = target.name || ''; r.beanRoaster = target.roaster || '';
-        r.roastDate = target.roastDate || ''; r.brewName = composeName(target);
-        r.locked = true; r.exportedAt = now;
-      });
-      target.locked = true; target.exportedAt = now;
-      setBrews(brews); setBeans(beans);
     }
 
     // ── Full JSON backup / restore (survives a browser change or PWA reinstall) ──
@@ -2000,8 +2130,8 @@
       $('screen-bean').hidden = (name !== 'bean');
       if (name === 'bean') showBeanList();
     }
-    $('btn-to-bean').addEventListener('click', () => showScreen('bean'));
-    $('btn-to-brew').addEventListener('click', () => showScreen('brew'));
+    $('btn-to-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });
+    $('btn-to-brew').addEventListener('click', () => { editingBeanId = null; clearBeanForm(); showScreen('brew'); });
 
     // ── Beans (localStorage) ─────────────────────────────────────
     const BEANS_KEY = 'blackmagic.beans';
@@ -2031,11 +2161,24 @@
         'Carbonic Maceration','Wet Hulled','Hybrid']
     };
 
-    // Options = seed ∪ values already used in saved beans (living list)
+    // Options = seed ∪ values already used in saved beans (living list).
+    // The 5 most-used values are pinned on top (descending use); the rest
+    // — including unused seeds — follow alphabetically.
     function optionsFor(field, seed) {
-      const set = new Set(seed);
-      getBeans().forEach(b => { const v = (b[field] || '').trim(); if (v) set.add(v); });
-      return [...set].sort((a, b) => a.localeCompare(b));
+      const counts = new Map();
+      getBeans().forEach(b => {
+        const v = (b[field] || '').trim();
+        if (v) counts.set(v, (counts.get(v) || 0) + 1);
+      });
+      const all = new Set(seed);
+      counts.forEach((_, v) => all.add(v));
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 5)
+        .map(e => e[0]);
+      const topSet = new Set(top);
+      const rest = [...all].filter(v => !topSet.has(v)).sort((a, b) => a.localeCompare(b));
+      return [...top, ...rest];
     }
     // Custom autocomplete dropdown anchored under the field (replaces <datalist>,
     // whose native popup mispositioned in embedded webviews). Free text still allowed.
@@ -2047,8 +2190,11 @@
       let active = -1;
       const items = () => [...list.querySelectorAll('.ac-item')];
       const hide = () => { list.hidden = true; };
-      function show() {
-        const q = input.value.trim().toLowerCase();
+      function show(all) {
+        // On focus (all=true) show the full list — even when the field is
+        // pre-filled (edit mode), so editing matches the new-bean experience.
+        // Filter only once the user actually types.
+        const q = all ? '' : input.value.trim().toLowerCase();
         const opts = getOptions().filter(o => o.toLowerCase().includes(q)).slice(0, 40);
         list.innerHTML = ''; active = -1;
         opts.forEach(o => {
@@ -2059,8 +2205,8 @@
         });
         list.hidden = opts.length === 0;
       }
-      input.addEventListener('focus', show);
-      input.addEventListener('input', show);
+      input.addEventListener('focus', () => show(true));
+      input.addEventListener('input', () => show(false));
       input.addEventListener('blur', () => setTimeout(hide, 150));
       input.addEventListener('keydown', e => {
         const it = items();
@@ -2075,6 +2221,21 @@
       });
     }
 
+    // A textarea that auto-grows up to maxLines, then scrolls inside (so "save bean"
+    // never gets pushed off). ~11 Bean-Note lines fit at 402×874 with no insets; capped
+    // lower to stay clear of the iPhone's top/bottom safe areas + the 2-line Roaster Notes.
+    const BEAN_NOTE_MAX_LINES = 7;
+    const ROASTER_NOTE_MAX_LINES = 2;
+    function growCapped(el, maxLines) {
+      el.style.height = 'auto';
+      const cs = getComputedStyle(el);
+      const lh = parseFloat(cs.lineHeight) || 20;
+      const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);  // border-box
+      el.style.height = Math.min(el.scrollHeight, lh * maxLines + padV) + 'px';
+    }
+    function growBeanNote()    { growCapped($('bean-tasting'), BEAN_NOTE_MAX_LINES); }
+    function growRoasterNote() { growCapped($('bean-rnotes'), ROASTER_NOTE_MAX_LINES); }
+    function growBeanForm()    { growRoasterNote(); growBeanNote(); }
     function collectBean() {
       return {
         name: $('bean-name').value.trim(),
@@ -2087,14 +2248,20 @@
         bagSize: $('bean-bagsize').value.trim(),
         bagCount: $('bean-bagcount').value.trim(),
         roasterNotes: $('bean-rnotes').value.trim(),
-        myNotes: $('bean-mynotes').value.trim()
+        rating: $('bf-rating').value,                   // Bean★ — now editable here too
+        tastingNote: $('bean-tasting').value.trim(),    // evolving verdict
+        bestDose: $('best-dose').value, bestGrind: $('best-grind').value,
+        bestAgitate: $('best-agitate').value, bestContact: $('best-contact').value,
+        bestWater: $('best-water').value, bestBloom: $('best-bloom').value,
+        bestDecay: $('best-decay').value, bestTarget: $('best-target').value
       };
     }
 
     function clearBeanForm() {
       ['bean-name','bean-roaster','bean-country','bean-region','bean-process','bean-varietal',
-       'bean-roast','bean-bagsize','bean-bagcount','bean-rnotes','bean-mynotes']
+       'bean-roast','bean-bagsize','bean-bagcount','bean-rnotes','bean-tasting','bf-rating']
         .forEach(id => $(id).value = '');
+      renderField('bf-rating'); renderField('bean-bagcount');
     }
 
     let editingBeanId = null;   // null = creating new; otherwise updating in place
@@ -2108,9 +2275,16 @@
         bean = beans.find(b => b.id === editingBeanId);
         if (!bean) { editingBeanId = null; return saveBean(); }   // vanished — save as new
         if (bean.locked) { alert('This bean is locked (already exported) and can’t be edited.'); return null; }
+        // A hand-edit of an existing best recipe is a deliberate "this is the best" → tier 5,
+        // so only a 5★ brew (or another edit) can later replace it. A bean that had no recipe
+        // yet keeps tier 0 so good brews can still evolve it.
+        const hadRecipe = bean.bestDose != null && bean.bestDose !== '';
+        const recipeChanged = Object.values(BEST_KEYS).some(k => String(bean[k] ?? '') !== String(data[k] ?? ''));
         Object.assign(bean, data, { updatedAt: new Date().toISOString() });  // keeps rating/tastingNote
+        if (hadRecipe && recipeChanged) bean.bestRecipeRating = 5;
+        else if (bean.bestRecipeRating == null) bean.bestRecipeRating = 0;
       } else {
-        bean = Object.assign({ id: nextBeanId(), savedAt: new Date().toISOString() }, data);
+        bean = Object.assign({ id: nextBeanId(), savedAt: new Date().toISOString(), bestRecipeRating: 0 }, data);
         beans.push(bean);
       }
       setBeans(beans);
@@ -2125,15 +2299,19 @@
       showBeanList();
     });
 
-    // List ⇄ form navigation within the Bean tab
+    // List ⇄ form navigation within the Bean tab. The amber "Beans" header button
+    // only shows in the form (it's the way back to the list).
     function showBeanList() {
       $('bean-list-view').hidden = false;
       $('bean-form-view').hidden = true;
+      $('btn-to-beanlist').hidden = true;
       renderBeanList();
     }
     function showBeanForm() {
       $('bean-list-view').hidden = true;
       $('bean-form-view').hidden = false;
+      $('btn-to-beanlist').hidden = false;
+      growBeanForm();                 // size the note textareas now that they're visible
     }
     function populateBeanForm(b) {
       $('bean-name').value = b.name || '';
@@ -2144,17 +2322,24 @@
       $('bean-varietal').value = b.varietal || '';
       $('bean-roast').value = b.roastDate || '';
       $('bean-bagsize').value = b.bagSize || '';
-      $('bean-bagcount').value = b.bagCount || '';
+      $('bean-bagcount').value = b.bagCount || ''; renderField('bean-bagcount');
       $('bean-rnotes').value = b.roasterNotes || '';
-      $('bean-mynotes').value = b.myNotes || '';
+      $('bf-rating').value = b.rating || ''; renderField('bf-rating');
+      $('bean-tasting').value = b.tastingNote || '';
+      setBeanRecipeFields(beanToRecipe(b));   // best recipe (defaults if the bean has none yet)
     }
     $('btn-new-bean').addEventListener('click', () => {
       clearBeanForm();
+      setBeanRecipeFields(DEFAULT_RECIPE);   // new beans start at the default recipe
+      $('bean-bagsize').value = '250g';      // default bag size
+      $('bean-bagcount').value = '1'; renderField('bean-bagcount');   // default to one bag
       editingBeanId = null;
       $('btn-save-bean').textContent = 'save bean';
       showBeanForm();
     });
-    $('btn-bean-back').addEventListener('click', showBeanList);
+    $('btn-to-beanlist').addEventListener('click', () => {   // cancel → bean list
+      editingBeanId = null; clearBeanForm(); showBeanList();
+    });
     function renderBeanList() { renderBeanHistory('manage', $('bean-list')); }
 
     // Bean action sheet (hold a bean in the list → Edit / Export)
@@ -2166,15 +2351,18 @@
       if (b.locked) {
         editBtn.textContent = 'Locked — exported' + (b.exportedAt ? ' ' + fmtDateShort(b.exportedAt.slice(0, 10)) : '');
         editBtn.disabled = true;
-        $('bean-act-export').textContent = 'Export again';
       } else {
         editBtn.textContent = 'Edit';
         editBtn.disabled = false;
-        $('bean-act-export').textContent = 'Export';
       }
       $('bean-act-bg').classList.add('open');
     }
     function closeBeanActions() { $('bean-act-bg').classList.remove('open'); actBean = null; }
+    $('bean-act-brew').addEventListener('click', () => {
+      if (!actBean) return;
+      const b = actBean; closeBeanActions();
+      brewFromBean(b);
+    });
     $('bean-act-edit').addEventListener('click', () => {
       if (!actBean || actBean.locked) return;
       const b = actBean; closeBeanActions();
@@ -2182,12 +2370,6 @@
       editingBeanId = b.id;
       $('btn-save-bean').textContent = 'update bean';
       showBeanForm();
-    });
-    $('bean-act-export').addEventListener('click', () => {
-      if (!actBean) return;
-      const b = actBean; closeBeanActions();
-      exportBean(b);
-      renderBeanList();
     });
     $('bean-act-delete').addEventListener('click', () => {
       if (!actBean) return;
@@ -2236,14 +2418,18 @@
       }
     }
     function selectBean(bean) {
-      setBeanBar(bean);
+      setBeanBar(bean);                 // swaps coffee + Bean★ + bean note; leaves the recipe alone
       saveDraft();
       closeHistory();
       showScreen('brew');
     }
-    // Tap the coffee bar → open the Bean tab (same action as the Bean nav button);
-    // pick a coffee there by tapping it in the list.
-    $('bean-bar').addEventListener('click', () => showScreen('bean'));
+    // Two ways into the Bean tab, distinguished by beanPickMode:
+    //  • 'attach' (coffee bar, top center) — tap a bean to swap the coffee WITHOUT touching
+    //    the recipe (quick swap mid-cup); returns to brew immediately.
+    //  • 'manage' (Bean button, top left) — tap a bean → Brew / Edit / Delete; Brew loads
+    //    the bean's best recipe (changes coffee AND recipe).
+    let beanPickMode = 'manage';
+    $('bean-bar').addEventListener('click', () => { beanPickMode = 'attach'; showScreen('bean'); });
 
     function fmtDateShort(ymd) {
       const dt = new Date(ymd + 'T00:00:00');
@@ -2333,13 +2519,13 @@
         }
 
         if (mode === 'manage') {
-          // Tap selects this coffee for the next brew; hold 2s → Edit / Export / Delete.
-          // No expand — bean details live on the Edit screen.
+          // 'attach' entry (coffee bar) → tap swaps the coffee, keeps the recipe.
+          // 'manage' entry (Bean button) → tap opens Brew / Edit / Delete.
           card.querySelector('.bc-actions').remove();
           card.querySelector('.bc-delete-link').remove();
-          bindLongPress(card, {
-            onTap: () => selectBean(b),
-            onHold: () => openBeanActions(b)
+          card.addEventListener('click', () => {
+            if (beanPickMode === 'attach') selectBean(b);
+            else openBeanActions(b);
           });
         } else {  // browse
           card.addEventListener('click', e => {
@@ -2380,12 +2566,15 @@
 
     // ── Init ─────────────────────────────────────────────────────
     attachAutocomplete($('bean-country'), () => optionsFor('country', SEED.country));
+    attachAutocomplete($('bean-region'), () => optionsFor('region', []));   // learns from saved regions
     attachAutocomplete($('bean-roaster'), () => optionsFor('roaster', SEED.roaster));
     attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
     attachAutocomplete($('bean-process'), () => optionsFor('process', SEED.process));
-    $('bagsize-chips').addEventListener('click', e => {
-      const g = e.target.dataset.g; if (g) $('bean-bagsize').value = g;
-    });
+    // Bag size: constrained list (in this order) + free "type other"; converts to grams on export.
+    const BAG_SIZES = ['100g','250g','350g','1000g','4oz','5oz','10oz','12oz','16oz','32oz'];
+    attachAutocomplete($('bean-bagsize'), () => BAG_SIZES);
+    $('bean-tasting').addEventListener('input', growBeanNote);
+    $('bean-rnotes').addEventListener('input', growRoasterNote);
     setBeanBar(null);
     showScreen('brew');
     $('notes-brew').addEventListener('input', () => { growNotes(); saveDraft(); });
