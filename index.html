@@ -49,8 +49,13 @@
         width: 100vh; height: 100vw;
         transform: rotate(-90deg);
         transform-origin: top left;
-        left: 100vw; top: 0; inset: auto;
+        /* rotate(-90) about top-left swings the box above the viewport;
+           translate it back down by one viewport height (top:100vh). */
+        inset: auto; top: 100vh; left: 0;
       }
+      /* The rotated stage is 100vw tall (the phone's long side); make the app
+         fill it instead of the short-side 100dvh, or it leaves a white gap. */
+      .app { min-height: 100vw; }
     }
 
     .app {
