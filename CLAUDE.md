@@ -39,9 +39,11 @@ install can still be reset by removing the home-screen icon and re-adding it
 (⚠️ that may clear the PWA's `localStorage` — export brews/beans first).
 
 ## App layout (top to bottom)
-1. **Header** — `Bean` (top-left), "Black Magic" title + live date/time, `History`
-   (top-right). `Bean`/`History` are amber text buttons.
-2. **Coffee selector** — full-width `Select a coffee ⌄` row (taps to pick a saved bean)
+1. **Header** — Brew screen: `Bean` (top-left), title + live date/time, `History`
+   (top-right). Bean screen: `Brew` (top-left), title, **no History button**
+   (removed — the Bean tab *is* the bean list). `Bean`/`Brew`/`History` are amber.
+2. **Coffee selector** — full-width `Select a coffee ⌄` row. Tapping it opens the
+   **Bean tab** (same as the `Bean` button); you pick a coffee by tapping it in the list.
 3. **Stats grid** — 2 rows × 4 columns of editable fields
 4. **Timer dial** — analog clock face (amber sweep hand + thick 4-min progress ring).
    Center stacks the live **Timer** (grey) over the pour-target number, with a small
@@ -184,36 +186,84 @@ Brew★ for the next cup **without saving** (keeps coffee + recipe + Bean★). A
 - `.select-wrap` / `.select-overlay` — transparent native `<select>` over a
   formatted number+word display (Agitate)
 
-## Brew history (Phase 2 — implemented)
+## Beans + Brew history (Phase 2 — implemented)
 
-Saved brews persist in `localStorage` under the key `blackmagic.brews` — a JSON
-array of records. No backend; data is per-browser.
+> Deep detail + rationale live in memory `bean-data-model.md`. Summary here.
 
-### Record shape
-Every field is captured: `id`, `savedAt` (ISO), `brewName`, `dose`, `grind`,
-`agitate`/`agitateText`, `contact`/`contactText`, `water`, `bloom`, `decay`,
-`brewTarget`, `timeAdj`, `tds`, `rating`, `notes`. The `*Text` fields store the
-select's display label (e.g. "Low", "4:30") so history renders without re-mapping.
+### Data model — live reference, freeze on export
+Beans in `localStorage['blackmagic.beans']`, brews in `['blackmagic.brews']` (JSON
+arrays; per-browser, no backend). A brew links to its bean by `beanId`. While a
+record is **unlocked**, a brew's bean identity (name/roaster/roastDate/brewName) is
+resolved **live** from the current bean (`brewIdentity()`) — so fixing a bean typo
+flows through to every unlocked brew; the snapshot fields on the brew are a fallback
+for deleted beans. Records carry `locked` + `exportedAt`: **per-bean export freezes**
+the bean's current values into its linked brews and locks both; locked records ignore
+live lookup and refuse edits. `nextId()`/`nextBeanId()` = `max(Date.now(),
+maxExisting+1)` → stable unique keys (also the Excel match key).
 
-`id` comes from `nextId()` — `max(Date.now(), maxExistingId + 1)` — guaranteeing
-strictly increasing, unique ids even for saves within the same millisecond (so
-delete-by-id never removes the wrong record).
+### Bean tab (list-first)
+Reached by the header **Bean** button *or* by tapping the coffee bar (both →
+`showScreen('bean')`). Opens to a reverse-chron bean list with **＋ create new bean**
+pinned on top (`renderBeanHistory('manage', …)`).
+- **Tap a bean** → selects it as the current coffee, returns to brew.
+- **Hold 2s** → action sheet **Edit · Export · Delete** (Delete confirmed; Edit
+  disabled on locked beans). Edit loads the form (`editingBeanId`, updates in place).
+- Form fields: name, roaster, **country/region/process/varietal** (all free-text +
+  learning autocomplete via `optionsFor()` = seed ∪ saved values; Process used to be
+  a `<select>`), roast date, **Bag Size (g)** (chips 250/340/454) + **# Bags**,
+  roaster notes, my notes. Bean★ + tasting note live on the bean, edited from the brew screen.
 
-### History panel
-- Opened via the header `history` button; slide-in overlay (`.history-overlay` /
-  `.history-panel`), closed by ×, by tapping the dim backdrop, or after a load.
-- Cards listed newest-first (sort by `id` desc). Each shows name, date, and a
-  compact `dose · TDS · ★rating` line.
-- Tapping a card toggles an expanded detail grid (taps on the action buttons are
-  ignored so they don't also toggle).
-- **load** writes the record back into the live form via `applyRecord()`, then
-  recalculates the schedule and resets the timer, and closes the panel.
-- **delete** removes that one record (confirm() guarded).
+### Brew history (slide-up overlay — **Brew screen only**)
+Header **History** opens `#history-overlay`; its head = **EXPORT · BACKUP · RESTORE · ×**.
+- Cards newest-first, compact `dose · TDS · ★` line. **Tap does nothing; hold 2s →
+  Edit · Delete** (Delete confirmed; Edit disabled on locked brews). `bindLongPress`
+  (scroll-safe, ~500ms; no `preventDefault`, movement cancels) drives the hold; cards
+  set `user-select:none`/`-webkit-touch-callout:none` so iOS doesn't hijack with text-select.
+- **Edit** = in-place update (`editingBrewId`): loads the brew into the Brew tab with
+  **bean identity + Bean★ + Bean note LOCKED** (dimmed `.locked-field`, read-only —
+  protects the bean's evolving verdict); recipe + Time/TDS/Brew★/Brew-note editable.
+  Bottom timer button swaps to a **Cancel · Save** row (`#edit-actions`).
+- **Side-trip restore:** entering edit snapshots the in-progress cup
+  (`captureBrewState`); **both Cancel and Save restore it** (`restoreBrewState`) so
+  viewing/fixing an old brew never disturbs the cup you're brewing. `saveDraft` is
+  suppressed while `editingBrewId` is set.
+
+### Record shapes
+Brew: `id, savedAt, brewName, beanId, beanName, beanRoaster, roastDate, dose, grind,
+agitate(+Text), contact(+Text), water, bloom, decay, brewTarget, timeAdj, tds,
+brewRating, beanRating, brewNote, beanNote, locked, exportedAt, updatedAt`.
+Bean: `id, savedAt, name, roaster, country, region, process, varietal, roastDate,
+bagSize, bagCount, roasterNotes, myNotes, rating, tastingNote, locked, exportedAt, updatedAt`.
+
+### Export model (three paths)
+- **EXPORT** (overlay) — full dump of **both** `brews.csv` + `beans.csv`, all records,
+  **no locking**, re-runnable (staggered 700ms for iOS). The Excel feed.
+- **Per-bean Export** (bean hold sheet) — one flat CSV (bean cols prepended to each of
+  its brews), then **freezes + locks** that bean and its brews ("commit a finished coffee").
+- **BACKUP / RESTORE** — full JSON of beans+brews (`exportJSON`/`importJSON`); the
+  PWA-reinstall safety net (RESTORE replaces all data).
+- All CSVs carry stable **ID** keys for Excel upsert: beans `ID`; brews `ID` + `Bean_ID`
+  (FK); per-bean file `Bean_ID` + `Brew_ID`. Unit conversions on export: `Time_Aim` =
+  contact secs→min, `Pour_Decay` = %→fraction, `Output` = brewTarget.
+
+## Excel integration
+Workbook `~/Downloads/TFD Coffee Log 2026 Claude.xlsm` (ListObjects `BeanLog`,
+`BrewLog`) ingests the CSVs via a VBA **upsert** macro `ImportBlackMagic` (source:
+`~/Downloads/BlackMagicImport.bas`): matches by app `ID` (stored Text), appends new /
+updates existing rows, assigns next `Bag` to new beans, writes only app-input columns
+and leaves Excel formula columns alone (Combo_Name, Pour1, EY*/EQV*, and brew
+Bag/Country/Roaster derived via `XLOOKUP` on `Bean_ID`). **Mac VBA constraints (cost a
+lot of debugging):** Excel-for-Mac has NO `FileDialog`, `Scripting.Dictionary`, or
+`FileSystemObject` — the macro uses `GetOpenFilename` (no Win-style filter), VBA
+`Collection`, and native binary read + a hand-rolled UTF-8 decoder. **Never open the
+CSVs directly in Excel** — it converts 13-digit IDs to `1.78E+12` and collapses them.
+Pour1 (geometric first pour) = `Output·(1−r)/(1−r^n)`, `n = Time_Aim/0.5`.
 
 ## Phase 3 ideas (not yet started)
 - Chart TDS or Rating over time
 - Compare brews side by side
-- Export / import history (JSON) so it survives a browser change
+- "Use this recipe to brew now" (a separate action from Edit, which always returns to
+  the current cup)
 
 ## Design conventions
 Refined via a Claude Design pass; tokens live in `:root` in `index.html`.
