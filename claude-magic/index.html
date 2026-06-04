@@ -268,7 +268,7 @@
     .pour-number.go { color: var(--accent); letter-spacing: 0; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
-      .ed-bg, .ed-sheet, .screen { transition: none; }
+      .ed-bg, .ed-sheet, .screen, .dial-reset { transition: none; }
     }
 
     /* In-dial live timer (grey, above the pour number) */
@@ -277,7 +277,11 @@
       letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
     }
     /* Grey reset-hint symbol below the pour number (hold the dial 2s to reset) */
-    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex; }
+    /* Hidden until there's something to reset (stopped with a recorded time) —
+       opacity keeps its space so the pour number never shifts. */
+    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex;
+      opacity: 0; transition: opacity .3s ease; }
+    .dial-reset.show { opacity: 1; }
     .dial-reset svg { width: 17px; height: 17px; display: block; }
 
     /* Hold-to-reset overlay on the dial (2-second press) */
@@ -1637,6 +1641,9 @@
         }
       }
       document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
+      // Reset hint appears only once a stopped brew has a time to clear.
+      document.querySelector('.dial-reset').classList.toggle('show',
+        !running && !inCountdown && elapsed > 0.05);
       updateButtonLabel();
     }
 
