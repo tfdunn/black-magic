@@ -581,6 +581,7 @@
       margin-top: 4px;
       font-variant-numeric: tabular-nums;
     }
+    .brew-card .bc-stats .bc-delta { color: var(--accent); font-weight: 600; }
     .brew-card .bc-detail { display: none; margin-top: 12px; }
     .brew-card.expanded .bc-detail { display: block; }
     .bc-detail .bc-grid {
@@ -1731,6 +1732,19 @@
       return `${date} · ${time}`;
     }
 
+    // Dial-in variables (Grind / Temp / Contact) that differ from this brew's bean's
+    // best recipe — so an experiment brew shows at a glance what was changed.
+    function recipeDeltas(r) {
+      const b = liveBean(r.beanId);
+      if (!b) return [];
+      const diff = (a, c) => a != null && a !== '' && c != null && c !== '' && parseFloat(a) !== parseFloat(c);
+      const out = [];
+      if (diff(r.grind, b.bestGrind))   out.push('Grind ' + r.grind);
+      if (diff(r.water, b.bestWater))   out.push('Temp ' + r.water);
+      if (diff(r.contact, b.bestContact)) out.push('Contact ' + fmtMS(parseInt(r.contact)));
+      return out;
+    }
+
     function renderHistory() {
       const list = $('history-list');
       const brews = getBrews().sort((a, b) => b.id - a.id);
@@ -1749,12 +1763,14 @@
         const tds = r.tds ? 'TDS ' + r.tds : 'TDS —';
         const brewR = r.brewRating || r.rating || '';
         const rating = brewR ? '★' + brewR : '★—';
+        const deltas = recipeDeltas(r);
+        const deltaHtml = deltas.map(d => ' · <span class="bc-delta">' + d + '</span>').join('');
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
             <span class="bc-date">${fmtSavedAt(r.savedAt)}</span>
           </div>
-          <div class="bc-stats">${dose} · ${tds} · ${rating}</div>
+          <div class="bc-stats">${dose} · ${tds} · <span class="bc-delta">${rating}</span>${deltaHtml}</div>
           <div class="bc-detail">
             <div class="bc-grid">
               <div class="row"><span class="k">Roast</span><span>${idn.roastDate ? fmtDateShort(idn.roastDate) : '—'}</span></div>

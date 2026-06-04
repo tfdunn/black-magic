@@ -270,7 +270,13 @@ verdict — editable here too; Bean★ shown larger) · **save/update bean**.
 
 ### Brew history (slide-up overlay — **Brew screen only**)
 Header **History** opens `#history-overlay`; its head = **EXPORT · BACKUP · RESTORE · ×**.
-- Cards newest-first, compact `dose · TDS · ★` line. **Tap → action sheet
+- Cards newest-first, compact `dose · TDS · ★` line. **Experiment deltas:** the line also
+  appends, in **amber**, any of **Grind / Temp / Contact** that differ from the brew's bean's
+  **best recipe** (`recipeDeltas()` vs `liveBean(beanId).best*`) — so a 3★ experiment shows at
+  a glance which variable was changed (e.g. `24g · TDS 1.38 · ★3 · Grind 9`). The ★ rating is
+  amber too; a fully-standard brew shows no deltas. (Baseline is the bean's best recipe, not a
+  global standard — only true deviations from the dialed-in recipe surface.)
+- **Tap → action sheet
   Brew · Edit · Delete** (Delete confirmed; Edit disabled on locked brews; Brew always
   enabled). Plain `click` — no long-press.
 - **Brew** (`brewFromBrew`) → start a **fresh cup**: coffee + **recipe from that brew's
