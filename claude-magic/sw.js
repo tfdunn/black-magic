@@ -1,5 +1,8 @@
-// Black Magic service worker — caches the app shell for offline use.
-const CACHE = 'blackmagic-v29';
+// Claude Magic service worker — caches the app shell for offline use.
+// Fork of Black Magic's SW. Cache name is prefixed `claudemagic-` and the
+// activate cleanup only deletes OUR own old caches, so it never wipes the
+// sibling Black Magic cache (both apps share this origin's Cache Storage).
+const CACHE = 'claudemagic-v1';
 const ASSETS = [
   './',
   './index.html',
@@ -18,10 +21,8 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      // Only delete OUR own stale caches — never the sibling Claude Magic
-      // cache (both apps share this origin's Cache Storage).
       .then(keys => Promise.all(
-        keys.filter(k => k.startsWith('blackmagic-') && k !== CACHE)
+        keys.filter(k => k.startsWith('claudemagic-') && k !== CACHE)
             .map(k => caches.delete(k))
       ))
       .then(() => self.clients.claim())

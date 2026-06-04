@@ -1,0 +1,2726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Claude Magic</title>
+
+  <!-- PWA / installable -->
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Claude Magic">
+  <link rel="apple-touch-icon" href="icon-180.png">
+  <style>
+    /* ── Design tokens (from Claude Design handoff) ── */
+    :root {
+      --ink:       #0B0B0C;              /* primary text, ticks, save bg, borders */
+      --secondary: rgba(60,60,67,0.60);  /* labels, date, selector, timer m:ss */
+      --tertiary:  rgba(60,60,67,0.34);  /* units, placeholders, chevron */
+      --hairline:  rgba(60,60,67,0.13);  /* separators / grid gaps */
+      --accent:    #9A5A2B;              /* warm roasted amber — the one accent */
+      --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro',
+              'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+    /* Lock the screen — no page scroll / rubber-band on iPhone (content fits 100dvh) */
+    html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    /* Let native controls (date picker, caret, scrollbars) follow the theme. */
+    html { color-scheme: light dark; }
+    body {
+      font-family: var(--font);
+      background: #ececef;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      position: fixed;
+      inset: 0;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+
+    /* Stay portrait regardless of device rotation. The manifest requests portrait
+       for the installed PWA; this counter-rotates the app if iOS rotates anyway
+       (e.g. in a Safari tab). Only fires on a landscape phone (coarse pointer). */
+    @media (orientation: landscape) and (pointer: coarse) and (max-height: 600px) {
+      body {
+        width: 100vh; height: 100vw;
+        transform: rotate(-90deg);
+        transform-origin: top left;
+        /* rotate(-90) about top-left swings the box above the viewport;
+           translate it back down by one viewport height (top:100vh). */
+        inset: auto; top: 100vh; left: 0;
+      }
+      /* The rotated stage is 100vw tall (the phone's long side); make the app
+         fill it instead of the short-side 100dvh, or it leaves a white gap. */
+      .app { min-height: 100vw; }
+    }
+
+    .app {
+      background: #fff;
+      width: 100%;
+      max-width: 440px;
+      min-height: 100dvh;
+      padding: max(12px, env(safe-area-inset-top)) 20px max(14px, env(safe-area-inset-bottom));
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-feature-settings: "tnum";
+    }
+
+    /* ── Header ── */
+    .header {
+      text-align: center;
+      padding: 2px 0 10px;
+    }
+
+    .header h1 {
+      font-size: 23px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      color: var(--ink);
+      line-height: 1.1;
+    }
+
+    .header .date {
+      font-size: 12.5px;
+      color: var(--secondary);
+      margin-top: 4px;
+      letter-spacing: 0.1px;
+    }
+
+    .brew-name {
+      font-size: 15px;
+      font-weight: 500;
+      color: #000;
+      text-align: center;
+      padding: 10px 0 8px;
+      border-bottom: 1px solid var(--hairline);
+    }
+
+    /* ── Stats Grid ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5px;                       /* gaps render as hairline separators */
+      background: var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
+    }
+
+    .stats-grid .stat-cell {
+      background: #fff;
+      padding: 13px 6px 14px;
+      text-align: center;
+    }
+
+    .stat-cell .label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      display: block;
+      margin-bottom: 5px;
+      white-space: nowrap;   /* keep every metric label on one line */
+    }
+
+    .stat-cell .value {
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
+      display: block;
+      line-height: 1;
+      letter-spacing: -0.4px;
+    }
+
+    /* ── Editable stat inputs ── */
+    .value-input {
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.4px;
+      background: transparent;
+      border: none;
+      border-bottom: 1px solid transparent;
+      text-align: center;
+      text-align-last: center; /* keeps <select> text centred */
+      width: 100%;
+      padding: 0;
+      line-height: 1;
+      font-family: inherit;
+      cursor: pointer;
+      -webkit-appearance: none;
+      appearance: none;
+      display: block;
+    }
+
+    .value-input:focus {
+      outline: none;
+      border-bottom-color: var(--accent);
+    }
+
+    /* Hide number spinners */
+    .value-input[type=number]::-webkit-inner-spin-button,
+    .value-input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .value-input[type=number] { -moz-appearance: textfield; }
+
+    /* Cells with a unit suffix (%, ml) */
+    .unit-wrap {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+    }
+
+    .unit-wrap .value-input {
+      width: 3ch;
+    }
+
+    .unit-wrap .value-input.wide {
+      width: 4ch;   /* brew target can be 4 digits */
+    }
+
+    .unit-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--tertiary);
+      line-height: 1.1;
+      margin-left: 2px;
+    }
+
+    /* Agitate: a little extra gap between the number and its word */
+    #agitate-word { margin-left: 5px; }
+
+    /* Agitate: bold number + small grey word, backed by a transparent native
+       <select> so the iOS picker still works. */
+    .select-wrap { position: relative; }
+    .select-wrap .value {
+      font-size: 21px; font-weight: 600; color: var(--ink);
+      letter-spacing: -0.4px; line-height: 1;
+    }
+    .select-overlay {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0; border: none; background: none;
+      font-family: inherit; font-size: 16px; cursor: pointer;
+      -webkit-appearance: none; appearance: none;
+    }
+
+    /* ── Timer Area ── */
+    .timer-section {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 0 2px;
+    }
+
+    .timer-circle-wrap {
+      position: relative;
+      width: 235px;
+      height: 235px;
+      margin: 0 auto 2px;
+      cursor: pointer;           /* hold 2s to reset (no tap action) */
+      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+    }
+    .timer-circle-wrap:active { opacity: 0.92; }
+
+    .timer-circle-wrap svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+    }
+
+    /* Clock strokes — progress arc is dark grey for the first 4 min, black past
+       it (colour set per-frame in render()); the sweep hand is amber. */
+    #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
+    #timer-svg #t-arc   { stroke: #555; transition: stroke-dashoffset 0.1s linear, stroke 0.25s linear; }
+    #timer-svg #t-hand  { stroke: var(--accent); }
+
+    .timer-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+
+    .pour-number {
+      font-size: 54px;
+      font-weight: 700;
+      color: var(--ink);
+      line-height: 0.9;
+      letter-spacing: -2px;
+      font-variant-numeric: tabular-nums;
+    }
+    /* Countdown: the big number pops on each 3-2-1 tick, then flashes "GO"
+       in amber (synced to the GO tone + timer start). */
+    @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
+    .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
+    .pour-number.go { color: var(--accent); letter-spacing: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .pour-number.count-pop { animation: none; }
+      .ed-bg, .ed-sheet, .screen { transition: none; }
+    }
+
+    /* In-dial live timer (grey, above the pour number) */
+    .dial-timer {
+      font-size: 15px; font-weight: 500; color: var(--secondary);
+      letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
+    }
+    /* Grey reset-hint symbol below the pour number (hold the dial 2s to reset) */
+    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex; }
+    .dial-reset svg { width: 17px; height: 17px; display: block; }
+
+    /* Hold-to-reset overlay on the dial (2-second press) */
+    .dial-hold {
+      position: absolute; inset: 0; border-radius: 50%;
+      display: none; flex-direction: column; align-items: center; justify-content: center;
+      gap: 12px; background: rgba(255,255,255,0.84); pointer-events: none;
+    }
+    .timer-circle-wrap.holding .dial-hold { display: flex; }
+    .dial-hold .dh-label {
+      font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--secondary);
+    }
+    .dial-hold .dh-bar {
+      width: 96px; height: 4px; border-radius: 2px; background: var(--hairline);
+      position: relative; overflow: hidden;
+    }
+    .dial-hold .dh-bar::after {
+      content: ''; position: absolute; inset: 0; background: var(--accent);
+      transform: scaleX(0); transform-origin: left;
+    }
+    .timer-circle-wrap.holding .dial-hold .dh-bar::after {
+      transform: scaleX(1); transition: transform 2s linear;
+    }
+    /* Hold-to-save fill on the brew button (2-second press) */
+    .btn-save .btn-fill {
+      position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
+      background: var(--accent); transform: scaleX(0); transform-origin: left; z-index: 0;
+    }
+    .btn-save.holding .btn-fill { transform: scaleX(1); transition: transform 2s linear; }
+    .btn-save .btn-label { position: relative; z-index: 1; }
+
+    /* ── Bottom Stats Row ── */
+    .bottom-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5px;
+      background: var(--hairline);
+      border-top: 0.5px solid var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
+      margin-top: 6px;
+    }
+
+    .bottom-stat {
+      background: #fff;
+      text-align: center;
+      padding: 13px 6px 14px;
+    }
+
+    .bottom-stat .label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .bottom-stat .value {
+      font-size: 21px;
+      font-weight: 600;
+      color: var(--ink);
+      letter-spacing: -0.4px;
+      display: block;
+    }
+
+    /* ── Tap-to-edit field buttons (recipe + results) ── */
+    .field {
+      -webkit-appearance: none; appearance: none; background: none; border: none;
+      font-family: inherit; padding: 0; cursor: pointer; width: 100%;
+      display: flex; align-items: baseline; justify-content: center; gap: 2px;
+    }
+    .field:active { opacity: 0.5; }
+    .field .fnum, .field .dash {
+      font-size: 21px; font-weight: 600; letter-spacing: -0.4px; line-height: 1;
+      color: var(--ink); font-variant-numeric: tabular-nums;
+    }
+    .field .fu, .field .fw { font-size: 11px; font-weight: 500; color: var(--tertiary); }
+    .field .fw { margin-left: 4px; }
+    /* TIME +/−, TDS, Brew★, Bean★ values are amber */
+    .field.amber .fnum, .field.amber .dash { color: var(--accent); }
+
+    /* ── Tap-to-edit sheet ── */
+    .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
+      align-items: flex-end; justify-content: center; z-index: 60;
+      /* iOS-style spring-up: fade the dim backdrop, slide the sheet. display is
+         discrete so it's animated via allow-discrete + @starting-style. */
+      opacity: 0; transition: opacity .22s ease, display .22s allow-discrete; }
+    .ed-bg.open { display: flex; opacity: 1; }
+    @starting-style { .ed-bg.open { opacity: 0; } }
+    .ed-sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 22px 22px 0 0;
+      padding: 16px 20px calc(22px + env(safe-area-inset-bottom));
+      transform: translateY(100%); transition: transform .28s cubic-bezier(.32,.72,0,1);
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .ed-bg.open .ed-sheet { transform: translateY(0); }
+    @starting-style { .ed-bg.open .ed-sheet { transform: translateY(100%); } }
+    .ed-sheet h3 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+      color: var(--secondary); text-align: center; margin-bottom: 16px; }
+    .ed-big { display: flex; align-items: center; justify-content: center; gap: 22px; margin-bottom: 16px; }
+    .ed-big button { width: 58px; height: 58px; border-radius: 50%; border: 1.5px solid var(--ink);
+      background: #fff; font-size: 28px; color: var(--ink); line-height: 1; font-family: inherit; }
+    .ed-big button:active { background: var(--ink); color: #fff; }
+    .ed-big .ed-v { font-size: 42px; font-weight: 700; letter-spacing: -1.5px; min-width: 130px;
+      text-align: center; font-variant-numeric: tabular-nums; }
+    .ed-big .ed-v small { font-size: 18px; font-weight: 500; color: var(--tertiary); }
+    .ed-chips { display: flex; flex-wrap: nowrap; gap: 7px; justify-content: center; margin-bottom: 14px; }
+    .ed-chips .chip { padding: 9px 12px; border-radius: 999px; border: 1.4px solid var(--hairline); white-space: nowrap;
+      background: #fff; color: var(--ink); font-size: 15px; font-weight: 600; font-family: inherit; }
+    .ed-chips .chip.sel { background: var(--ink); color: #fff; border-color: var(--ink); }
+    .ed-chips .chip .cw { font-size: 11px; font-weight: 500; opacity: .7; margin-left: 4px; }
+    .ed-type { display: block; margin: 0 auto 14px; background: none; border: none;
+      color: var(--secondary); font-family: inherit; font-size: 12.5px; text-decoration: underline; }
+    .ed-done { display: block; width: 100%; padding: 14px; border-radius: 999px; background: var(--ink);
+      color: #fff; border: none; font-family: inherit; font-size: 16px; font-weight: 600; }
+
+    /* Time cell with +/- */
+    .time-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .time-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1px;
+    }
+
+    .time-controls .value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #000;
+      min-width: 18px;
+      text-align: center;
+    }
+
+    .btn-adj {
+      background: none;
+      border: none;
+      font-size: 17px;
+      color: #000;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0 2px;
+      font-family: inherit;
+    }
+
+    /* ── Notes — two soft-labeled rows reading as one block ──
+       Brew note (transient, per-brew) + Bean note (persists to the bean). */
+    .notes-section {
+      margin-top: 4px;
+      border-top: 0.5px solid var(--hairline);
+      padding-top: 8px;
+    }
+    .notes-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      padding: 5px 0;
+    }
+    .notes-row + .notes-row { border-top: 0.5px solid var(--hairline); }
+    .notes-tag {
+      flex: none;
+      width: 38px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--secondary);
+      padding-top: 2px;
+    }
+    .notes-input {
+      flex: 1;
+      display: block;
+      border: none;
+      outline: none;
+      resize: none;
+      /* Heights are set by growNotes(): the two fields share a fixed ~4-line budget,
+         each taking only what its content needs (the short one yields to the long
+         one). Overflow scrolls within the field, so the page stays one screen. */
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      font-size: 16px;   /* ≥16px stops iOS auto-zoom on focus */
+      color: var(--ink);
+      line-height: 1.4;
+      padding: 0;
+      font-family: inherit;
+      background: transparent;
+      text-align: left;
+    }
+    .notes-input::placeholder { color: var(--tertiary); }
+
+    /* ── Header history button ── */
+    .header { position: relative; }
+    .history-btn {
+      position: absolute;
+      top: 0; right: 0;
+      background: none;
+      border: none;
+      font-size: 16px;
+      color: var(--accent);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0;
+    }
+    .history-btn:active { opacity: 0.45; }
+
+    /* ── Editable brew name ── */
+    input.brew-name {
+      width: 100%;
+      background: transparent;
+      font-family: inherit;
+      outline: none;
+      border: none;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    input.brew-name:focus { border-bottom-color: #bbb; }
+
+    /* ── Save button ── */
+    .save-row {
+      display: flex;
+      justify-content: center;
+      margin-top: 16px;
+    }
+    .btn-save {
+      position: relative;
+      overflow: hidden;
+      background: var(--ink);
+      color: #fff;
+      border: 1.5px solid var(--ink);
+      border-radius: 999px;
+      font-size: 17px;
+      font-weight: 600;
+      padding: 15px 44px;
+      cursor: pointer;
+      letter-spacing: -0.2px;
+      font-family: inherit;
+      transition: transform .12s ease, opacity .15s;
+      -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+    }
+    .btn-save:active { transform: scale(0.97); opacity: 0.9; }
+    .btn-save.saved { background: #fff; color: var(--ink); }
+
+    /* ── History overlay ── */
+    .history-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.25);
+      display: none;
+      justify-content: center;
+      z-index: 10;
+    }
+    .history-overlay.open { display: flex; }
+    .history-panel {
+      background: #fff;
+      width: 100%;
+      max-width: 390px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      transform: translateX(100%);
+      transition: transform 0.25s ease;
+    }
+    .history-overlay.open .history-panel { transform: translateX(0); }
+    .history-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 20px 12px;
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
+    .history-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      line-height: 1;
+      cursor: pointer;
+      color: #000;
+      font-family: inherit;
+      padding: 0 2px;
+    }
+    .history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 0 24px;
+    }
+    .history-empty {
+      text-align: center;
+      color: #bbb;
+      font-size: 13px;
+      padding: 48px 20px;
+    }
+    .brew-card {
+      padding: 12px 20px;
+      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
+      /* Long-press = our Edit/Delete gesture; suppress iOS text-selection + callout */
+      -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
+    }
+    .brew-card:active { background: #f7f7f7; }
+    .brew-card .bc-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; }
+    .brew-card .bc-date {
+      font-size: 10px;
+      color: #aaa;
+      white-space: nowrap;
+      margin-left: 8px;
+    }
+    .brew-card .bc-stats {
+      font-size: 11px;
+      color: #888;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+    .brew-card .bc-stats .bc-delta { color: var(--accent); font-weight: 600; }
+    .brew-card .bc-detail { display: none; margin-top: 12px; }
+    .brew-card.expanded .bc-detail { display: block; }
+    .bc-detail .bc-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 5px 18px;
+    }
+    .bc-detail .bc-grid .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #000;
+      font-variant-numeric: tabular-nums;
+    }
+    .bc-detail .bc-grid .row .k { color: #999; }
+    .bc-detail .bc-notes {
+      font-size: 12px;
+      color: #555;
+      margin-top: 10px;
+      font-style: italic;
+    }
+    .bc-detail .bc-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .bc-actions button {
+      flex: 1;
+      font-size: 11px;
+      padding: 6px 0;
+      border: 1px solid #000;
+      border-radius: 16px;
+      background: none;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: 0.3px;
+    }
+    .bc-actions .bc-delete { border-color: #c00; color: #c00; }
+
+    /* ── Screen nav toggle (top-left, mirrors history) ── */
+    .nav-btn {
+      position: absolute;
+      top: 0; left: 0;
+      background: none; border: none;
+      font-size: 16px; color: var(--accent);
+      cursor: pointer; font-family: inherit;
+      font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0;
+    }
+    .nav-btn:active { opacity: 0.45; }
+
+    /* ── Screens ── */
+    .screen[hidden] { display: none; }
+    /* Gentle cross-fade when a screen first renders (brew<->bean swap, launch).
+       Opacity only — transform would make this a containing block for the
+       fixed bottom sheets. */
+    .screen { opacity: 1; transition: opacity .26s ease, display .26s allow-discrete; }
+    @starting-style { .screen:not([hidden]) { opacity: 0; } }
+
+    /* ── Bean screen ── */
+    input.bean-name {
+      width: 100%; font-size: 20px; font-weight: 600; color: #000;
+      text-align: center; background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8; outline: none; font-family: inherit;
+      padding: 14px 0 6px;
+    }
+    input.bean-name:focus { border-bottom-color: #bbb; }
+    input.bean-name::placeholder { color: #ccc; font-weight: 500; }
+
+    input.roaster {
+      width: 100%; font-size: 16px; font-weight: 500; color: #555;
+      text-align: center; background: transparent; border: none;
+      border-bottom: 1px solid #e8e8e8; outline: none; font-family: inherit;
+      padding: 8px 0 10px;
+    }
+    input.roaster:focus { border-bottom-color: #bbb; }
+    input.roaster::placeholder { color: #ccc; }
+
+    .bean-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      border-bottom: 1px solid #e8e8e8;
+    }
+    .bean-grid.one-col { grid-template-columns: 1fr; }
+    .bean-cell {
+      padding: 9px 6px; text-align: center;
+      border-right: 1px solid #e8e8e8; border-top: 1px solid #e8e8e8;
+    }
+    .bean-grid .bean-cell:nth-child(-n+2) { border-top: none; }
+    .bean-grid .bean-cell:nth-child(2n) { border-right: none; }
+    .bean-grid.one-col .bean-cell { border-right: none; border-top: none; }
+    .bean-cell .label {
+      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 4px;
+    }
+    .value-input::placeholder { color: #ccc; font-weight: 500; }
+    /* Bean cells hold free text (e.g. "Anaerobic Natural") — size to fit the cell */
+    .bean-cell .value-input { font-size: 16px; font-weight: 600; width: 100%; }
+    .bean-date { font-size: 14px; width: 100%; min-height: 20px; line-height: 20px; padding: 0; }
+    .bean-cell .chips { display: flex; gap: 5px; justify-content: center; margin-top: 7px; }
+    .bean-cell .chips button {
+      font-family: inherit; font-size: 11px; font-weight: 600; color: #888;
+      background: #f4f4f4; border: none; border-radius: 999px; padding: 3px 10px; cursor: pointer;
+    }
+    .bean-cell .chips button:active { background: var(--ink); color: #fff; }
+    /* Combined "# Bags @ Size" — the two read as one tight unit */
+    .bags-vol { display: flex; align-items: baseline; justify-content: center; gap: 5px; }
+    .bags-vol .bags-count { width: auto; }
+    .bags-vol .bags-count .fnum, .bags-vol .bags-count .dash { font-size: 16px; }
+    .bags-at { color: var(--tertiary); font-size: 14px; }
+    .ac.bags-size { width: auto; flex: 0 0 auto; }
+    .bags-size .value-input { width: 5ch; text-align: left; }
+    /* Bean★ + tasting note (the bean's current verdict) */
+    .verdict-row { display: flex; align-items: flex-start; gap: 14px;
+      padding: 9px 6px 10px; border-bottom: 1px solid #e8e8e8; }
+    .verdict-row .label { font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 4px; }
+    .verdict-rating { flex: 0 0 auto; text-align: center; }
+    .verdict-rating .field { background: none; border: none; min-width: 44px; padding: 2px 0; }
+    .verdict-rating .field .fnum, .verdict-rating .field .dash { font-size: 28px; }
+    .verdict-note-wrap { flex: 1; text-align: left; }
+    .verdict-note-wrap .label { text-align: left; }
+    .verdict-note { width: 100%; font-size: 15px; font-weight: 500; color: var(--accent);
+      background: transparent; border: none; outline: none; font-family: inherit; padding: 2px 0;
+      line-height: 20px; resize: none; overflow-y: auto; display: block; }
+    .verdict-note::placeholder { color: #ccc; }
+
+    /* ── Bean tab: list-first + form ── */
+    .bean-new {
+      width: 100%; padding: 14px; margin-top: 8px; border-radius: 14px;
+      border: 1.5px dashed var(--hairline); background: #fff;
+      font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
+    }
+    .bean-new:active { background: #f6f6f6; }
+    .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px;
+      max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    /* Section header — matches the centered ROASTER NOTES label */
+    .bean-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+      color: #888; text-align: center; margin: 12px 0 2px; }
+    #bean-form-view .stats-grid { margin-bottom: 4px; }
+    /* Best-recipe values render amber (signals editable) + slightly smaller than Bean★ */
+    .best-grid .field .fnum, .best-grid .field .dash { color: var(--accent); font-size: 17px; }
+    .bean-back {
+      background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
+      padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
+    }
+    .bean-back:active { color: var(--ink); }
+    .brew-card.locked { opacity: 0.55; }
+    .brew-card.holding { background: #f0f0f0; transition: background .15s; }
+    .bc-lock { font-size: 10px; color: var(--accent); font-weight: 600; letter-spacing: 0.3px; }
+
+    /* Bean action sheet buttons (reuses .ed-bg / .ed-sheet) */
+    .act-btns { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
+    .act-btn { width: 100%; padding: 14px; border-radius: 14px; border: 1.5px solid var(--ink);
+      background: #fff; color: var(--ink); font-family: inherit; font-size: 16px; font-weight: 600; }
+    .act-btn:active { background: var(--ink); color: #fff; }
+    .act-btn:disabled { border-color: var(--hairline); color: var(--secondary); font-weight: 500;
+      font-size: 13px; background: #fafafa; }
+    .act-btn.danger { border-color: #e3b7b7; color: #c0392b; }
+    .act-btn.danger:active { background: #c0392b; border-color: #c0392b; color: #fff; }
+
+    .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
+    .text-field .label {
+      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.4px; display: block; margin-bottom: 5px; text-align: center;
+    }
+    .text-field input, .text-field textarea {
+      width: 100%; border: none; outline: none; background: transparent;
+      font-family: inherit; font-size: 16px; color: #555; text-align: center;
+    }
+    .text-field textarea { line-height: 20px; resize: none; overflow-y: auto; display: block; padding: 0; }
+    .text-field input::placeholder, .text-field textarea::placeholder { color: #ccc; }
+
+    /* ── Selected-coffee bar (BREW screen) ── */
+    .bean-bar {
+      width: 100%;
+      background: transparent;
+      border: none;
+      border-top: 0.5px solid var(--hairline);
+      border-bottom: 0.5px solid var(--hairline);
+      font-family: inherit;
+      padding: 13px 0 12px;
+      cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      transition: background .15s;
+    }
+    .bean-bar:active { background: rgba(60,60,67,0.04); }
+    .bean-bar-row { display: flex; align-items: center; gap: 8px; }
+    .bean-bar-name { font-size: 17px; font-weight: 500; color: var(--ink); letter-spacing: -0.2px; }
+    .bean-bar:not(.has-bean) .bean-bar-name { color: var(--secondary); }
+    .bean-bar-chev { color: var(--tertiary); flex: none; }
+    .bean-bar-roast { font-size: 11px; color: var(--tertiary); letter-spacing: 0.2px; }
+
+    /* ── Two-button save row (BEAN input) ── */
+    .save-row.two { gap: 10px; }
+    .btn-save.secondary { background: #fff; color: #000; border: 1.5px solid var(--ink); }
+    .btn-save.secondary:active { background: #f0f0f0; }
+
+    /* Brew edit mode: Cancel · Save row replaces the timer button; locked fields dim */
+    .edit-actions { display: flex; gap: 10px; width: 100%; }
+    .edit-actions[hidden] { display: none; }
+    .edit-actions .btn-save { flex: 1; width: auto; min-width: 0; }
+    .locked-field { opacity: 0.4; pointer-events: none; }
+
+    /* ── Bean-card actions: prominent "brew this", demoted delete ── */
+    .bc-actions .bc-brew { flex: 1; background: #000; color: #fff; border-color: #000; }
+    .bc-delete-link {
+      display: block; margin: 12px auto 0;
+      background: none; border: none;
+      font-size: 10px; color: #caa; cursor: pointer;
+      font-family: inherit; letter-spacing: 0.3px; text-decoration: underline;
+    }
+    .bc-delete-link:active { color: #c00; }
+
+    /* ── Custom autocomplete dropdown (replaces native <datalist>) ── */
+    .ac { position: relative; width: 100%; }
+    .ac-list {
+      position: absolute; top: 100%; left: 0; right: 0;
+      background: #fff; border: 1px solid #ddd;
+      max-height: 168px; overflow-y: auto; z-index: 30;
+      box-shadow: 0 6px 14px rgba(0, 0, 0, 0.10);
+      text-align: left;
+    }
+    .ac-list[hidden] { display: none; }
+    .ac-item {
+      padding: 8px 12px; font-size: 13px; color: #000;
+      cursor: pointer; white-space: nowrap;
+    }
+    .ac-item.active, .ac-item:hover { background: #f0f0f0; }
+
+    /* ── History panel export action ── */
+    .hh-actions { display: flex; align-items: center; gap: 14px; }
+    .history-export {
+      background: none; border: none; font-family: inherit;
+      font-size: 12px; font-weight: 600; letter-spacing: 0.6px;
+      color: #888; cursor: pointer; text-transform: uppercase;
+    }
+    .history-export:active { color: #000; }
+
+    /* ───────────────────────── Dark mode ─────────────────────────
+       "Black Magic" earns a true-black theme. Tokens flip light-on-dark;
+       the black emphasis pill (--ink fill) becomes the amber accent so it
+       stays visible; the reset-hold overlay dims to dark instead of white;
+       the progress arc's past-4-min colour is handled in render(). */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink:       #F2F2F4;
+        --secondary: rgba(235,235,245,0.62);
+        --tertiary:  rgba(235,235,245,0.38);
+        --hairline:  rgba(235,235,245,0.16);
+        --accent:    #D08A52;   /* lighter roasted amber — readable on black */
+      }
+      body { background: #000; }
+      .app { background: #0B0B0C; }
+      /* Hairline-gap grid cells were #fff — match the app bg so the 0.5px gaps
+         read as dividers (like an iOS grouped list on black). */
+      .stats-grid .stat-cell, .bottom-stat { background: #0B0B0C; }
+
+      /* Surfaces that were #fff → elevated dark */
+      .ed-sheet, .history-panel, .ac-list, .act-btn, .ed-big button,
+      .ed-chips .chip, .btn-save.saved, .btn-save.secondary { background: #1C1C1E; }
+      /* Overlays sit outside .app, so they don't inherit its light text colour —
+         set it on the containers (covers the big sheet value, history heading). */
+      .ed-sheet, .history-panel { color: var(--ink); }
+      .bean-new, .act-btn:disabled { background: #161617; }
+
+      /* Emphasis fills that were the black --ink pill → amber accent */
+      .btn-save, .ed-chips .chip.sel, .ed-done, .bc-actions .bc-brew {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .ed-big button:active, .bean-cell .chips button:active, .act-btn:active {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .btn-save.saved, .btn-save.secondary { color: var(--ink); border-color: var(--hairline); }
+
+      /* Borders that were #e8e8e8 / #f0f0f0 / #ddd */
+      .brew-name, input.brew-name, input.bean-name, input.roaster,
+      .bean-grid, .bean-cell, .verdict-row, .text-field,
+      .history-head, .brew-card, .ac-list { border-color: var(--hairline); }
+      .bean-grid .bean-cell { border-right-color: var(--hairline); border-top-color: var(--hairline); }
+      input.brew-name:focus, input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
+
+      /* Subtle :active / fill greys (#f4–f7, #f0f0f0) */
+      .bean-cell .chips button { background: rgba(235,235,245,0.08); color: var(--secondary); }
+      .bean-new:active, .brew-card:active, .btn-save.secondary:active,
+      .ac-item.active, .ac-item:hover { background: rgba(235,235,245,0.06); }
+      .brew-card.holding { background: rgba(235,235,245,0.09); }
+      .bean-bar:active { background: rgba(235,235,245,0.05); }
+
+      /* Text greys → tokens */
+      .history-close, .brew-card .bc-name, .bc-detail .bc-grid .row,
+      .time-controls .value, .btn-adj, .ac-item, .history-export:active { color: var(--ink); }
+      .text-field input, .text-field textarea { color: var(--ink); }
+      .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
+      .brew-card .bc-stats, .history-export, .bc-detail .bc-grid .row .k,
+      .bc-detail .bc-notes { color: var(--secondary); }
+      .brew-card .bc-date, .history-empty { color: var(--tertiary); }
+
+      /* Placeholders */
+      input.bean-name::placeholder, input.roaster::placeholder,
+      .value-input::placeholder, .verdict-note::placeholder,
+      .text-field input::placeholder, .text-field textarea::placeholder,
+      .notes-input::placeholder { color: var(--tertiary); }
+
+      /* Danger (delete) — readable red on dark */
+      .act-btn.danger { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .act-btn.danger:active { background: #C0392B; border-color: #C0392B; color: #fff; }
+      .bc-actions .bc-delete { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .bc-delete-link { color: rgba(255,123,110,0.55); }
+      .bc-delete-link:active { color: #FF7B6E; }
+
+      /* Timer dial */
+      #timer-svg .t-track { stroke: rgba(235,235,245,0.14); }
+      .dial-hold { background: rgba(16,16,18,0.86); }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+
+   <!-- ══ BREW SCREEN ══ -->
+   <section id="screen-brew" class="screen">
+
+    <!-- Header -->
+    <div class="header">
+      <button class="nav-btn" id="btn-to-bean">Bean</button>
+      <h1>Claude Magic</h1>
+      <div class="date" id="date-display"></div>
+      <button class="history-btn" id="btn-history">History</button>
+    </div>
+
+    <!-- Selected coffee (tap to choose a bean) -->
+    <button class="bean-bar" id="bean-bar" type="button">
+      <span class="bean-bar-row">
+        <span class="bean-bar-name" id="bb-name">Select a coffee</span>
+        <svg class="bean-bar-chev" width="12" height="7" viewBox="0 0 12 7" aria-hidden="true"><path d="M1 1l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="bean-bar-roast" id="bb-roast"></span>
+    </button>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+      <div class="stat-cell"><span class="label">Dose</span>
+        <button type="button" class="field" data-f="dose"></button>
+        <input type="hidden" id="dose" value="24.8"></div>
+      <div class="stat-cell"><span class="label">Grind</span>
+        <button type="button" class="field" data-f="grind"></button>
+        <input type="hidden" id="grind" value="8"></div>
+      <div class="stat-cell"><span class="label">Agitate</span>
+        <button type="button" class="field" data-f="agitate"></button>
+        <select id="agitate" hidden>
+          <option value="0">0 (none)</option><option value="1">1 (min)</option>
+          <option value="2" selected>2 (low)</option><option value="3">3 (mid)</option>
+          <option value="4">4 (high)</option>
+        </select></div>
+      <div class="stat-cell"><span class="label">Contact</span>
+        <button type="button" class="field" data-f="contact"></button>
+        <select id="contact" hidden>
+          <option value="60">1:00</option><option value="90">1:30</option><option value="120">2:00</option>
+          <option value="150">2:30</option><option value="180">3:00</option><option value="210">3:30</option>
+          <option value="240">4:00</option><option value="270" selected>4:30</option><option value="300">5:00</option>
+          <option value="330">5:30</option><option value="360">6:00</option><option value="390">6:30</option>
+          <option value="420">7:00</option><option value="450">7:30</option><option value="480">8:00</option>
+          <option value="510">8:30</option><option value="540">9:00</option><option value="570">9:30</option>
+          <option value="600">10:00</option>
+        </select></div>
+      <div class="stat-cell"><span class="label">Water</span>
+        <button type="button" class="field" data-f="water"></button>
+        <input type="hidden" id="water" value="208"></div>
+      <div class="stat-cell"><span class="label">Bloom</span>
+        <button type="button" class="field" data-f="bloom"></button>
+        <input type="hidden" id="bloom" value="72"></div>
+      <div class="stat-cell"><span class="label">Taper</span>
+        <button type="button" class="field" data-f="decay"></button>
+        <input type="hidden" id="decay" value="90"></div>
+      <div class="stat-cell"><span class="label">Target</span>
+        <button type="button" class="field" data-f="brew-target"></button>
+        <input type="hidden" id="brew-target" value="350"></div>
+    </div>
+
+    <!-- Timer -->
+    <div class="timer-section">
+      <div class="timer-circle-wrap">
+        <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
+          <!-- Outer progress track (fixed 4-min face) -->
+          <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
+          <!-- Progress arc (circ = 2π×93 ≈ 584.34) -->
+          <circle id="t-arc" cx="100" cy="100" r="93"
+            stroke-width="3.2" stroke-linecap="round"
+            stroke-dasharray="584.34" stroke-dashoffset="584.34"
+            transform="rotate(-90 100 100)"/>
+          <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
+          <g id="t-ticks"></g>
+          <!-- Floating second hand: one sweep = one 30s pour cycle -->
+          <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
+            stroke-width="3.2" stroke-linecap="round"/>
+        </svg>
+        <div class="timer-center">
+          <div class="dial-timer" id="t-timer">0:00</div>
+          <div class="pour-number" id="t-ml">0</div>
+          <div class="dial-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></div>
+        </div>
+        <div class="dial-hold" aria-hidden="true">
+          <span class="dh-label">hold to reset</span>
+          <span class="dh-bar"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Stats -->
+    <div class="bottom-stats">
+      <div class="bottom-stat"><span class="label">Time Δ</span>
+        <button type="button" class="field amber" data-f="time-val"></button>
+        <input type="hidden" id="time-val" value=""></div>
+      <div class="bottom-stat"><span class="label">TDS</span>
+        <button type="button" class="field amber" data-f="tds"></button>
+        <input type="hidden" id="tds" value=""></div>
+      <div class="bottom-stat"><span class="label">Brew★</span>
+        <button type="button" class="field amber" data-f="brew-rating"></button>
+        <select id="brew-rating" hidden>
+          <option value="" selected>—</option><option value="1">1 (1st)</option>
+          <option value="2">2 (dial)</option><option value="3">3 (test)</option>
+          <option value="4">4 (good)</option><option value="5">5 (best)</option>
+        </select></div>
+      <div class="bottom-stat"><span class="label">Bean★</span>
+        <button type="button" class="field amber" data-f="bean-rating"></button>
+        <input type="hidden" id="bean-rating" value=""></div>
+    </div>
+
+    <!-- Notes — Brew (transient) over Bean (persists to the selected bean) -->
+    <div class="notes-section">
+      <div class="notes-row">
+        <span class="notes-tag">Brew</span>
+        <textarea class="notes-input" id="notes-brew" rows="1" placeholder="this cup…"></textarea>
+      </div>
+      <div class="notes-row">
+        <span class="notes-tag">Bean</span>
+        <textarea class="notes-input" id="notes-bean" rows="1" placeholder="the coffee…"></textarea>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="save-row">
+      <button class="btn-save" id="btn-save"><span class="btn-fill" aria-hidden="true"></span><span class="btn-label" id="btn-label">start</span></button>
+      <div class="edit-actions" id="edit-actions" hidden>
+        <button type="button" class="btn-save secondary" id="btn-edit-cancel">cancel</button>
+        <button type="button" class="btn-save" id="btn-edit-save">save</button>
+      </div>
+    </div>
+
+   </section>
+
+   <!-- ══ BEAN SCREEN ══ -->
+   <section id="screen-bean" class="screen" hidden>
+
+    <!-- Header -->
+    <div class="header">
+      <button class="nav-btn" id="btn-to-brew">Brew</button>
+      <h1>Claude Magic</h1>
+      <button class="history-btn" id="btn-to-beanlist" hidden>Beans</button>
+    </div>
+
+    <!-- List view (default): create-new on top, then beans newest-first -->
+    <div id="bean-list-view">
+      <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
+      <div class="bean-list" id="bean-list"></div>
+    </div>
+
+    <!-- Form view: create or edit a bean -->
+    <div id="bean-form-view" hidden>
+
+    <!-- Identity -->
+    <input class="bean-name" id="bean-name" type="text" placeholder="Bean name">
+    <div class="ac">
+      <input class="roaster" id="bean-roaster" type="text" placeholder="Roaster" autocomplete="off">
+    </div>
+
+    <!-- Origin (Country | Process · Region | Varietal) -->
+    <div class="bean-grid">
+      <div class="bean-cell">
+        <span class="label">Country</span>
+        <div class="ac">
+          <input class="value-input" id="bean-country" type="text" placeholder="—" autocomplete="off">
+        </div>
+      </div>
+      <div class="bean-cell">
+        <span class="label">Process</span>
+        <div class="ac">
+          <input class="value-input" id="bean-process" type="text" placeholder="—" autocomplete="off">
+        </div>
+      </div>
+      <div class="bean-cell">
+        <span class="label">Region</span>
+        <div class="ac">
+          <input class="value-input" id="bean-region" type="text" placeholder="—" autocomplete="off">
+        </div>
+      </div>
+      <div class="bean-cell">
+        <span class="label">Varietal</span>
+        <div class="ac">
+          <input class="value-input" id="bean-varietal" type="text" placeholder="—" autocomplete="off">
+        </div>
+      </div>
+    </div>
+
+    <!-- Roast Date | Bags @ Size (# Bags and volume read as one) -->
+    <div class="bean-grid">
+      <div class="bean-cell">
+        <span class="label">Roast Date</span>
+        <input class="value-input bean-date" id="bean-roast" type="date">
+      </div>
+      <div class="bean-cell">
+        <span class="label">Bags @ Size</span>
+        <div class="bags-vol">
+          <button type="button" class="field bags-count" data-f="bean-bagcount"></button>
+          <input type="hidden" id="bean-bagcount">
+          <span class="bags-at">@</span>
+          <div class="ac bags-size">
+            <input class="value-input" id="bean-bagsize" type="text" placeholder="250g" autocomplete="off">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Roaster's printed notes (from the bag) -->
+    <div class="text-field">
+      <span class="label">Roaster Notes</span>
+      <textarea id="bean-rnotes" rows="1" placeholder="From the bag…"></textarea>
+    </div>
+
+    <!-- Best recipe (seeded with defaults; evolves from 4–5★ brews; amber values = editable) -->
+    <div class="bean-section-label">Best recipe</div>
+    <div class="stats-grid best-grid">
+      <div class="stat-cell"><span class="label">Dose</span>
+        <button type="button" class="field" data-f="best-dose"></button>
+        <input type="hidden" id="best-dose"></div>
+      <div class="stat-cell"><span class="label">Grind</span>
+        <button type="button" class="field" data-f="best-grind"></button>
+        <input type="hidden" id="best-grind"></div>
+      <div class="stat-cell"><span class="label">Agitate</span>
+        <button type="button" class="field" data-f="best-agitate"></button>
+        <input type="hidden" id="best-agitate"></div>
+      <div class="stat-cell"><span class="label">Contact</span>
+        <button type="button" class="field" data-f="best-contact"></button>
+        <input type="hidden" id="best-contact"></div>
+      <div class="stat-cell"><span class="label">Water</span>
+        <button type="button" class="field" data-f="best-water"></button>
+        <input type="hidden" id="best-water"></div>
+      <div class="stat-cell"><span class="label">Bloom</span>
+        <button type="button" class="field" data-f="best-bloom"></button>
+        <input type="hidden" id="best-bloom"></div>
+      <div class="stat-cell"><span class="label">Taper</span>
+        <button type="button" class="field" data-f="best-decay"></button>
+        <input type="hidden" id="best-decay"></div>
+      <div class="stat-cell"><span class="label">Target</span>
+        <button type="button" class="field" data-f="best-target"></button>
+        <input type="hidden" id="best-target"></div>
+    </div>
+
+    <!-- Your verdict: Bean★ + the evolving tasting note (both live on the bean) -->
+    <div class="verdict-row">
+      <div class="verdict-rating">
+        <span class="label">Bean ★</span>
+        <button type="button" class="field amber" data-f="bf-rating"></button>
+        <input type="hidden" id="bf-rating">
+      </div>
+      <div class="verdict-note-wrap">
+        <span class="label">Bean Notes</span>
+        <textarea id="bean-tasting" class="verdict-note" rows="1" placeholder="Tasting verdict…"></textarea>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <div class="save-row">
+      <button class="btn-save" id="btn-save-bean">save bean</button>
+    </div>
+
+    </div><!-- /bean-form-view -->
+
+   </section>
+
+  </div>
+
+  <!-- History overlay -->
+  <div class="history-overlay" id="history-overlay">
+    <div class="history-panel">
+      <div class="history-head">
+        <h2 id="history-title">History</h2>
+        <div class="hh-actions">
+          <button class="history-export" id="btn-export">export</button>
+          <button class="history-export" id="btn-backup">backup</button>
+          <button class="history-export" id="btn-restore">restore</button>
+          <input type="file" id="restore-file" accept="application/json,.json" hidden>
+          <button class="history-close" id="btn-history-close">&times;</button>
+        </div>
+      </div>
+      <div class="history-list" id="history-list"></div>
+    </div>
+  </div>
+
+  <!-- Tap-to-edit sheet -->
+  <div class="ed-bg" id="ed-bg"><div class="ed-sheet">
+    <h3 id="ed-title">Dose</h3>
+    <div class="ed-big">
+      <button type="button" id="ed-minus">−</button>
+      <span class="ed-v" id="ed-val">–</span>
+      <button type="button" id="ed-plus">+</button>
+    </div>
+    <div class="ed-chips" id="ed-chips"></div>
+    <button type="button" class="ed-type" id="ed-type">type a value</button>
+    <button type="button" class="ed-done" id="ed-done">Done</button>
+  </div></div>
+
+  <!-- Bean action sheet (hold a bean → Edit / Export) -->
+  <div class="ed-bg" id="bean-act-bg"><div class="ed-sheet">
+    <h3 id="bean-act-title">Bean</h3>
+    <div class="act-btns">
+      <button type="button" class="act-btn" id="bean-act-brew">Brew</button>
+      <button type="button" class="act-btn" id="bean-act-edit">Edit</button>
+      <button type="button" class="act-btn danger" id="bean-act-delete">Delete</button>
+    </div>
+    <button type="button" class="ed-type" id="bean-act-cancel">Cancel</button>
+  </div></div>
+
+  <!-- Brew action sheet (tap a brew in History → Brew / Edit / Delete) -->
+  <div class="ed-bg" id="brew-act-bg"><div class="ed-sheet">
+    <h3 id="brew-act-title">Brew</h3>
+    <div class="act-btns">
+      <button type="button" class="act-btn" id="brew-act-brew">Brew</button>
+      <button type="button" class="act-btn" id="brew-act-edit">Edit</button>
+      <button type="button" class="act-btn danger" id="brew-act-delete">Delete</button>
+    </div>
+    <button type="button" class="ed-type" id="brew-act-cancel">Cancel</button>
+  </div></div>
+
+  <script>
+    // ── Date display (live — updates while open and on re-focus) ──
+    const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
+    function updateClock() {
+      const d = new Date();
+      const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      document.getElementById('date-display').textContent =
+        d.toLocaleDateString('en-US', dateOpts) + '  ' + t;
+    }
+    updateClock();
+    setInterval(updateClock, 30000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) return;
+      updateClock();
+      if (audioCtx) audioCtx.resume();   // re-prime audio after returning from background (iOS)
+    });
+
+    // ── TIME +/- display ─────────────────────────────────────────
+    const timeDisplay = document.getElementById('time-val');
+
+    // The bottom button's label reflects the timer state; driven from render().
+    // labelLocked briefly suppresses updates so a "saved ✓" / hint flash can show.
+    let labelLocked = false;
+    function updateButtonLabel() {
+      if (labelLocked) return;
+      const lab = document.getElementById('btn-label');
+      if (!lab) return;
+      lab.textContent = (running || inCountdown) ? 'stop'
+                      : (elapsed > 0) ? 'save brew'
+                      : 'start';
+    }
+
+    // Notes: the Brew + Bean fields share a fixed ~4-line budget. Each takes only
+    // the lines its content needs; the short field yields its slack to the long one
+    // (exploits the Brew↔Bean anti-correlation). Only when BOTH want more than their
+    // half does anything scroll. Total footprint is constant → page stays one screen.
+    const NOTES_BUDGET_LINES = 4;
+    function growNotes() {
+      const brew = document.getElementById('notes-brew'), bean = document.getElementById('notes-bean');
+      const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
+      const budget = NOTES_BUDGET_LINES * lh;
+      // natural content height of each (uncapped)
+      const need = {};
+      [brew, bean].forEach(el => { el.style.height = 'auto'; need[el.id] = el.scrollHeight; });
+      const half = budget / 2;
+      let hBrew, hBean;
+      if (need['notes-brew'] + need['notes-bean'] <= budget) {
+        hBrew = need['notes-brew']; hBean = need['notes-bean'];      // both fit
+      } else if (need['notes-brew'] <= half) {
+        hBrew = need['notes-brew']; hBean = budget - hBrew;          // brew short → bean takes the rest
+      } else if (need['notes-bean'] <= half) {
+        hBean = need['notes-bean']; hBrew = budget - hBean;          // bean short → brew takes the rest
+      } else {
+        hBrew = half; hBean = half;                                  // both long → split evenly, both scroll
+      }
+      brew.style.height = Math.max(lh, hBrew) + 'px';
+      bean.style.height = Math.max(lh, hBean) + 'px';
+    }
+
+    // ── Field word maps + tap-to-edit config ────────────────────
+    const AGITATE_WORDS = { '0':'none','1':'min','2':'low','3':'mid','4':'high' };
+    const BREW_RATINGS  = { '1':'1st','2':'dial','3':'test','4':'good','5':'best' };
+    const FX = {
+      'dose':        {label:'Dose',  step:0.1, dec:1, trim:1, min:0,  max:99,  unit:'g',  presets:[23,24,25,72], type:'num'},
+      'grind':       {label:'Grind', step:0.5, dec:1, trim:1, min:0,  max:40,  unit:'#',  presets:[7,8,9,10],    type:'num'},
+      'agitate':     {label:'Agitate', step:1, min:0, max:4,  presets:[0,1,2,3,4], type:'choice', words:AGITATE_WORDS},
+      'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
+      'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
+      'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
+      'decay':       {label:'Taper', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
+      'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
+      'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
+      'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
+      'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
+    };
+    // The bean's editable "best recipe" reuses the same 8 input editors, keyed best-*.
+    const RECIPE_MAP = [['dose','best-dose'],['grind','best-grind'],['agitate','best-agitate'],
+      ['contact','best-contact'],['water','best-water'],['bloom','best-bloom'],
+      ['decay','best-decay'],['brew-target','best-target']];
+    RECIPE_MAP.forEach(([base, bk]) => FX[bk] = Object.assign({}, FX[base]));
+    FX['bf-rating'] = Object.assign({}, FX['bean-rating']);   // Bean★ editor on the bean form
+    FX['bean-bagcount'] = {label:'# Bags', step:1, min:1, max:6, presets:[1,2,3,4,5,6], type:'num'};
+    const DEFAULT_RECIPE = { dose:'24', grind:'8', agitate:'1', contact:'270', water:'208', bloom:'85', decay:'90', brewTarget:'350' };
+    const fmtMS  = sec => Math.floor(sec/60) + ':' + String(Math.abs(sec)%60).padStart(2,'0');
+    const fmtNum = (c,n) => c.signed ? (n>0?'+':'')+n : c.trim ? String(+(+n).toFixed(c.dec||0)) : c.dec ? (+n).toFixed(c.dec) : String(n);
+
+    // Render one field's display button from its hidden store element
+    function renderField(key){
+      const c = FX[key], el = document.getElementById(key), btn = document.querySelector('.field[data-f="'+key+'"]');
+      if (!c || !el || !btn) return;
+      const v = el.value;
+      if (v === '' || v == null) { btn.innerHTML = '<span class="dash">–</span>'; return; }
+      if (c.type === 'choice') { const w = c.words[v]; btn.innerHTML = '<span class="fnum">'+v+'</span>'+(w?'<span class="fw">'+w+'</span>':''); return; }
+      if (c.type === 'time')   { btn.innerHTML = '<span class="fnum">'+fmtMS(parseInt(v))+'</span>'; return; }
+      btn.innerHTML = '<span class="fnum">'+fmtNum(c, parseFloat(v))+'</span>'+(c.unit?'<span class="fu">'+c.unit+'</span>':'');
+    }
+    function renderAllFields(){ Object.keys(FX).forEach(renderField); }
+
+    // Write Bean★ back onto the selected bean, overwriting its previous rating
+    function persistBeanRating(){
+      if (!(currentBean && currentBean.id)) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (b && !b.locked) { b.rating = document.getElementById('bean-rating').value; setBeans(beans); currentBean.rating = b.rating; }
+    }
+    document.getElementById('bean-rating').addEventListener('change', persistBeanRating);
+    // Bean note: overwrite the bean's evolving tasting note with the Bean field
+    function persistBeanNote(){
+      if (!(currentBean && currentBean.id)) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (b && !b.locked) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
+    }
+    // Best recipe (tier-protected): a fresh brew rated 4–5★ writes its recipe onto the
+    // bean, but only if it ties or beats the recipe's stored tier — so a later 4★ never
+    // clobbers a 5★. Manual edits on the Bean screen set the tier to 5 (see saveBean).
+    const RECIPE_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target'];
+    const BEST_KEYS = { dose:'bestDose', grind:'bestGrind', agitate:'bestAgitate', contact:'bestContact',
+      water:'bestWater', bloom:'bestBloom', decay:'bestDecay', 'brew-target':'bestTarget' };
+    function persistBestRecipe(){
+      if (!(currentBean && currentBean.id)) return;
+      const br = parseInt(document.getElementById('brew-rating').value);
+      if (!(br >= 4)) return;                                   // only 4★ / 5★ brews evolve the recipe
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (!b || b.locked) return;
+      if (br < (b.bestRecipeRating || 0)) return;               // tier protection
+      RECIPE_FIELDS.forEach(f => b[BEST_KEYS[f]] = document.getElementById(f).value);
+      b.bestRecipeRating = br;
+      setBeans(beans);
+      Object.assign(currentBean, b);
+    }
+    // bean.best* → brew-style recipe object (falls back to defaults per field)
+    function beanToRecipe(b){
+      const r = {};
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const v = b[BEST_KEYS[f]];
+        r[k] = (v === undefined || v === null || v === '') ? DEFAULT_RECIPE[k] : v;
+      });
+      return r;
+    }
+    // Write a brew-style recipe object into the bean form's best-* fields
+    function setBeanRecipeFields(rec){
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const bk = f === 'brew-target' ? 'best-target' : 'best-' + f;
+        document.getElementById(bk).value = rec[k] ?? '';
+        renderField(bk);
+      });
+    }
+
+    // ── Tap-to-edit sheet ────────────────────────────────────────
+    function repeatHold(btn, fn){
+      let to, iv;
+      const start = e => { e.preventDefault(); fn(); to = setTimeout(() => iv = setInterval(fn, 75), 380); };
+      const stop  = () => { clearTimeout(to); clearInterval(iv); };
+      btn.addEventListener('pointerdown', start);
+      ['pointerup','pointerleave','pointercancel'].forEach(ev => btn.addEventListener(ev, stop));
+    }
+    let edKey = null, edVal = '';
+    function edShow(){
+      const c = FX[edKey];
+      let h;
+      if (edVal === '' || edVal == null) h = '–';
+      else if (c.type === 'choice') { const w = c.words[edVal]; h = edVal + (w?' <small>'+w+'</small>':''); }
+      else if (c.type === 'time')   h = fmtMS(edVal);
+      else h = fmtNum(c, edVal) + (c.unit?' <small>'+c.unit+'</small>':'');
+      document.getElementById('ed-val').innerHTML = h;
+      [...document.getElementById('ed-chips').children].forEach(ch => ch.classList.toggle('sel', String(ch.dataset.p) === String(edVal)));
+    }
+    function edStep(dir){
+      const c = FX[edKey];
+      const base = (edVal === '' || edVal == null) ? (c.presets[0] != null ? +c.presets[0] : c.min) : +edVal;
+      let nv = +(base + dir*c.step).toFixed(2);
+      edVal = Math.min(c.max, Math.max(c.min, nv));
+      edShow();
+    }
+    function openEditor(key){
+      edKey = key; const c = FX[key]; const raw = document.getElementById(key).value;
+      edVal = (raw === '' || raw == null) ? '' : +raw;
+      document.getElementById('ed-title').textContent = c.label;
+      const ch = document.getElementById('ed-chips'); ch.innerHTML = '';
+      c.presets.forEach(p => {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'chip'; b.dataset.p = p;
+        if (c.type === 'choice') { const w = c.words[p]; b.innerHTML = p + (w?'<span class="cw">'+w+'</span>':''); }
+        else if (c.type === 'time') b.textContent = fmtMS(p);
+        else b.textContent = fmtNum(c, p);
+        b.onclick = () => { edVal = +p; edShow(); };
+        ch.append(b);
+      });
+      document.getElementById('ed-type').style.display = c.type === 'num' ? 'block' : 'none';
+      edShow();
+      document.getElementById('ed-bg').classList.add('open');
+    }
+    function edCommit(){
+      const el = document.getElementById(edKey);
+      el.value = (edVal === '' || edVal == null) ? '' : String(edVal);
+      el.dispatchEvent(new Event('change', { bubbles: true }));  // recalc / bean-persist listeners
+      renderField(edKey);
+      saveDraft();
+      document.getElementById('ed-bg').classList.remove('open');
+    }
+    repeatHold(document.getElementById('ed-minus'), () => edStep(-1));
+    repeatHold(document.getElementById('ed-plus'),  () => edStep(1));
+    document.getElementById('ed-type').onclick = () => {
+      const c = FX[edKey];
+      const t = prompt(c.label + (c.unit?' ('+c.unit+')':''), edVal === '' ? '' : String(edVal));
+      if (t != null && t.trim() !== '') { const n = parseFloat(t); if (!isNaN(n)) { edVal = Math.min(c.max, Math.max(c.min, n)); edShow(); } }
+    };
+    document.getElementById('ed-done').onclick = edCommit;
+    document.getElementById('ed-bg').onclick = e => { if (e.target === document.getElementById('ed-bg')) document.getElementById('ed-bg').classList.remove('open'); };
+    document.addEventListener('click', e => { const b = e.target.closest('.field'); if (b && b.dataset.f) openEditor(b.dataset.f); });
+
+    // ── Draft autosave: preserve an unsaved brew across close/reopen ──
+    const DRAFT_KEY = 'blackmagic.draft';
+    const DRAFT_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target','time-val','tds','brew-rating','bean-rating'];
+    let draftTimer = null;
+    // Serialize the live brew form into a plain object (used by draft autosave AND
+    // by the edit-from-History "side trip" snapshot).
+    function currentDraftObject(){
+      const d = { brewNote: $('notes-brew').value, beanNote: $('notes-bean').value,
+                  beanId: (currentBean && currentBean.id) || null, brewStartedAt };
+      DRAFT_FIELDS.forEach(k => d[k] = document.getElementById(k).value);
+      return d;
+    }
+    function applyDraftObject(d){
+      if (!d) return;
+      DRAFT_FIELDS.forEach(k => { if (d[k] !== undefined) document.getElementById(k).value = d[k]; });
+      // bean first (it sets the Bean note from the bean), then override from the object
+      if (d.beanId) { const b = getBeans().find(x => x.id === d.beanId); setBeanBar(b || null); }
+      else setBeanBar(null);
+      if (d.brewNote != null) $('notes-brew').value = d.brewNote;
+      if (d.beanNote != null) $('notes-bean').value = d.beanNote;
+      if (d.brewStartedAt !== undefined) brewStartedAt = d.brewStartedAt;
+    }
+    function saveDraft(){
+      if (editingBrewId) return;   // editing a past brew is not a "draft new cup" — don't persist it
+      clearTimeout(draftTimer);
+      draftTimer = setTimeout(() => {
+        if (editingBrewId) return;   // an edit began during the debounce — don't persist it
+        try { localStorage.setItem(DRAFT_KEY, JSON.stringify(currentDraftObject())); } catch (e) {}
+      }, 300);
+    }
+    function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
+    function loadDraft(){
+      let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
+      applyDraftObject(d);
+    }
+
+    // ── Audio (Web Audio API, created on first user gesture) ─────
+    let audioCtx = null;
+
+    function getAudio() {
+      if (!audioCtx || audioCtx.state === 'closed')
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      if (audioCtx.state !== 'running') audioCtx.resume();   // covers 'suspended' + iOS 'interrupted'
+      return audioCtx;
+    }
+
+    // Keep audio unlocked across gestures AND app re-focus. iOS suspends the
+    // AudioContext when backgrounded and needs a resume on the next interaction,
+    // so we re-prime on every gesture (cheap) instead of just once.
+    // NOTE: the physical Ring/Silent switch can still mute Web Audio on iOS.
+    let audioPrimed = false;
+    function unlockAudio() {
+      const ctx = getAudio();
+      if (!audioPrimed) {
+        try {
+          const src = ctx.createBufferSource();
+          src.buffer = ctx.createBuffer(1, 1, 22050);
+          src.connect(ctx.destination);
+          src.start(0);
+          audioPrimed = true;
+        } catch (e) {}
+      }
+    }
+    ['touchend', 'pointerdown'].forEach(ev => window.addEventListener(ev, unlockAudio));
+
+    // Schedule a tone on the AudioContext's own clock. Scheduling ahead of time
+    // (rather than firing oscillators from later setTimeouts) is the key to
+    // reliable iOS playback — the countdown queues all its tones at gesture time.
+    function tone(freq, dur, when, vol = 0.5) {
+      try {
+        const ctx = getAudio();
+        const t0 = (when == null ? ctx.currentTime : when);
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.value = freq;
+        gain.gain.setValueAtTime(vol, t0);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+        osc.start(t0);
+        osc.stop(t0 + dur);
+        return osc;
+      } catch (e) { return null; }
+    }
+    function beep(freq, dur, vol = 0.5) { return tone(freq, dur, null, vol); }
+
+    // ── Pour schedule (dynamic — rebuilt from CONTACT, DECAY, BREW TARGET) ──
+    // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
+    // Sum of n pours = BREW_TARGET  →  x = BREW_TARGET · (1−r) / (1−r^n)
+    const CYCLE_SECS = 30;
+    const CLOCK_SCOPE = 240; // timer face always spans 4 minutes; wraps if brew is longer
+    let POUR_TARGETS = [];
+    let TOTAL = 270; // updated by recalcSchedule()
+
+    function recalcSchedule() {
+      const contactSecs = parseInt(document.getElementById('contact').value) || 270;
+      const brewTarget  = Math.round(parseFloat(document.getElementById('brew-target').value) || 350);
+      const decayPct    = parseFloat(document.getElementById('decay').value);
+      const r = decayPct / 100;
+      const n = Math.max(1, Math.round(contactSecs / CYCLE_SECS));
+      TOTAL = n * CYCLE_SECS;
+
+      const x = Math.abs(r - 1) < 0.001
+        ? brewTarget / n                              // equal distribution (DECAY = 100%)
+        : brewTarget * (1 - r) / (1 - Math.pow(r, n));
+
+      POUR_TARGETS = [];
+      for (let i = 0; i < n; i++) {
+        const cumul = Math.abs(r - 1) < 0.001
+          ? Math.round(x * (i + 1))
+          : Math.round(x * (1 - Math.pow(r, i + 1)) / (1 - r));
+        POUR_TARGETS.push(cumul);
+      }
+      POUR_TARGETS[POUR_TARGETS.length - 1] = brewTarget; // exact final target
+
+      drawTicks();
+    }
+
+    function pourTarget(s) {
+      if (!POUR_TARGETS.length) return 0;
+      return POUR_TARGETS[Math.min(Math.floor(s / CYCLE_SECS), POUR_TARGETS.length - 1)];
+    }
+
+    function fmtTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = Math.floor(s % 60);
+      return `${m}:${String(sec).padStart(2, '0')}`;
+    }
+
+    // ── Tick marks — fixed 4-min face, no numeric labels ─────────
+    function drawTicks() {
+      const g = document.getElementById('t-ticks');
+      g.innerHTML = '';
+      const ns = 'http://www.w3.org/2000/svg';
+      const n = CLOCK_SCOPE / CYCLE_SECS; // 8
+      for (let i = 0; i < n; i++) {
+        const tickSecs = (i + 1) * CYCLE_SECS;
+        const isMinute = tickSecs % 60 === 0;
+        const isTop = (i === n - 1);   // 12 o'clock — bold cycle anchor (start/end mark)
+        const a = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
+        const r0 = isTop ? 74 : 77, r1 = isTop ? 90 : (isMinute ? 86 : 82);
+        const ln = document.createElementNS(ns, 'line');
+        ln.setAttribute('x1', (100 + r0 * Math.cos(a)).toFixed(2));
+        ln.setAttribute('y1', (100 + r0 * Math.sin(a)).toFixed(2));
+        ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
+        ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
+        ln.setAttribute('stroke', isTop ? 'rgba(60,60,67,0.40)' : isMinute ? 'rgba(60,60,67,0.28)' : 'rgba(60,60,67,0.16)');
+        ln.setAttribute('stroke-width', isTop ? '3.4' : isMinute ? '2.8' : '1.3');
+        ln.setAttribute('stroke-linecap', 'round');
+        g.appendChild(ln);
+      }
+    }
+
+    // ── Timer state ──────────────────────────────────────────────
+    const CIRC = 2 * Math.PI * 93;
+    let elapsed = 0, running = false, lastTs = null;
+    let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
+    let inCountdown = false;
+    let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
+    let loadedFromHistory = false;   // true while editing a brew loaded from History
+
+    function render(s) {
+      const pos = s % CLOCK_SCOPE;
+      const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
+      const dk = prefersDark.matches;                          // light arc colours on a dark page
+      const progColor = s >= CLOCK_SCOPE ? (dk ? '#F2F2F4' : '#000') : (dk ? '#8A8A8E' : '#555');
+      const arc = document.getElementById('t-arc');
+      arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
+      arc.setAttribute('stroke', progColor);
+      const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
+      const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
+      hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
+      hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
+      hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
+      hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
+      if (!inCountdown) {
+        const ml = document.getElementById('t-ml');
+        if (goFlashUntil && performance.now() < goFlashUntil) {
+          // hold the "GO" flash for a beat before numbers resume
+        } else {
+          if (goFlashUntil) { goFlashUntil = 0; ml.classList.remove('go'); }
+          ml.textContent = pourTarget(s);
+        }
+      }
+      document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
+      updateButtonLabel();
+    }
+
+    function tick(ts) {
+      if (running) {
+        if (lastTs !== null) {
+          const prev = elapsed;
+          elapsed = elapsed + (ts - lastTs) / 1000;   // counts up past TOTAL — records long brews
+          // Beep at each 30-second pour boundary, but only for scheduled pours
+          const cyc = Math.floor(elapsed / CYCLE_SECS);
+          if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
+            beep(880, 0.18, 0.45);
+          }
+        }
+        lastTs = ts;
+      } else {
+        lastTs = null;
+      }
+      render(elapsed);
+      requestAnimationFrame(tick);
+    }
+
+    // ── 3-second countdown before brew starts ────────────────────
+    // Pitches rise G4→A4→C5 to build anticipation; GO tone is G5. All four
+    // tones are scheduled on the audio clock at the start gesture, so iOS plays
+    // them reliably even though the visual countdown runs off setTimeout.
+    let countdownNodes = [];
+    function cancelCountdownAudio() {
+      countdownNodes.forEach(o => { try { o && o.stop(); } catch (e) {} });
+      countdownNodes = [];
+    }
+    function startCountdown() {
+      inCountdown = true;
+      const ctx = getAudio();              // resume/unlock audio on this gesture
+      const t0 = ctx.currentTime + 0.06;
+      countdownNodes = [];
+      [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
+      countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
+
+      const ml = document.getElementById('t-ml');
+      const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
+      let count = 3;
+      const step = () => {
+        if (!inCountdown) return;
+        ml.textContent = count;
+        pop();
+        count--;
+        if (count > 0) {
+          setTimeout(step, 1000);
+        } else {
+          setTimeout(() => {
+            if (!inCountdown) return;
+            inCountdown = false;
+            elapsed = 0;
+            running = true;
+            lastTs = null;
+            brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
+            countdownNodes = [];
+            ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
+            ml.classList.add('go');
+            pop();
+            goFlashUntil = performance.now() + 550;
+            render(0);
+          }, 1000);
+        }
+      };
+      step();
+    }
+
+    // ── Clock reset (zeroes the clock only; used on recipe-field change). The
+    //    full clear incl. TIME/TDS/Rating is clearForNextBrew() — save / hold-reset. ─
+    function resetTimer() {
+      inCountdown = false;
+      running = false;
+      elapsed = 0;
+      lastTs = null;
+      brewStartedAt = null;
+      goFlashUntil = 0;
+      document.getElementById('t-ml').classList.remove('go', 'count-pop');
+      cancelCountdownAudio();
+      render(0);
+    }
+
+    // ── Field change → recalc schedule + reset timer ─────────────
+    ['contact', 'decay', 'brew-target'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        recalcSchedule();
+        resetTimer();
+      });
+    });
+
+    // ── Press helper: distinguishes a quick tap from a 2-second hold ──────
+    // During a hold an element fills (.holding); releasing early cancels, so only
+    // a completed hold fires onHold — committing/clearing actions resist mis-taps.
+    function bindPressable(el, opts) {
+      const { onTap, onHold, holdMs = 2000, holdWhen } = opts;
+      let timer = null, fired = false, down = false;
+      el.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        down = true; fired = false;
+        if (onHold && (!holdWhen || holdWhen())) {
+          el.classList.add('holding');
+          timer = setTimeout(() => {
+            timer = null; fired = true; el.classList.remove('holding'); onHold();
+          }, holdMs);
+        }
+      });
+      const finish = doTap => {
+        if (!down) return; down = false;
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+        if (doTap && !fired && onTap) onTap();
+      };
+      el.addEventListener('pointerup', () => finish(true));
+      el.addEventListener('pointerleave', () => finish(false));
+      el.addEventListener('pointercancel', () => finish(false));
+    }
+
+    // Dial: HOLD 2s to reset everything (no save). A tap does nothing.
+    bindPressable(document.querySelector('.timer-circle-wrap'), { onHold: clearForNextBrew });
+
+    // ── Brew history (localStorage) ──────────────────────────────
+    const STORE_KEY = 'blackmagic.brews';
+
+    function getBrews() {
+      try { return JSON.parse(localStorage.getItem(STORE_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function setBrews(arr) {
+      localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+    }
+    // Strictly increasing, unique id even for saves in the same millisecond
+    function nextId() {
+      const maxId = getBrews().reduce((m, b) => Math.max(m, b.id), 0);
+      return Math.max(Date.now(), maxId + 1);
+    }
+
+    const $ = id => document.getElementById(id);
+
+    // Snapshot every field into a record
+    function collectRecord() {
+      const agitate = $('agitate'), contact = $('contact');
+      return {
+        id: nextId(),
+        savedAt: brewStartedAt || new Date().toISOString(),   // brew start time, not the hold-to-save time
+        brewName: currentBean ? composeName(currentBean) : 'Untitled brew',
+        beanId: currentBean ? currentBean.id : null,
+        beanName: currentBean ? (currentBean.name || '') : '',
+        beanRoaster: currentBean ? (currentBean.roaster || '') : '',
+        roastDate: currentBean ? (currentBean.roastDate || '') : '',
+        dose: $('dose').value,
+        grind: $('grind').value,
+        agitate: agitate.value,
+        agitateText: agitate.selectedOptions[0].text,
+        contact: contact.value,
+        contactText: contact.selectedOptions[0].text,
+        water: $('water').value,
+        bloom: $('bloom').value,
+        decay: $('decay').value,
+        brewTarget: $('brew-target').value,
+        timeAdj: $('time-val').value,
+        tds: $('tds').value,
+        brewRating: $('brew-rating').value,
+        beanRating: $('bean-rating').value,
+        brewNote: $('notes-brew').value.trim(),
+        beanNote: $('notes-bean').value.trim()
+      };
+    }
+
+    // Write a record back into the live form
+    function applyRecord(r) {
+      const live = !r.locked && liveBean(r.beanId);
+      setBeanBar(live ? live
+        : (r.beanId || r.beanName || r.brewName) ? { id: r.beanId || null, name: r.beanName || r.brewName, roaster: r.beanRoaster || '', roastDate: r.roastDate || '' }
+        : null);
+      $('dose').value = r.dose;
+      $('grind').value = r.grind;
+      $('agitate').value = r.agitate;
+      $('contact').value = r.contact;
+      $('water').value = r.water;
+      $('bloom').value = r.bloom;
+      $('decay').value = r.decay;
+      $('brew-target').value = r.brewTarget;
+      $('tds').value = r.tds;
+      $('brew-rating').value = r.brewRating || '';   // Bean★ comes from the bean (setBeanBar)
+      // Show the record exactly as saved (setBeanBar already filled the live bean note)
+      $('notes-brew').value = r.brewNote || r.notes || '';
+      $('notes-bean').value = r.beanNote || '';
+      $('bean-rating').value = (r.beanRating != null ? r.beanRating : '');
+      renderField('bean-rating');
+      growNotes();
+      timeDisplay.value = r.timeAdj;
+      renderAllFields();
+      // A brew loaded from history is being edited, not freshly brewed: re-saving it
+      // must NOT overwrite the bean's current note/rating with these old values.
+      loadedFromHistory = true;
+      saveDraft();
+      // Programmatic .value changes don't fire 'change', so reset timer manually
+      inCountdown = false;
+      running = false;
+      elapsed = 0;
+      lastTs = null;
+      cancelCountdownAudio();
+      recalcSchedule();
+      render(0);
+    }
+
+    function fmtSavedAt(iso) {
+      const dt = new Date(iso);
+      const date = dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      const time = dt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
+      return `${date} · ${time}`;
+    }
+
+    // Dial-in variables (Grind / Temp / Contact) that differ from this brew's bean's
+    // best recipe — so an experiment brew shows at a glance what was changed.
+    function recipeDeltas(r) {
+      const b = liveBean(r.beanId);
+      if (!b) return [];
+      const diff = (a, c) => a != null && a !== '' && c != null && c !== '' && parseFloat(a) !== parseFloat(c);
+      const out = [];
+      if (diff(r.grind, b.bestGrind))   out.push('Grind ' + r.grind);
+      if (diff(r.water, b.bestWater))   out.push('Temp ' + r.water);
+      if (diff(r.contact, b.bestContact)) out.push('Contact ' + fmtMS(parseInt(r.contact)));
+      return out;
+    }
+
+    function renderHistory() {
+      const list = $('history-list');
+      const brews = getBrews().sort((a, b) => b.id - a.id);
+      list.innerHTML = '';
+
+      if (!brews.length) {
+        list.innerHTML = '<div class="history-empty">No saved brews yet.</div>';
+        return;
+      }
+
+      brews.forEach(r => {
+        const idn = brewIdentity(r);
+        const card = document.createElement('div');
+        card.className = 'brew-card' + (r.locked ? ' locked' : '');
+        const dose = r.dose ? r.dose + 'g' : '—';
+        const tds = r.tds ? 'TDS ' + r.tds : 'TDS —';
+        const brewR = r.brewRating || r.rating || '';
+        const rating = brewR ? '★' + brewR : '★—';
+        const deltas = recipeDeltas(r);
+        const deltaHtml = deltas.map(d => ' · <span class="bc-delta">' + d + '</span>').join('');
+        card.innerHTML = `
+          <div class="bc-top">
+            <span class="bc-name"></span>
+            <span class="bc-date">${fmtSavedAt(r.savedAt)}</span>
+          </div>
+          <div class="bc-stats">${dose} · ${tds} · <span class="bc-delta">${rating}</span>${deltaHtml}</div>
+          <div class="bc-detail">
+            <div class="bc-grid">
+              <div class="row"><span class="k">Roast</span><span>${idn.roastDate ? fmtDateShort(idn.roastDate) : '—'}</span></div>
+              <div class="row"><span class="k">Dose</span><span>${r.dose || '—'} g</span></div>
+              <div class="row"><span class="k">Grind</span><span>${r.grind || '—'}</span></div>
+              <div class="row"><span class="k">Agitate</span><span>${r.agitateText}</span></div>
+              <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
+              <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
+              <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
+              <div class="row"><span class="k">Taper</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
+              <div class="row"><span class="k">Time Δ</span><span>${r.timeAdj}</span></div>
+              <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
+              <div class="row"><span class="k">Brew★</span><span>${r.brewRating || r.rating || '—'}</span></div>
+              <div class="row"><span class="k">Bean★</span><span>${r.beanRating || '—'}</span></div>
+            </div>
+            ${(() => { const bw=(r.brewNote||r.notes||'').trim(), bn=(r.beanNote||'').trim();
+              const esc=s=>s.replace(/</g,'&lt;');
+              const parts=[]; if(bw)parts.push('<b>Brew:</b> '+esc(bw)); if(bn)parts.push('<b>Bean:</b> '+esc(bn));
+              return parts.length?'<div class="bc-notes">'+parts.join('<br>')+'</div>':''; })()}
+          </div>`;
+        card.querySelector('.bc-name').textContent = idn.brewName;
+        if (r.locked) card.querySelector('.bc-date').classList.add('bc-lock');
+
+        // Tap → Brew / Edit / Delete sheet (details live on Edit)
+        card.addEventListener('click', () => openBrewActions(r));
+
+        list.appendChild(card);
+      });
+    }
+
+    let shownData = 'brews';   // dataset the export button writes (beans now export per-bean)
+    function openHistory() {
+      shownData = 'brews';
+      $('history-title').textContent = 'Brews';
+      renderHistory();
+      $('history-overlay').classList.add('open');
+    }
+    function closeHistory() {
+      $('history-overlay').classList.remove('open');
+    }
+
+    // Clear the brew tab for the next cup — timer + TIME/TDS/Rating — while
+    // keeping the coffee + recipe. Used by both Save and the dial hold-to-reset.
+    function clearForNextBrew() {
+      resetTimer();              // zero the clock
+      timeDisplay.value = '';
+      $('tds').value = '';
+      $('brew-rating').value = '';   // Brew★ resets each save/reset; Bean★ stays on the bean
+      $('notes-brew').value = '';    // Brew note is per-cup; Bean note persists
+      growNotes();
+      renderAllFields();
+      loadedFromHistory = false;
+      clearDraft();
+      render(0);
+    }
+    function flashSaved() {
+      const lab = $('btn-label'), btn = $('btn-save');
+      labelLocked = true; lab.textContent = 'saved ✓'; btn.classList.add('saved');
+      setTimeout(() => { labelLocked = false; btn.classList.remove('saved'); }, 1200);
+    }
+    function flashHint(msg) {
+      if (labelLocked) return;
+      const lab = $('btn-label');
+      labelLocked = true; lab.textContent = msg;
+      setTimeout(() => { labelLocked = false; }, 900);
+    }
+    function saveBrew() {
+      const brews = getBrews();
+      if (editingBrewId) {
+        // Update a past brew in place. Bean identity + Bean★/Bean-note were locked
+        // during edit, so preserve them verbatim — never clobber the bean's verdict.
+        const idx = brews.findIndex(b => b.id === editingBrewId);
+        if (idx >= 0) {
+          const old = brews[idx];
+          brews[idx] = Object.assign(collectRecord(), {
+            id: old.id, savedAt: old.savedAt, updatedAt: new Date().toISOString(),
+            beanRating: old.beanRating, beanNote: old.beanNote,
+            locked: old.locked, exportedAt: old.exportedAt
+          });
+          setBrews(brews);
+        }
+        exitBrewEdit();
+        flashSaved();
+        // Side trip done — return to the cup we were brewing, untouched
+        if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
+        else clearForNextBrew();
+        return;
+      }
+      brews.push(collectRecord());
+      setBrews(brews);
+      // Only a freshly-brewed cup updates the bean's evolving note/rating;
+      // editing a loaded past brew must not clobber the bean's current verdict.
+      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); persistBestRecipe(); }
+      flashSaved();
+      clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
+    }
+
+    // Bottom button — tap: start / stop (start countdown cancellable);
+    //                 HOLD 2s (only when stopped): save the brew.
+    bindPressable($('btn-save'), {
+      onTap: () => {
+        if (inCountdown) { inCountdown = false; cancelCountdownAudio(); render(0); }
+        else if (running) {
+          running = false; lastTs = null;
+          timeDisplay.value = Math.round(elapsed - TOTAL) - 2;   // −2 reaction-time
+          renderField('time-val'); saveDraft();
+          render(elapsed);
+        }
+        else if (elapsed > 0) { flashHint('hold to save'); }     // stopped: tap hints
+        else { startCountdown(); }                                // idle
+      },
+      onHold: saveBrew,
+      holdWhen: () => (elapsed > 0 && !running && !inCountdown)    // stopped only
+    });
+
+    // ── Brew edit mode (edit a past brew in place; identity + verdict locked) ──
+    let editingBrewId = null;
+    let actBrew = null;
+    let preEditState = null;          // the in-progress cup, snapshotted while we side-trip into edit
+
+    // Editing a brew from History is a side trip — snapshot the live cup on the way
+    // in, restore it on the way out (Cancel or Save) so the current brew is untouched.
+    function captureBrewState(){
+      return { draft: currentDraftObject(), elapsed, running, inCountdown, loadedFromHistory };
+    }
+    function restoreBrewState(s){
+      applyDraftObject(s.draft);
+      renderAllFields(); growNotes();
+      recalcSchedule();
+      loadedFromHistory = s.loadedFromHistory;
+      inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
+      cancelCountdownAudio();
+      render(elapsed);                // the rAF loop keeps the button label correct from here
+    }
+
+    function enterBrewEdit(r) {
+      preEditState = captureBrewState();   // remember the cup we're brewing
+      editingBrewId = r.id;           // set first so applyRecord's saveDraft() no-ops
+      applyRecord(r);                 // loads every field; sets loadedFromHistory = true
+      $('bean-bar').classList.add('locked-field');                          // change coffee in Bean tab
+      $('bean-rating').closest('.bottom-stat').classList.add('locked-field'); // Bean★ = verdict
+      $('notes-bean').closest('.notes-row').classList.add('locked-field');  // Bean note = verdict
+      $('notes-bean').readOnly = true;
+      $('btn-save').hidden = true;
+      $('edit-actions').hidden = false;
+      clearTimeout(draftTimer); clearDraft();   // cancel any pending write + drop the saved draft
+      closeHistory();
+    }
+    function exitBrewEdit() {
+      editingBrewId = null;
+      $('bean-bar').classList.remove('locked-field');
+      $('bean-rating').closest('.bottom-stat').classList.remove('locked-field');
+      $('notes-bean').closest('.notes-row').classList.remove('locked-field');
+      $('notes-bean').readOnly = false;
+      $('btn-save').hidden = false;
+      $('edit-actions').hidden = true;
+    }
+    // ── "Brew this" — start a FRESH cup (not an edit) from a recipe source ──
+    // From a bean: recipe + Bean★ + bean note all come from the bean's best recipe.
+    // From a past brew: recipe comes from that brew; Bean★ + note from the LIVE bean.
+    function startBrewWith(bean, recipe){
+      if (editingBrewId) { exitBrewEdit(); preEditState = null; }
+      editingBrewId = null;
+      loadedFromHistory = false;
+      setBeanBar(bean || null);                 // sets currentBean + Bean★ + Bean note from the bean
+      RECIPE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        document.getElementById(f).value = recipe[k] ?? '';
+      });
+      $('time-val').value = ''; $('tds').value = ''; $('brew-rating').value = '';
+      $('notes-brew').value = '';               // fresh cup — clear brew-only fields
+      resetTimer();
+      recalcSchedule();
+      renderAllFields();
+      growNotes();
+      saveDraft();
+      closeBrewActions(); closeBeanActions(); closeHistory();
+      showScreen('brew');
+    }
+    function brewFromBean(b){
+      const live = liveBean(b.id) || b;
+      startBrewWith(live, beanToRecipe(live));
+      // First brew of a bean → Brew★ = 1 ("1st brew with this bean")
+      if (live.id && !getBrews().some(r => r.beanId === live.id)) {
+        $('brew-rating').value = '1'; renderField('brew-rating'); saveDraft();
+      }
+    }
+    function brewFromBrew(r){
+      const live = liveBean(r.beanId);
+      const bean = live || { id: r.beanId || null, name: r.beanName || '', roaster: r.beanRoaster || '', roastDate: r.roastDate || '' };
+      startBrewWith(bean, { dose:r.dose, grind:r.grind, agitate:r.agitate, contact:r.contact,
+        water:r.water, bloom:r.bloom, decay:r.decay, brewTarget:r.brewTarget });
+    }
+    function openBrewActions(r) {
+      actBrew = r;
+      $('brew-act-title').textContent = brewIdentity(r).brewName || 'Brew';
+      const editBtn = $('brew-act-edit');
+      if (r.locked) {
+        editBtn.textContent = 'Locked — exported' + (r.exportedAt ? ' ' + fmtDateShort(r.exportedAt.slice(0, 10)) : '');
+        editBtn.disabled = true;
+      } else {
+        editBtn.textContent = 'Edit';
+        editBtn.disabled = false;
+      }
+      $('brew-act-bg').classList.add('open');
+    }
+    function closeBrewActions() { $('brew-act-bg').classList.remove('open'); actBrew = null; }
+    $('brew-act-brew').addEventListener('click', () => {
+      if (!actBrew) return;
+      const r = actBrew; closeBrewActions();
+      brewFromBrew(r);
+    });
+    $('brew-act-edit').addEventListener('click', () => {
+      if (!actBrew || actBrew.locked) return;
+      const r = actBrew; closeBrewActions();
+      enterBrewEdit(r);
+    });
+    $('brew-act-delete').addEventListener('click', () => {
+      if (!actBrew) return;
+      const r = actBrew;
+      if (!confirm('Delete this brew permanently? This cannot be undone.')) return;
+      closeBrewActions();
+      setBrews(getBrews().filter(b => b.id !== r.id));
+      renderHistory();
+    });
+    $('brew-act-cancel').addEventListener('click', closeBrewActions);
+    $('brew-act-bg').addEventListener('click', e => { if (e.target.id === 'brew-act-bg') closeBrewActions(); });
+    $('btn-edit-cancel').addEventListener('click', () => {
+      exitBrewEdit();
+      if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
+      else clearForNextBrew();
+    });
+    $('btn-edit-save').addEventListener('click', saveBrew);
+
+    $('btn-history').addEventListener('click', openHistory);
+    $('btn-history-close').addEventListener('click', closeHistory);
+    $('history-overlay').addEventListener('click', e => {
+      if (e.target === $('history-overlay')) closeHistory();
+    });
+
+    // ── CSV export (headers match the spreadsheet; units converted on the way out) ──
+    function csvCell(v) {
+      if (v === null || v === undefined) v = '';
+      v = String(v);
+      return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+    function toCSV(headers, rows) {
+      return [headers, ...rows].map(r => r.map(csvCell).join(',')).join('\r\n');
+    }
+    function csvDateTime(iso) {
+      const d = new Date(iso);
+      if (isNaN(d)) return '';
+      const p = n => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`;
+    }
+    // ── Live reference: an UNLOCKED brew shows its bean's CURRENT identity (so a
+    // typo fix flows through); a LOCKED brew keeps the snapshot frozen at export. ──
+    function liveBean(id) { return id ? getBeans().find(b => b.id === id) : null; }
+    function brewIdentity(r) {
+      if (!r.locked) {
+        const b = liveBean(r.beanId);
+        if (b) return { brewName: composeName(b), beanName: b.name || '', beanRoaster: b.roaster || '', roastDate: b.roastDate || '' };
+      }
+      return { brewName: r.brewName || 'Untitled brew', beanName: r.beanName || '', beanRoaster: r.beanRoaster || '', roastDate: r.roastDate || '' };
+    }
+
+    function brewsToCSV() {
+      const H = ['Name','Date','Roaster','Dose','Grind','Temp','Time_Aim','Bloom','Pour_Decay','Agitate','Output','Time_Error','TDS','Brew_Rating','Bean_Rating','Comments','ID','Bean_ID'];
+      const rows = getBrews().sort((a, b) => a.id - b.id).map(r => {
+        const idn = brewIdentity(r);
+        return [
+        idn.brewName,
+        csvDateTime(r.savedAt),
+        idn.beanRoaster,
+        r.dose || '',
+        r.grind || '',
+        r.water || '',
+        r.contact ? parseInt(r.contact) / 60 : '',                       // seconds → minutes
+        r.bloom || '',
+        (r.decay !== '' && r.decay != null) ? parseFloat(r.decay) / 100 : '', // percent → fraction
+        (r.agitate == null ? '' : r.agitate),
+        r.brewTarget || '',
+        (r.timeAdj ?? ''),
+        r.tds || '',
+        (r.brewRating || r.rating || ''),
+        r.beanRating || '',
+        (r.brewNote || r.notes || ''),                                   // brew-side note
+        r.id,                                                            // stable key for Excel upsert
+        (r.beanId || '')                                                 // foreign key → bean
+      ]; });
+      return toCSV(H, rows);
+    }
+    // Bag size may be a label like "250g" or "12oz" — Excel's Bag_Size_g wants grams.
+    function bagSizeToGrams(v) {
+      if (v == null || v === '') return '';
+      const m = String(v).trim().toLowerCase().match(/^([\d.]+)\s*(g|oz)?$/);
+      if (!m) return v;                                   // unrecognized → pass through
+      const n = parseFloat(m[1]);
+      return m[2] === 'oz' ? Math.round(n * 28.3495) : Math.round(n);
+    }
+    function beansToCSV() {
+      const H = ['Name','Roaster','Country','Region','Varietal','Process','Roast_Date','Bag_Size_g','Bag_Count','Rating','Roaster_Notes','Comments','ID',
+        'Best_Dose','Best_Grind','Best_Temp','Best_Time_Aim','Best_Bloom','Best_Pour_Decay','Best_Agitate','Best_Output'];
+      const rows = getBeans().sort((a, b) => a.id - b.id).map(b => [
+        b.name || '', b.roaster || '', b.country || '', b.region || '', b.varietal || '',
+        b.process || '', b.roastDate || '', bagSizeToGrams(b.bagSize), b.bagCount || '', (b.rating || ''), b.roasterNotes || '',
+        [b.tastingNote, b.myNotes].filter(Boolean).join(' — '),           // verdict + any legacy My Notes
+        b.id,                                                             // stable key for Excel upsert
+        // Best recipe — same unit conventions as BrewLog (contact→min, decay→fraction, target=output)
+        b.bestDose || '', b.bestGrind || '', b.bestWater || '',
+        b.bestContact ? parseInt(b.bestContact) / 60 : '',
+        b.bestBloom || '',
+        (b.bestDecay !== '' && b.bestDecay != null) ? parseFloat(b.bestDecay) / 100 : '',
+        (b.bestAgitate == null ? '' : b.bestAgitate),
+        b.bestTarget || ''
+      ]);
+      return toCSV(H, rows);
+    }
+
+    // ── Full JSON backup / restore (survives a browser change or PWA reinstall) ──
+    function exportJSON() {
+      const data = { app: 'black-magic', version: 1, exportedAt: new Date().toISOString(), beans: getBeans(), brews: getBrews() };
+      downloadCSV('black-magic-backup.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8;');
+    }
+    function importJSON(text) {
+      let data;
+      try { data = JSON.parse(text); } catch (_) { alert('That doesn’t look like a Black Magic backup file.'); return; }
+      if (!data || !Array.isArray(data.beans) || !Array.isArray(data.brews)) {
+        alert('That doesn’t look like a Black Magic backup file.'); return;
+      }
+      if (!confirm('Restore ' + data.beans.length + ' beans and ' + data.brews.length + ' brews? This REPLACES all current data on this device.')) return;
+      setBeans(data.beans); setBrews(data.brews);
+      if (shownData === 'beans') renderBeanHistory(); else renderHistory();
+      alert('Restored ' + data.beans.length + ' beans and ' + data.brews.length + ' brews.');
+    }
+    function downloadCSV(filename, text, mime) {
+      const blob = new Blob([text], { type: mime || 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+    // Generic EXPORT = a full dump of BOTH datasets (no locking; re-runnable). Two
+    // files → your two spreadsheet sheets. Staggered so iOS doesn't drop the 2nd.
+    $('btn-export').addEventListener('click', () => {
+      downloadCSV('brews.csv', brewsToCSV());
+      setTimeout(() => downloadCSV('beans.csv', beansToCSV()), 700);
+      const btn = $('btn-export');
+      const orig = btn.textContent;
+      btn.textContent = 'exported ✓';
+      setTimeout(() => { btn.textContent = orig; }, 1600);
+    });
+    $('btn-backup').addEventListener('click', () => {
+      exportJSON();
+      const btn = $('btn-backup'), orig = btn.textContent;
+      btn.textContent = 'saved ✓';
+      setTimeout(() => { btn.textContent = orig; }, 1400);
+    });
+    $('btn-restore').addEventListener('click', () => $('restore-file').click());
+    $('restore-file').addEventListener('change', e => {
+      const file = e.target.files[0];
+      if (file) { const reader = new FileReader(); reader.onload = () => importJSON(reader.result); reader.readAsText(file); }
+      e.target.value = '';   // allow re-importing the same file
+    });
+
+    // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
+    let currentScreen = 'brew';
+    function showScreen(name) {
+      currentScreen = name;
+      $('screen-brew').hidden = (name !== 'brew');
+      $('screen-bean').hidden = (name !== 'bean');
+      if (name === 'bean') showBeanList();
+    }
+    $('btn-to-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });
+    $('btn-to-brew').addEventListener('click', () => { editingBeanId = null; clearBeanForm(); showScreen('brew'); });
+
+    // ── Beans (localStorage) ─────────────────────────────────────
+    const BEANS_KEY = 'blackmagic.beans';
+    function getBeans() {
+      try { return JSON.parse(localStorage.getItem(BEANS_KEY)) || []; }
+      catch (e) { return []; }
+    }
+    function setBeans(arr) { localStorage.setItem(BEANS_KEY, JSON.stringify(arr)); }
+    function nextBeanId() {
+      const maxId = getBeans().reduce((m, b) => Math.max(m, b.id), 0);
+      return Math.max(Date.now(), maxId + 1);
+    }
+
+    // Seed lists scraped from the spreadsheet (Café Integral absorbs "Integral";
+    // "La Columbe" → "La Colombe"). Sorted alphabetically.
+    const SEED = {
+      country: ['Blend','Brazil','Burundi','Colombia','Congo','Costa Rica','Ecuador',
+        'El Salvador','Ethiopia','Guatemala','Hawaii','Honduras','Indonesia','Jamaica',
+        'Kenya','Mexico','Nicaragua','Panama','Peru','Rwanda'],
+      roaster: ['Big Island','Café Integral','Desnudo','Devocion','Gardelli','La Cabra',
+        'La Colombe','Majano','Parlor','Passenger','Preface','Prodigal','Roasting Plant',
+        'Sagebrush','Sey','Tandem','Vigilante','Volcanica'],
+      varietal: ['Aji','Bourbon','Bourbon Aji','Caturra','Gesha','Java','Kona Typica',
+        'Mejorado','Papayo','Parainema','Peaberry','Pink Bourbon','Red Catuai','Rosado',
+        'SL28','SL34','Sidra','Sudan Rume','Tabi','Typica','Wush Wush','Yellow Caturra'],
+      process: ['Washed','Natural','Honey','Anaerobic','Anaerobic Natural',
+        'Carbonic Maceration','Wet Hulled','Hybrid']
+    };
+
+    // Options = seed ∪ values already used in saved beans (living list).
+    // The 5 most-used values are pinned on top (descending use); the rest
+    // — including unused seeds — follow alphabetically.
+    function optionsFor(field, seed) {
+      const counts = new Map();
+      getBeans().forEach(b => {
+        const v = (b[field] || '').trim();
+        if (v) counts.set(v, (counts.get(v) || 0) + 1);
+      });
+      const all = new Set(seed);
+      counts.forEach((_, v) => all.add(v));
+      const top = [...counts.entries()]
+        .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+        .slice(0, 5)
+        .map(e => e[0]);
+      const topSet = new Set(top);
+      const rest = [...all].filter(v => !topSet.has(v)).sort((a, b) => a.localeCompare(b));
+      return [...top, ...rest];
+    }
+    // Custom autocomplete dropdown anchored under the field (replaces <datalist>,
+    // whose native popup mispositioned in embedded webviews). Free text still allowed.
+    function attachAutocomplete(input, getOptions) {
+      const wrap = input.closest('.ac');
+      const list = document.createElement('div');
+      list.className = 'ac-list'; list.hidden = true;
+      wrap.appendChild(list);
+      let active = -1;
+      const items = () => [...list.querySelectorAll('.ac-item')];
+      const hide = () => { list.hidden = true; };
+      function show(all) {
+        // On focus (all=true) show the full list — even when the field is
+        // pre-filled (edit mode), so editing matches the new-bean experience.
+        // Filter only once the user actually types.
+        const q = all ? '' : input.value.trim().toLowerCase();
+        const opts = getOptions().filter(o => o.toLowerCase().includes(q)).slice(0, 40);
+        list.innerHTML = ''; active = -1;
+        opts.forEach(o => {
+          const el = document.createElement('div');
+          el.className = 'ac-item'; el.textContent = o;
+          el.addEventListener('mousedown', e => { e.preventDefault(); input.value = o; hide(); });
+          list.appendChild(el);
+        });
+        list.hidden = opts.length === 0;
+      }
+      input.addEventListener('focus', () => show(true));
+      input.addEventListener('input', () => show(false));
+      input.addEventListener('blur', () => setTimeout(hide, 150));
+      input.addEventListener('keydown', e => {
+        const it = items();
+        if (list.hidden || !it.length) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); active = Math.min(active + 1, it.length - 1); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); active = Math.max(active - 1, 0); }
+        else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); input.value = it[active].textContent; hide(); return; }
+        else if (e.key === 'Escape') { hide(); return; }
+        else return;
+        it.forEach((el, i) => el.classList.toggle('active', i === active));
+        it[active].scrollIntoView({ block: 'nearest' });
+      });
+    }
+
+    // A textarea that auto-grows up to maxLines, then scrolls inside (so "save bean"
+    // never gets pushed off). ~11 Bean-Note lines fit at 402×874 with no insets; capped
+    // lower to stay clear of the iPhone's top/bottom safe areas + the 2-line Roaster Notes.
+    const BEAN_NOTE_MAX_LINES = 7;
+    const ROASTER_NOTE_MAX_LINES = 2;
+    function growCapped(el, maxLines) {
+      el.style.height = 'auto';
+      const cs = getComputedStyle(el);
+      const lh = parseFloat(cs.lineHeight) || 20;
+      const padV = (parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0);  // border-box
+      el.style.height = Math.min(el.scrollHeight, lh * maxLines + padV) + 'px';
+    }
+    function growBeanNote()    { growCapped($('bean-tasting'), BEAN_NOTE_MAX_LINES); }
+    function growRoasterNote() { growCapped($('bean-rnotes'), ROASTER_NOTE_MAX_LINES); }
+    function growBeanForm()    { growRoasterNote(); growBeanNote(); }
+    function collectBean() {
+      return {
+        name: $('bean-name').value.trim(),
+        roaster: $('bean-roaster').value.trim(),
+        country: $('bean-country').value.trim(),
+        region: $('bean-region').value.trim(),
+        process: $('bean-process').value.trim(),
+        varietal: $('bean-varietal').value.trim(),
+        roastDate: $('bean-roast').value,           // yyyy-mm-dd
+        bagSize: $('bean-bagsize').value.trim(),
+        bagCount: $('bean-bagcount').value.trim(),
+        roasterNotes: $('bean-rnotes').value.trim(),
+        rating: $('bf-rating').value,                   // Bean★ — now editable here too
+        tastingNote: $('bean-tasting').value.trim(),    // evolving verdict
+        bestDose: $('best-dose').value, bestGrind: $('best-grind').value,
+        bestAgitate: $('best-agitate').value, bestContact: $('best-contact').value,
+        bestWater: $('best-water').value, bestBloom: $('best-bloom').value,
+        bestDecay: $('best-decay').value, bestTarget: $('best-target').value
+      };
+    }
+
+    function clearBeanForm() {
+      ['bean-name','bean-roaster','bean-country','bean-region','bean-process','bean-varietal',
+       'bean-roast','bean-bagsize','bean-bagcount','bean-rnotes','bean-tasting','bf-rating']
+        .forEach(id => $(id).value = '');
+      renderField('bf-rating'); renderField('bean-bagcount');
+    }
+
+    let editingBeanId = null;   // null = creating new; otherwise updating in place
+
+    function saveBean() {
+      const data = collectBean();
+      if (!data.name) { alert('Add a bean name first.'); return null; }
+      const beans = getBeans();
+      let bean;
+      if (editingBeanId) {
+        bean = beans.find(b => b.id === editingBeanId);
+        if (!bean) { editingBeanId = null; return saveBean(); }   // vanished — save as new
+        if (bean.locked) { alert('This bean is locked (already exported) and can’t be edited.'); return null; }
+        // A hand-edit of an existing best recipe is a deliberate "this is the best" → tier 5,
+        // so only a 5★ brew (or another edit) can later replace it. A bean that had no recipe
+        // yet keeps tier 0 so good brews can still evolve it.
+        const hadRecipe = bean.bestDose != null && bean.bestDose !== '';
+        const recipeChanged = Object.values(BEST_KEYS).some(k => String(bean[k] ?? '') !== String(data[k] ?? ''));
+        Object.assign(bean, data, { updatedAt: new Date().toISOString() });  // keeps rating/tastingNote
+        if (hadRecipe && recipeChanged) bean.bestRecipeRating = 5;
+        else if (bean.bestRecipeRating == null) bean.bestRecipeRating = 0;
+      } else {
+        bean = Object.assign({ id: nextBeanId(), savedAt: new Date().toISOString(), bestRecipeRating: 0 }, data);
+        beans.push(bean);
+      }
+      setBeans(beans);
+      // Live-reference: editing the selected coffee refreshes the brew bar immediately
+      if (currentBean && currentBean.id === bean.id) setBeanBar(bean);
+      clearBeanForm();
+      editingBeanId = null;
+      return bean;
+    }
+    $('btn-save-bean').addEventListener('click', () => {
+      if (!saveBean()) return;
+      showBeanList();
+    });
+
+    // List ⇄ form navigation within the Bean tab. The amber "Beans" header button
+    // only shows in the form (it's the way back to the list).
+    function showBeanList() {
+      $('bean-list-view').hidden = false;
+      $('bean-form-view').hidden = true;
+      $('btn-to-beanlist').hidden = true;
+      renderBeanList();
+    }
+    function showBeanForm() {
+      $('bean-list-view').hidden = true;
+      $('bean-form-view').hidden = false;
+      $('btn-to-beanlist').hidden = false;
+      growBeanForm();                 // size the note textareas now that they're visible
+    }
+    function populateBeanForm(b) {
+      $('bean-name').value = b.name || '';
+      $('bean-roaster').value = b.roaster || '';
+      $('bean-country').value = b.country || '';
+      $('bean-region').value = b.region || '';
+      $('bean-process').value = b.process || '';
+      $('bean-varietal').value = b.varietal || '';
+      $('bean-roast').value = b.roastDate || '';
+      $('bean-bagsize').value = b.bagSize || '';
+      $('bean-bagcount').value = b.bagCount || ''; renderField('bean-bagcount');
+      $('bean-rnotes').value = b.roasterNotes || '';
+      $('bf-rating').value = b.rating || ''; renderField('bf-rating');
+      $('bean-tasting').value = b.tastingNote || '';
+      setBeanRecipeFields(beanToRecipe(b));   // best recipe (defaults if the bean has none yet)
+    }
+    $('btn-new-bean').addEventListener('click', () => {
+      clearBeanForm();
+      setBeanRecipeFields(DEFAULT_RECIPE);   // new beans start at the default recipe
+      $('bean-bagsize').value = '250g';      // default bag size
+      $('bean-bagcount').value = '1'; renderField('bean-bagcount');   // default to one bag
+      editingBeanId = null;
+      $('btn-save-bean').textContent = 'save bean';
+      showBeanForm();
+    });
+    $('btn-to-beanlist').addEventListener('click', () => {   // cancel → bean list
+      editingBeanId = null; clearBeanForm(); showBeanList();
+    });
+    function renderBeanList() { renderBeanHistory('manage', $('bean-list')); }
+
+    // Bean action sheet (hold a bean in the list → Edit / Export)
+    let actBean = null;
+    function openBeanActions(b) {
+      actBean = b;
+      $('bean-act-title').textContent = b.name || 'Bean';
+      const editBtn = $('bean-act-edit');
+      if (b.locked) {
+        editBtn.textContent = 'Locked — exported' + (b.exportedAt ? ' ' + fmtDateShort(b.exportedAt.slice(0, 10)) : '');
+        editBtn.disabled = true;
+      } else {
+        editBtn.textContent = 'Edit';
+        editBtn.disabled = false;
+      }
+      $('bean-act-bg').classList.add('open');
+    }
+    function closeBeanActions() { $('bean-act-bg').classList.remove('open'); actBean = null; }
+    $('bean-act-brew').addEventListener('click', () => {
+      if (!actBean) return;
+      const b = actBean; closeBeanActions();
+      brewFromBean(b);
+    });
+    $('bean-act-edit').addEventListener('click', () => {
+      if (!actBean || actBean.locked) return;
+      const b = actBean; closeBeanActions();
+      populateBeanForm(b);
+      editingBeanId = b.id;
+      $('btn-save-bean').textContent = 'update bean';
+      showBeanForm();
+    });
+    $('bean-act-delete').addEventListener('click', () => {
+      if (!actBean) return;
+      const b = actBean;
+      if (!confirm('Delete “' + (b.name || 'this bean') + '” permanently? This cannot be undone.')) return;
+      closeBeanActions();
+      setBeans(getBeans().filter(x => x.id !== b.id));
+      if (currentBean && currentBean.id === b.id) { setBeanBar(null); saveDraft(); }   // clear the brew bar if it pointed here
+      renderBeanList();
+    });
+    $('bean-act-cancel').addEventListener('click', closeBeanActions);
+    $('bean-act-bg').addEventListener('click', e => { if (e.target.id === 'bean-act-bg') closeBeanActions(); });
+
+    // ── Selected coffee (links a brew to a bean) ─────────────────
+    let currentBean = null;
+    const composeName = b => [b.roaster, b.name].map(x => (x || '').trim()).filter(Boolean).join(' ') || 'Untitled coffee';
+    function setBeanBar(bean) {
+      currentBean = bean || null;
+      const bar = $('bean-bar');
+      // Bean★ always shows the selected bean's current stored rating
+      let br = '';
+      if (currentBean && currentBean.id) {
+        const stored = getBeans().find(b => b.id === currentBean.id);
+        br = (stored && stored.rating) || currentBean.rating || '';
+        currentBean.rating = br;
+      }
+      $('bean-rating').value = br;
+      renderField('bean-rating');
+      // Bean note: prefill the evolving tasting note stored on the bean
+      let bn = '';
+      if (currentBean && currentBean.id) {
+        const stored = getBeans().find(b => b.id === currentBean.id);
+        bn = (stored && stored.tastingNote) || currentBean.tastingNote || '';
+        currentBean.tastingNote = bn;
+      }
+      $('notes-bean').value = bn;
+      growNotes();
+      if (currentBean) {
+        $('bb-name').textContent = composeName(currentBean);
+        $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
+        bar.classList.add('has-bean');
+      } else {
+        $('bb-name').textContent = 'Select a coffee';
+        $('bb-roast').textContent = '';
+        bar.classList.remove('has-bean');
+      }
+    }
+    function selectBean(bean) {
+      setBeanBar(bean);                 // swaps coffee + Bean★ + bean note; leaves the recipe alone
+      saveDraft();
+      closeHistory();
+      showScreen('brew');
+    }
+    // Two ways into the Bean tab, distinguished by beanPickMode:
+    //  • 'attach' (coffee bar, top center) — tap a bean to swap the coffee WITHOUT touching
+    //    the recipe (quick swap mid-cup); returns to brew immediately.
+    //  • 'manage' (Bean button, top left) — tap a bean → Brew / Edit / Delete; Brew loads
+    //    the bean's best recipe (changes coffee AND recipe).
+    let beanPickMode = 'manage';
+    $('bean-bar').addEventListener('click', () => { beanPickMode = 'attach'; showScreen('bean'); });
+
+    function fmtDateShort(ymd) {
+      const dt = new Date(ymd + 'T00:00:00');
+      return isNaN(dt) ? ymd
+        : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // Scroll-safe long-press for list cards: no preventDefault (so the list still
+    // scrolls), and any finger movement cancels both the hold and the tap.
+    function bindLongPress(el, { onTap, onHold, holdMs = 500 }) {
+      let timer = null, fired = false, sx = 0, sy = 0, moved = false;
+      el.addEventListener('pointerdown', e => {
+        fired = false; moved = false; sx = e.clientX; sy = e.clientY;
+        el.classList.add('holding');
+        timer = setTimeout(() => { timer = null; fired = true; el.classList.remove('holding'); onHold && onHold(); }, holdMs);
+      });
+      el.addEventListener('pointermove', e => {
+        if (!timer && !moved) return;
+        if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) {
+          moved = true;
+          if (timer) { clearTimeout(timer); timer = null; }
+          el.classList.remove('holding');
+        }
+      });
+      el.addEventListener('pointerup', () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+        if (!fired && !moved && onTap) onTap();
+      });
+      el.addEventListener('pointercancel', () => {
+        if (timer) { clearTimeout(timer); timer = null; }
+        el.classList.remove('holding');
+      });
+    }
+
+    // mode: 'browse' (history overlay — expand, brew-this, delete) |
+    // 'manage' (bean tab list — tap selects the coffee, hold → Edit/Export/Delete)
+    function renderBeanHistory(mode = 'browse', listEl = $('history-list')) {
+      const list = listEl;
+      const beans = getBeans().sort((a, b) => b.id - a.id);
+      list.innerHTML = '';
+      if (!beans.length) {
+        list.innerHTML = '<div class="history-empty">No saved beans yet.</div>';
+        return;
+      }
+      beans.forEach(b => {
+        const card = document.createElement('div');
+        card.className = 'brew-card' + (b.locked ? ' locked' : '');
+        const roast = b.roastDate ? fmtDateShort(b.roastDate) : '—';
+        const bag = b.bagSize ? (b.bagSize + ' g' + (b.bagCount ? ' × ' + b.bagCount : '')) : '—';
+        card.innerHTML = `
+          <div class="bc-top">
+            <span class="bc-name"></span>
+            <span class="bc-date"></span>
+          </div>
+          <div class="bc-stats"></div>
+          <div class="bc-detail">
+            <div class="bc-grid">
+              <div class="row"><span class="k">Roaster</span><span class="v v-roaster"></span></div>
+              <div class="row"><span class="k">Country</span><span class="v v-country"></span></div>
+              <div class="row"><span class="k">Region</span><span class="v v-region"></span></div>
+              <div class="row"><span class="k">Process</span><span class="v v-process"></span></div>
+              <div class="row"><span class="k">Varietal</span><span class="v v-varietal"></span></div>
+              <div class="row"><span class="k">Roast</span><span>${roast}</span></div>
+              <div class="row"><span class="k">Bag</span><span>${bag}</span></div>
+              <div class="row"><span class="k">Bean★</span><span>${b.rating || '—'}</span></div>
+            </div>
+            <div class="bc-notes" hidden></div>
+            <div class="bc-actions"><button class="bc-brew">brew this</button></div>
+            <button class="bc-delete-link">delete bean</button>
+          </div>`;
+        card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
+        card.querySelector('.bc-date').textContent = b.locked ? 'exported' : 'roast ' + roast;
+        if (b.locked) card.querySelector('.bc-date').classList.add('bc-lock');
+        card.querySelector('.bc-stats').textContent =
+          [b.roaster, [b.country, b.process].filter(Boolean).join(' · ')]
+            .filter(Boolean).join(' · ') || '—';
+        card.querySelector('.v-roaster').textContent = b.roaster || '—';
+        card.querySelector('.v-country').textContent = b.country || '—';
+        card.querySelector('.v-region').textContent = b.region || '—';
+        card.querySelector('.v-process').textContent = b.process || '—';
+        card.querySelector('.v-varietal').textContent = b.varietal || '—';
+        if (b.roasterNotes) {
+          const n = card.querySelector('.bc-notes');
+          n.textContent = b.roasterNotes;
+          n.hidden = false;
+        }
+
+        if (mode === 'manage') {
+          // 'attach' entry (coffee bar) → tap swaps the coffee, keeps the recipe.
+          // 'manage' entry (Bean button) → tap opens Brew / Edit / Delete.
+          card.querySelector('.bc-actions').remove();
+          card.querySelector('.bc-delete-link').remove();
+          card.addEventListener('click', () => {
+            if (beanPickMode === 'attach') selectBean(b);
+            else openBeanActions(b);
+          });
+        } else {  // browse
+          card.addEventListener('click', e => {
+            if (e.target.closest('.bc-actions') || e.target.closest('.bc-delete-link')) return;
+            card.classList.toggle('expanded');
+          });
+          card.querySelector('.bc-brew').addEventListener('click', () => selectBean(b));
+          card.querySelector('.bc-delete-link').addEventListener('click', () => {
+            if (!confirm('Delete this bean permanently? This is rarely needed and cannot be undone.')) return;
+            setBeans(getBeans().filter(x => x.id !== b.id));
+            renderBeanHistory('browse');
+          });
+        }
+        list.appendChild(card);
+      });
+    }
+
+    // ── Service worker (offline + installable; no-op on insecure origins) ──
+    // Self-updating: a new SW skipWaiting()s + claims clients → 'controllerchange'
+    // fires → we reload once to show the latest version. We also re-check for a
+    // new SW whenever the app regains focus, so reopening it pulls updates.
+    if ('serviceWorker' in navigator) {
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('sw.js').then(reg => {
+          reg.update();
+          document.addEventListener('visibilitychange', () => {
+            if (!document.hidden) reg.update();
+          });
+        }).catch(() => {});
+      });
+    }
+
+    // ── Init ─────────────────────────────────────────────────────
+    attachAutocomplete($('bean-country'), () => optionsFor('country', SEED.country));
+    attachAutocomplete($('bean-region'), () => optionsFor('region', []));   // learns from saved regions
+    attachAutocomplete($('bean-roaster'), () => optionsFor('roaster', SEED.roaster));
+    attachAutocomplete($('bean-varietal'), () => optionsFor('varietal', SEED.varietal));
+    attachAutocomplete($('bean-process'), () => optionsFor('process', SEED.process));
+    // Bag size: constrained list (in this order) + free "type other"; converts to grams on export.
+    const BAG_SIZES = ['100g','250g','350g','1000g','4oz','5oz','10oz','12oz','16oz','32oz'];
+    attachAutocomplete($('bean-bagsize'), () => BAG_SIZES);
+    $('bean-tasting').addEventListener('input', growBeanNote);
+    $('bean-rnotes').addEventListener('input', growRoasterNote);
+    setBeanBar(null);
+    showScreen('brew');
+    $('notes-brew').addEventListener('input', () => { growNotes(); saveDraft(); });
+    $('notes-bean').addEventListener('input', () => { growNotes(); saveDraft(); });
+    loadDraft();              // restore an unsaved brew from a previous session, if any
+    renderAllFields();
+    growNotes();
+    updateButtonLabel();
+    recalcSchedule();
+    render(0);
+    requestAnimationFrame(tick);
+  </script>
+</body>
+</html>
