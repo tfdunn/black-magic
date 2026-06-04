@@ -746,7 +746,16 @@
       color: #888; text-align: center; margin: 12px 0 2px; }
     #bean-form-view .stats-grid { margin-bottom: 4px; }
     /* Best-recipe values render amber (signals editable) + slightly smaller than Bean★ */
-    .best-grid .field .fnum, .best-grid .field .dash { color: var(--accent); font-size: 17px; }
+    .best-grid .field .fnum, .best-grid .field .dash,
+    .def-grid  .field .fnum, .def-grid  .field .dash { color: var(--accent); font-size: 17px; }
+
+    /* ── Tools screen ── */
+    .bean-list-top { display: flex; justify-content: flex-end; padding: 2px 0 0; }
+    .tools-body { padding-top: 6px; overflow-y: auto;
+      max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
+    .tools-body .stats-grid { margin-bottom: 2px; }
+    .tools-hint { font-size: 12px; color: var(--tertiary); text-align: center; margin: 8px 0 2px; line-height: 1.35; }
+    .tools-data { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -1070,6 +1079,9 @@
 
     <!-- List view (default): create-new on top, then beans newest-first -->
     <div id="bean-list-view">
+      <div class="bean-list-top">
+        <button class="history-export" id="btn-beanlist-tools" type="button">Tools</button>
+      </div>
       <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
       <div class="bean-list" id="bean-list"></div>
     </div>
@@ -1187,6 +1199,67 @@
 
    </section>
 
+   <!-- ══ TOOLS SCREEN ══ -->
+   <section id="screen-tools" class="screen" hidden>
+    <div class="header">
+      <button class="nav-btn" id="btn-tools-back">Done</button>
+      <h1>Tools</h1>
+    </div>
+
+    <div class="tools-body">
+      <!-- Default recipe — seeds every new bean (amber = editable) -->
+      <div class="bean-section-label">Default Recipe</div>
+      <div class="stats-grid def-grid">
+        <div class="stat-cell"><span class="label">Dose</span>
+          <button type="button" class="field" data-f="def-dose"></button>
+          <input type="hidden" id="def-dose"></div>
+        <div class="stat-cell"><span class="label">Grind</span>
+          <button type="button" class="field" data-f="def-grind"></button>
+          <input type="hidden" id="def-grind"></div>
+        <div class="stat-cell"><span class="label">Agitate</span>
+          <button type="button" class="field" data-f="def-agitate"></button>
+          <select id="def-agitate" hidden>
+            <option value="0">0 (none)</option><option value="1">1 (min)</option>
+            <option value="2">2 (low)</option><option value="3">3 (mid)</option>
+            <option value="4">4 (high)</option>
+          </select></div>
+        <div class="stat-cell"><span class="label">Contact</span>
+          <button type="button" class="field" data-f="def-contact"></button>
+          <select id="def-contact" hidden>
+            <option value="60">1:00</option><option value="90">1:30</option><option value="120">2:00</option>
+            <option value="150">2:30</option><option value="180">3:00</option><option value="210">3:30</option>
+            <option value="240">4:00</option><option value="270">4:30</option><option value="300">5:00</option>
+            <option value="330">5:30</option><option value="360">6:00</option><option value="390">6:30</option>
+            <option value="420">7:00</option><option value="450">7:30</option><option value="480">8:00</option>
+            <option value="510">8:30</option><option value="540">9:00</option><option value="570">9:30</option>
+            <option value="600">10:00</option>
+          </select></div>
+        <div class="stat-cell"><span class="label">Water</span>
+          <button type="button" class="field" data-f="def-water"></button>
+          <input type="hidden" id="def-water"></div>
+        <div class="stat-cell"><span class="label">Bloom</span>
+          <button type="button" class="field" data-f="def-bloom"></button>
+          <input type="hidden" id="def-bloom"></div>
+        <div class="stat-cell"><span class="label">Pour ↘︎</span>
+          <button type="button" class="field" data-f="def-decay"></button>
+          <input type="hidden" id="def-decay"></div>
+        <div class="stat-cell"><span class="label">Target</span>
+          <button type="button" class="field" data-f="def-target"></button>
+          <input type="hidden" id="def-target"></div>
+      </div>
+      <p class="tools-hint">Seeds every new bean you create. Existing beans keep their own recipe.</p>
+
+      <!-- Data -->
+      <div class="bean-section-label">Data</div>
+      <div class="tools-data">
+        <button class="act-btn" id="btn-export" type="button">Export CSV (beans + brews)</button>
+        <button class="act-btn" id="btn-backup" type="button">Backup — save all data (JSON)</button>
+        <button class="act-btn" id="btn-restore" type="button">Restore — replace from backup…</button>
+        <input type="file" id="restore-file" accept="application/json,.json" hidden>
+      </div>
+    </div>
+   </section>
+
   </div>
 
   <!-- History overlay -->
@@ -1195,10 +1268,7 @@
       <div class="history-head">
         <h2 id="history-title">History</h2>
         <div class="hh-actions">
-          <button class="history-export" id="btn-export">export</button>
-          <button class="history-export" id="btn-backup">backup</button>
-          <button class="history-export" id="btn-restore">restore</button>
-          <input type="file" id="restore-file" accept="application/json,.json" hidden>
+          <button class="history-export" id="btn-history-tools">Tools</button>
           <button class="history-close" id="btn-history-close">&times;</button>
         </div>
       </div>
@@ -1324,7 +1394,32 @@
     RECIPE_MAP.forEach(([base, bk]) => FX[bk] = Object.assign({}, FX[base]));
     FX['bf-rating'] = Object.assign({}, FX['bean-rating']);   // Bean★ editor on the bean form
     FX['bean-bagcount'] = {label:'# Bags', step:1, min:1, max:6, presets:[1,2,3,4,5,6], type:'num'};
+    // The Tools "default recipe" reuses the same 8 input editors, keyed def-*.
+    const DEF_MAP = [['dose','def-dose'],['grind','def-grind'],['agitate','def-agitate'],
+      ['contact','def-contact'],['water','def-water'],['bloom','def-bloom'],
+      ['decay','def-decay'],['brew-target','def-target']];
+    DEF_MAP.forEach(([base, dk]) => FX[dk] = Object.assign({}, FX[base]));
+    // Seed values for a brand-new install (before the user edits the default in Tools).
     const DEFAULT_RECIPE = { dose:'24', grind:'8', agitate:'1', contact:'270', water:'208', bloom:'85', decay:'90', brewTarget:'350' };
+
+    // ── Editable default recipe (Tools) — seeds every new bean; evolves over time ──
+    const DEF_KEYS = { 'def-dose':'dose','def-grind':'grind','def-agitate':'agitate','def-contact':'contact',
+      'def-water':'water','def-bloom':'bloom','def-decay':'decay','def-target':'brewTarget' };
+    const DEFAULT_RECIPE_KEY = 'blackmagic.defaultRecipe';
+    function getDefaultRecipe(){
+      let s; try { s = JSON.parse(localStorage.getItem(DEFAULT_RECIPE_KEY)); } catch (e) {}
+      return Object.assign({}, DEFAULT_RECIPE, (s && typeof s === 'object') ? s : {});
+    }
+    function loadDefaultRecipeFields(){
+      const r = getDefaultRecipe();
+      Object.entries(DEF_KEYS).forEach(([dk, rk]) => { document.getElementById(dk).value = r[rk] ?? ''; renderField(dk); });
+    }
+    function persistDefaultRecipe(){
+      const r = {};
+      Object.entries(DEF_KEYS).forEach(([dk, rk]) => { r[rk] = document.getElementById(dk).value; });
+      localStorage.setItem(DEFAULT_RECIPE_KEY, JSON.stringify(r));
+    }
+    Object.keys(DEF_KEYS).forEach(dk => document.getElementById(dk).addEventListener('change', persistDefaultRecipe));
     const fmtMS  = sec => Math.floor(sec/60) + ':' + String(Math.abs(sec)%60).padStart(2,'0');
     const fmtNum = (c,n) => c.signed ? (n>0?'+':'')+n : c.trim ? String(+(+n).toFixed(c.dec||0)) : c.dec ? (+n).toFixed(c.dec) : String(n);
 
@@ -1376,11 +1471,11 @@
     }
     // bean.best* → brew-style recipe object (falls back to defaults per field)
     function beanToRecipe(b){
-      const r = {};
+      const r = {}, def = getDefaultRecipe();
       RECIPE_FIELDS.forEach(f => {
         const k = f === 'brew-target' ? 'brewTarget' : f;
         const v = b[BEST_KEYS[f]];
-        r[k] = (v === undefined || v === null || v === '') ? DEFAULT_RECIPE[k] : v;
+        r[k] = (v === undefined || v === null || v === '') ? def[k] : v;
       });
       return r;
     }
@@ -2280,10 +2375,16 @@
       currentScreen = name;
       $('screen-brew').hidden = (name !== 'brew');
       $('screen-bean').hidden = (name !== 'bean');
+      $('screen-tools').hidden = (name !== 'tools');
       if (name === 'bean') showBeanList();
+      if (name === 'tools') loadDefaultRecipeFields();
     }
     $('btn-to-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });
     $('btn-to-brew').addEventListener('click', () => { editingBeanId = null; clearBeanForm(); showScreen('brew'); });
+    // Tools: reached from the History overlay header and the bean-list page; Done → brew.
+    $('btn-tools-back').addEventListener('click', () => showScreen('brew'));
+    $('btn-history-tools').addEventListener('click', () => { $('history-overlay').classList.remove('open'); showScreen('tools'); });
+    $('btn-beanlist-tools').addEventListener('click', () => showScreen('tools'));
 
     // ── Beans (localStorage) ─────────────────────────────────────
     const BEANS_KEY = 'blackmagic.beans';
@@ -2482,7 +2583,7 @@
     }
     $('btn-new-bean').addEventListener('click', () => {
       clearBeanForm();
-      setBeanRecipeFields(DEFAULT_RECIPE);   // new beans start at the default recipe
+      setBeanRecipeFields(getDefaultRecipe());   // new beans start at the editable default recipe (Tools)
       $('bean-bagsize').value = '250g';      // default bag size
       $('bean-bagcount').value = '1'; renderField('bean-bagcount');   // default to one bag
       editingBeanId = null;
