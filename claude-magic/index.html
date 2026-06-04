@@ -258,6 +258,14 @@
       letter-spacing: -2px;
       font-variant-numeric: tabular-nums;
     }
+    /* Countdown: the big number pops on each 3-2-1 tick, then flashes "GO"
+       in amber (synced to the GO tone + timer start). */
+    @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
+    .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
+    .pour-number.go { color: var(--accent); letter-spacing: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .pour-number.count-pop { animation: none; }
+    }
 
     /* In-dial live timer (grey, above the pour number) */
     .dial-timer {
@@ -1510,6 +1518,7 @@
     let elapsed = 0, running = false, lastTs = null;
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
+    let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
     let loadedFromHistory = false;   // true while editing a brew loaded from History
 
     function render(s) {
@@ -1525,7 +1534,15 @@
       hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
-      if (!inCountdown) document.getElementById('t-ml').textContent = pourTarget(s);
+      if (!inCountdown) {
+        const ml = document.getElementById('t-ml');
+        if (goFlashUntil && performance.now() < goFlashUntil) {
+          // hold the "GO" flash for a beat before numbers resume
+        } else {
+          if (goFlashUntil) { goFlashUntil = 0; ml.classList.remove('go'); }
+          ml.textContent = pourTarget(s);
+        }
+      }
       document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
       updateButtonLabel();
     }
@@ -1566,10 +1583,13 @@
       [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
       countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
 
+      const ml = document.getElementById('t-ml');
+      const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
       let count = 3;
       const step = () => {
         if (!inCountdown) return;
-        document.getElementById('t-ml').textContent = count;
+        ml.textContent = count;
+        pop();
         count--;
         if (count > 0) {
           setTimeout(step, 1000);
@@ -1582,6 +1602,10 @@
             lastTs = null;
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
+            ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
+            ml.classList.add('go');
+            pop();
+            goFlashUntil = performance.now() + 550;
             render(0);
           }, 1000);
         }
@@ -1597,6 +1621,8 @@
       elapsed = 0;
       lastTs = null;
       brewStartedAt = null;
+      goFlashUntil = 0;
+      document.getElementById('t-ml').classList.remove('go', 'count-pop');
       cancelCountdownAudio();
       render(0);
     }
