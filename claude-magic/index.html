@@ -7,7 +7,8 @@
 
   <!-- PWA / installable -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: light)" content="#ffffff">
+  <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -29,6 +30,8 @@
 
     /* Lock the screen — no page scroll / rubber-band on iPhone (content fits 100dvh) */
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    /* Let native controls (date picker, caret, scrollbars) follow the theme. */
+    html { color-scheme: light dark; }
     body {
       font-family: var(--font);
       background: #ececef;
@@ -837,6 +840,81 @@
       color: #888; cursor: pointer; text-transform: uppercase;
     }
     .history-export:active { color: #000; }
+
+    /* ───────────────────────── Dark mode ─────────────────────────
+       "Black Magic" earns a true-black theme. Tokens flip light-on-dark;
+       the black emphasis pill (--ink fill) becomes the amber accent so it
+       stays visible; the reset-hold overlay dims to dark instead of white;
+       the progress arc's past-4-min colour is handled in render(). */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --ink:       #F2F2F4;
+        --secondary: rgba(235,235,245,0.62);
+        --tertiary:  rgba(235,235,245,0.38);
+        --hairline:  rgba(235,235,245,0.16);
+        --accent:    #D08A52;   /* lighter roasted amber — readable on black */
+      }
+      body { background: #000; }
+      .app { background: #0B0B0C; }
+      /* Hairline-gap grid cells were #fff — match the app bg so the 0.5px gaps
+         read as dividers (like an iOS grouped list on black). */
+      .stats-grid .stat-cell, .bottom-stat { background: #0B0B0C; }
+
+      /* Surfaces that were #fff → elevated dark */
+      .ed-sheet, .history-panel, .ac-list, .act-btn, .ed-big button,
+      .ed-chips .chip, .btn-save.saved, .btn-save.secondary { background: #1C1C1E; }
+      /* Overlays sit outside .app, so they don't inherit its light text colour —
+         set it on the containers (covers the big sheet value, history heading). */
+      .ed-sheet, .history-panel { color: var(--ink); }
+      .bean-new, .act-btn:disabled { background: #161617; }
+
+      /* Emphasis fills that were the black --ink pill → amber accent */
+      .btn-save, .ed-chips .chip.sel, .ed-done, .bc-actions .bc-brew {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .ed-big button:active, .bean-cell .chips button:active, .act-btn:active {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .btn-save.saved, .btn-save.secondary { color: var(--ink); border-color: var(--hairline); }
+
+      /* Borders that were #e8e8e8 / #f0f0f0 / #ddd */
+      .brew-name, input.brew-name, input.bean-name, input.roaster,
+      .bean-grid, .bean-cell, .verdict-row, .text-field,
+      .history-head, .brew-card, .ac-list { border-color: var(--hairline); }
+      .bean-grid .bean-cell { border-right-color: var(--hairline); border-top-color: var(--hairline); }
+      input.brew-name:focus, input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
+
+      /* Subtle :active / fill greys (#f4–f7, #f0f0f0) */
+      .bean-cell .chips button { background: rgba(235,235,245,0.08); color: var(--secondary); }
+      .bean-new:active, .brew-card:active, .btn-save.secondary:active,
+      .ac-item.active, .ac-item:hover { background: rgba(235,235,245,0.06); }
+      .brew-card.holding { background: rgba(235,235,245,0.09); }
+      .bean-bar:active { background: rgba(235,235,245,0.05); }
+
+      /* Text greys → tokens */
+      .history-close, .brew-card .bc-name, .bc-detail .bc-grid .row,
+      .time-controls .value, .btn-adj, .ac-item, .history-export:active { color: var(--ink); }
+      .text-field input, .text-field textarea { color: var(--ink); }
+      .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
+      .brew-card .bc-stats, .history-export, .bc-detail .bc-grid .row .k,
+      .bc-detail .bc-notes { color: var(--secondary); }
+      .brew-card .bc-date, .history-empty { color: var(--tertiary); }
+
+      /* Placeholders */
+      input.bean-name::placeholder, input.roaster::placeholder,
+      .value-input::placeholder, .verdict-note::placeholder,
+      .text-field input::placeholder, .text-field textarea::placeholder,
+      .notes-input::placeholder { color: var(--tertiary); }
+
+      /* Danger (delete) — readable red on dark */
+      .act-btn.danger { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .act-btn.danger:active { background: #C0392B; border-color: #C0392B; color: #fff; }
+      .bc-actions .bc-delete { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .bc-delete-link { color: rgba(255,123,110,0.55); }
+      .bc-delete-link:active { color: #FF7B6E; }
+
+      /* Timer dial */
+      #timer-svg .t-track { stroke: rgba(235,235,245,0.14); }
+      .dial-hold { background: rgba(16,16,18,0.86); }
+    }
   </style>
 </head>
 <body>
@@ -1532,12 +1610,14 @@
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
     let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
     let loadedFromHistory = false;   // true while editing a brew loaded from History
 
     function render(s) {
       const pos = s % CLOCK_SCOPE;
       const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
-      const progColor = s >= CLOCK_SCOPE ? '#000' : '#555';   // grey first 4 min, black after
+      const dk = prefersDark.matches;                          // light arc colours on a dark page
+      const progColor = s >= CLOCK_SCOPE ? (dk ? '#F2F2F4' : '#000') : (dk ? '#8A8A8E' : '#555');
       const arc = document.getElementById('t-arc');
       arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
       arc.setAttribute('stroke', progColor);
