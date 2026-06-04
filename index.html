@@ -364,6 +364,16 @@
     /* TIME +/−, TDS, Brew★, Bean★ values are amber */
     .field.amber .fnum, .field.amber .dash { color: var(--accent); }
 
+    /* Brew-screen recipe grid reads as a quiet reference: values are small + grey
+       by default, and only the ones that DEVIATE from the baseline (the selected
+       bean's best recipe, or the Tools default) light up amber + full size — so an
+       unusual recipe announces itself at a glance, mirroring the History deltas.
+       Dose & Bloom are never flagged (they scale with the batch), so they stay grey. */
+    #screen-brew .stats-grid .field .fnum,
+    #screen-brew .stats-grid .field .dash { font-size: 18px; color: var(--secondary); }
+    #screen-brew .stats-grid .field.diff .fnum,
+    #screen-brew .stats-grid .field.diff .dash { font-size: 21px; color: var(--accent); }
+
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
       align-items: flex-end; justify-content: center; z-index: 60;
@@ -1469,6 +1479,26 @@
       setBeans(beans);
       Object.assign(currentBean, b);
     }
+    // ── Brew-screen recipe highlighting: light up only the deviations ──
+    // Eligible knobs (technique + batch Target); Dose & Bloom are never flagged.
+    const HILITE_FIELDS = ['grind','water','contact','agitate','decay','brew-target'];
+    function recipeBaseline(){
+      const b = (currentBean && currentBean.id) ? liveBean(currentBean.id) : null;
+      return b ? beanToRecipe(b) : getDefaultRecipe();   // bean's best recipe, else Tools default
+    }
+    function updateRecipeHighlights(){
+      const base = recipeBaseline();
+      HILITE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const cur = document.getElementById(f).value, bv = base[k];
+        const differs = cur !== '' && cur != null && bv != null && bv !== '' && parseFloat(cur) !== parseFloat(bv);
+        const btn = document.querySelector('#screen-brew .field[data-f="'+f+'"]');
+        if (btn) btn.classList.toggle('diff', differs);
+      });
+    }
+    ['dose','grind','agitate','contact','water','bloom','decay','brew-target']
+      .forEach(f => document.getElementById(f).addEventListener('change', updateRecipeHighlights));
+
     // bean.best* → brew-style recipe object (falls back to defaults per field)
     function beanToRecipe(b){
       const r = {}, def = getDefaultRecipe();
@@ -1970,9 +2000,12 @@
       if (!b) return [];
       const diff = (a, c) => a != null && a !== '' && c != null && c !== '' && parseFloat(a) !== parseFloat(c);
       const out = [];
-      if (diff(r.grind, b.bestGrind))   out.push('Grind ' + r.grind);
-      if (diff(r.water, b.bestWater))   out.push('Temp ' + r.water);
+      if (diff(r.grind, b.bestGrind))     out.push('Grind ' + r.grind);
+      if (diff(r.water, b.bestWater))     out.push('Temp ' + r.water);
       if (diff(r.contact, b.bestContact)) out.push('Contact ' + fmtMS(parseInt(r.contact)));
+      if (diff(r.agitate, b.bestAgitate)) out.push('Agitate ' + (AGITATE_WORDS[r.agitate] || r.agitate));
+      if (diff(r.decay, b.bestDecay))     out.push('Pour ↘︎ ' + r.decay + '%');
+      if (diff(r.brewTarget, b.bestTarget)) out.push('Target ' + r.brewTarget);
       return out;
     }
 
@@ -2669,6 +2702,7 @@
         $('bb-roast').textContent = '';
         bar.classList.remove('has-bean');
       }
+      updateRecipeHighlights();   // baseline changed → re-flag deviating recipe values
     }
     function selectBean(bean) {
       setBeanBar(bean);                 // swaps coffee + Bean★ + bean note; leaves the recipe alone
@@ -2837,6 +2871,7 @@
     growNotes();
     updateButtonLabel();
     recalcSchedule();
+    updateRecipeHighlights();
     render(0);
     requestAnimationFrame(tick);
   </script>
