@@ -5,6 +5,37 @@ A single-page mobile web app for logging and timing pour over coffee brews. Desi
 
 The original design mockup is `Black Magic iPhone Mockup.pdf` (Adobe Illustrator). `timer-alternatives.html` is a scratchpad from phase 1 exploring three clock designs; it can be ignored going forward.
 
+## v2 (June 2026) — what changed since the sections below were written
+The app went through a refinement pass (originally prototyped as a parallel "Claude
+Magic" fork, then promoted to be *the* app; old v1 is at git tag `v1-final`). The
+detailed sections below predate it — where they conflict, **this block wins**:
+
+- **Dark is the only theme**, always (the big dark token/override block applies via
+  `@media all`, ignoring the phone's light/dark setting; `color-scheme: dark`,
+  black `theme-color`, manifest bg/theme `#000`). The light base CSS is kept but
+  overridden, so a future Tools→theme toggle could re-enable it.
+- **Sound is OFF** by default (`SOUND_ON = false` gates the audio engine; iOS Web
+  Audio is unreliable). Visual cues carry everything. The countdown shows a **3-2-1
+  pop + amber "GO" flash** in the dial (no longer audio-dependent).
+- **"Decay" → "Pour ↘"** everywhere user-facing (label, editor title, history). The
+  underlying id (`decay`), CSV (`Pour_Decay`), and Excel mapping are unchanged.
+- **Tools screen** (`#screen-tools`, full screen; reached from the History overlay
+  header "Tools" button and the top of the bean-list page). Holds: **(1) an editable
+  Default Recipe** (`def-*` fields, `localStorage['blackmagic.defaultRecipe']`) that
+  seeds every NEW bean — `getDefaultRecipe()` replaces the hard-coded `DEFAULT_RECIPE`
+  in new-bean + `beanToRecipe` fallbacks; existing beans keep their best recipe — and
+  **(2) Export / Backup / Restore**, relocated here out of the History header.
+- **Brew-grid "exceptions pop":** recipe values render small + grey, and only those
+  that DEVIATE from the baseline (the attached bean's best recipe, else the Tools
+  default) light up amber + full size (`updateRecipeHighlights()` toggles `.diff`).
+  Eligible: Grind, Water, Contact, Agitate, Pour-decay, Target — Dose & Bloom never
+  flag. History deltas (`recipeDeltas`) surface the same set.
+- **Analog dial:** the in-dial digital m:ss is **hidden during the brew**, revealed
+  (final time) only when stopped. A per-pour **step caption** fades in under the pour
+  number each 30s interval and fades after 7.5s: "Bloom + Pour 1" → "Pour 2 (90%)" →
+  "Pour 3 (81%)"… (% = taper^k). It shares one slot with the reset ↺ hint (which
+  shows only when stopped). No drawdown phase (constant-dripper-equilibrium method).
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
@@ -80,7 +111,7 @@ works for history.
 | Contact | 30s | 4:00 / 4:30 / 5:00 / 6:30 (210/240/270/300/390) | m:ss |
 | Water | 1 | 196 / 200 / 204 / 208 / 212 | "°F" |
 | Bloom | 2 | 80 / 100 / 120 / 300 | "ml" |
-| Decay | 1 | 85 / 90 / 95 / 100 | "%" |
+| Pour ↘ (id `decay`) | 1 | 85 / 90 / 95 / 100 | "%" — per-pour taper; see v2 block |
 | Target | 10 | 350 / 1050 | "ml" |
 | Time +/− | 1 | −25 / −5 / 5 / 25 | signed; auto-set by stop |
 | TDS | 0.01 | 1.70–1.74 | 2 dp |
