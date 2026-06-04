@@ -873,7 +873,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="bloom"></button>
         <input type="hidden" id="bloom" value="72"></div>
-      <div class="stat-cell"><span class="label">Decay</span>
+      <div class="stat-cell"><span class="label">Taper</span>
         <button type="button" class="field" data-f="decay"></button>
         <input type="hidden" id="decay" value="90"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -912,7 +912,7 @@
 
     <!-- Bottom Stats -->
     <div class="bottom-stats">
-      <div class="bottom-stat"><span class="label">Time +/−</span>
+      <div class="bottom-stat"><span class="label">Time Δ</span>
         <button type="button" class="field amber" data-f="time-val"></button>
         <input type="hidden" id="time-val" value=""></div>
       <div class="bottom-stat"><span class="label">TDS</span>
@@ -1052,7 +1052,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="best-bloom"></button>
         <input type="hidden" id="best-bloom"></div>
-      <div class="stat-cell"><span class="label">Decay</span>
+      <div class="stat-cell"><span class="label">Taper</span>
         <button type="button" class="field" data-f="best-decay"></button>
         <input type="hidden" id="best-decay"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1205,9 +1205,9 @@
       'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
       'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
       'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
-      'decay':       {label:'Decay', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'decay':       {label:'Taper', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
-      'time-val':    {label:'Time +/−', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
+      'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
       'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
@@ -1780,9 +1780,9 @@
               <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
               <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
               <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
-              <div class="row"><span class="k">Decay</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Taper</span><span>${r.decay || '—'} %</span></div>
               <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
-              <div class="row"><span class="k">Time +/−</span><span>${r.timeAdj}</span></div>
+              <div class="row"><span class="k">Time Δ</span><span>${r.timeAdj}</span></div>
               <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
               <div class="row"><span class="k">Brew★</span><span>${r.brewRating || r.rating || '—'}</span></div>
               <div class="row"><span class="k">Bean★</span><span>${r.beanRating || '—'}</span></div>
