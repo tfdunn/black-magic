@@ -978,7 +978,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="bloom"></button>
         <input type="hidden" id="bloom" value="72"></div>
-      <div class="stat-cell"><span class="label">Taper</span>
+      <div class="stat-cell"><span class="label">Pour ↘︎</span>
         <button type="button" class="field" data-f="decay"></button>
         <input type="hidden" id="decay" value="90"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1157,7 +1157,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="best-bloom"></button>
         <input type="hidden" id="best-bloom"></div>
-      <div class="stat-cell"><span class="label">Taper</span>
+      <div class="stat-cell"><span class="label">Pour ↘︎</span>
         <button type="button" class="field" data-f="best-decay"></button>
         <input type="hidden" id="best-decay"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1310,7 +1310,7 @@
       'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
       'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
       'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
-      'decay':       {label:'Taper', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'decay':       {label:'Pour ↘︎', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
       'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
@@ -1493,6 +1493,11 @@
     }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
+    // Sound is OFF by default — iOS Web Audio is unreliable (the AudioContext
+    // gets silently interrupted by the system, and the Ring/Silent switch can
+    // mute it). The app is fully usable silently; the visual cues carry the
+    // signal. Flip SOUND_ON to true (or wire a Tools→Sound toggle) to re-enable.
+    const SOUND_ON = false;
     let audioCtx = null;
 
     function getAudio() {
@@ -1508,6 +1513,7 @@
     // NOTE: the physical Ring/Silent switch can still mute Web Audio on iOS.
     let audioPrimed = false;
     function unlockAudio() {
+      if (!SOUND_ON) return;
       const ctx = getAudio();
       if (!audioPrimed) {
         try {
@@ -1525,6 +1531,7 @@
     // (rather than firing oscillators from later setTimeouts) is the key to
     // reliable iOS playback — the countdown queues all its tones at gesture time.
     function tone(freq, dur, when, vol = 0.5) {
+      if (!SOUND_ON) return null;
       try {
         const ctx = getAudio();
         const t0 = (when == null ? ctx.currentTime : when);
@@ -1678,11 +1685,13 @@
     }
     function startCountdown() {
       inCountdown = true;
-      const ctx = getAudio();              // resume/unlock audio on this gesture
-      const t0 = ctx.currentTime + 0.06;
+      const ctx = SOUND_ON ? getAudio() : null;   // resume/unlock audio on this gesture
+      const t0 = ctx ? ctx.currentTime + 0.06 : 0;
       countdownNodes = [];
-      [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
-      countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
+      if (ctx) {
+        [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
+        countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
+      }
 
       const ml = document.getElementById('t-ml');
       const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
@@ -1907,7 +1916,7 @@
               <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
               <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
               <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
-              <div class="row"><span class="k">Taper</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Pour ↘︎</span><span>${r.decay || '—'} %</span></div>
               <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
               <div class="row"><span class="k">Time Δ</span><span>${r.timeAdj}</span></div>
               <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
