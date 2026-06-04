@@ -265,6 +265,7 @@
     .pour-number.go { color: var(--accent); letter-spacing: 0; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
+      .ed-bg, .ed-sheet, .screen { transition: none; }
     }
 
     /* In-dial live timer (grey, above the pour number) */
@@ -359,11 +360,18 @@
 
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
-      align-items: flex-end; justify-content: center; z-index: 60; }
-    .ed-bg.open { display: flex; }
+      align-items: flex-end; justify-content: center; z-index: 60;
+      /* iOS-style spring-up: fade the dim backdrop, slide the sheet. display is
+         discrete so it's animated via allow-discrete + @starting-style. */
+      opacity: 0; transition: opacity .22s ease, display .22s allow-discrete; }
+    .ed-bg.open { display: flex; opacity: 1; }
+    @starting-style { .ed-bg.open { opacity: 0; } }
     .ed-sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 22px 22px 0 0;
       padding: 16px 20px calc(22px + env(safe-area-inset-bottom));
+      transform: translateY(100%); transition: transform .28s cubic-bezier(.32,.72,0,1);
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .ed-bg.open .ed-sheet { transform: translateY(0); }
+    @starting-style { .ed-bg.open .ed-sheet { transform: translateY(100%); } }
     .ed-sheet h3 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
       color: var(--secondary); text-align: center; margin-bottom: 16px; }
     .ed-big { display: flex; align-items: center; justify-content: center; gap: 22px; margin-bottom: 16px; }
@@ -643,6 +651,11 @@
 
     /* ── Screens ── */
     .screen[hidden] { display: none; }
+    /* Gentle cross-fade when a screen first renders (brew<->bean swap, launch).
+       Opacity only — transform would make this a containing block for the
+       fixed bottom sheets. */
+    .screen { opacity: 1; transition: opacity .26s ease, display .26s allow-discrete; }
+    @starting-style { .screen:not([hidden]) { opacity: 0; } }
 
     /* ── Bean screen ── */
     input.bean-name {
