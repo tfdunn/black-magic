@@ -267,19 +267,31 @@
     .pour-number.go { color: var(--accent); letter-spacing: 0; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
-      .ed-bg, .ed-sheet, .screen, .dial-reset { transition: none; }
+      .ed-bg, .ed-sheet, .screen, .dial-reset, .dial-timer, .t-step { transition: none; }
     }
 
     /* In-dial live timer (grey, above the pour number) */
+    /* In-dial digital timer — hidden during the brew (analog feel); revealed
+       only when stopped, showing the final time. Space is reserved (opacity)
+       so the pour number never shifts between states. */
     .dial-timer {
       font-size: 15px; font-weight: 500; color: var(--secondary);
       letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
+      opacity: 0; transition: opacity .3s ease;
     }
-    /* Grey reset-hint symbol below the pour number (hold the dial 2s to reset) */
-    /* Hidden until there's something to reset (stopped with a recorded time) —
-       opacity keeps its space so the pour number never shifts. */
-    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex;
-      opacity: 0; transition: opacity .3s ease; }
+    .dial-timer.show { opacity: 1; }
+    /* One slot below the pour number, fixed height so layout is constant. It
+       shows the fading per-pour step label while running, or the reset hint (↺)
+       when stopped — only one is visible at a time. */
+    .dial-sub { position: relative; width: 100%; height: 17px; margin-top: 9px; }
+    .t-step, .dial-reset {
+      position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .t-step { font-size: 12.5px; font-weight: 500; color: var(--secondary); letter-spacing: 0.02em;
+      white-space: nowrap; opacity: 0; transition: opacity .5s ease; }
+    .t-step.show { opacity: 1; }
+    .dial-reset { color: var(--tertiary); line-height: 0; opacity: 0; transition: opacity .3s ease; }
     .dial-reset.show { opacity: 1; }
     .dial-reset svg { width: 17px; height: 17px; display: block; }
 
@@ -363,6 +375,16 @@
     .field .fw { margin-left: 4px; }
     /* TIME +/−, TDS, Brew★, Bean★ values are amber */
     .field.amber .fnum, .field.amber .dash { color: var(--accent); }
+
+    /* Brew-screen recipe grid reads as a quiet reference: values are small + grey
+       by default, and only the ones that DEVIATE from the baseline (the selected
+       bean's best recipe, or the Tools default) light up amber + full size — so an
+       unusual recipe announces itself at a glance, mirroring the History deltas.
+       Dose & Bloom are never flagged (they scale with the batch), so they stay grey. */
+    #screen-brew .stats-grid .field .fnum,
+    #screen-brew .stats-grid .field .dash { font-size: 18px; color: var(--secondary); }
+    #screen-brew .stats-grid .field.diff .fnum,
+    #screen-brew .stats-grid .field.diff .dash { font-size: 21px; color: var(--accent); }
 
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
@@ -1015,7 +1037,10 @@
         <div class="timer-center">
           <div class="dial-timer" id="t-timer">0:00</div>
           <div class="pour-number" id="t-ml">0</div>
-          <div class="dial-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></div>
+          <div class="dial-sub">
+            <span class="t-step" id="t-step"></span>
+            <span class="dial-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></span>
+          </div>
         </div>
         <div class="dial-hold" aria-hidden="true">
           <span class="dh-label">hold to reset</span>
@@ -1469,6 +1494,26 @@
       setBeans(beans);
       Object.assign(currentBean, b);
     }
+    // ── Brew-screen recipe highlighting: light up only the deviations ──
+    // Eligible knobs (technique + batch Target); Dose & Bloom are never flagged.
+    const HILITE_FIELDS = ['grind','water','contact','agitate','decay','brew-target'];
+    function recipeBaseline(){
+      const b = (currentBean && currentBean.id) ? liveBean(currentBean.id) : null;
+      return b ? beanToRecipe(b) : getDefaultRecipe();   // bean's best recipe, else Tools default
+    }
+    function updateRecipeHighlights(){
+      const base = recipeBaseline();
+      HILITE_FIELDS.forEach(f => {
+        const k = f === 'brew-target' ? 'brewTarget' : f;
+        const cur = document.getElementById(f).value, bv = base[k];
+        const differs = cur !== '' && cur != null && bv != null && bv !== '' && parseFloat(cur) !== parseFloat(bv);
+        const btn = document.querySelector('#screen-brew .field[data-f="'+f+'"]');
+        if (btn) btn.classList.toggle('diff', differs);
+      });
+    }
+    ['dose','grind','agitate','contact','water','bloom','decay','brew-target']
+      .forEach(f => document.getElementById(f).addEventListener('change', updateRecipeHighlights));
+
     // bean.best* → brew-style recipe object (falls back to defaults per field)
     function beanToRecipe(b){
       const r = {}, def = getDefaultRecipe();
@@ -1719,6 +1764,24 @@
     let inCountdown = false;
     let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
     let loadedFromHistory = false;   // true while editing a brew loaded from History
+    let stepCycle = -1, stepShownAt = 0;   // current pour interval + when its label appeared
+    const STEP_FADE_MS = 7500;             // step label fades this long after a new interval starts
+
+    // Per-interval caption under the pour number. cyc 0 = "Bloom + Pour 1";
+    // cyc k = "Pour k+1 (R%)" where R = taper^k (each pour is taper% of the one
+    // before). Blank before the brew and after the last scheduled pour (no drawdown).
+    function stepLabelText(cyc){
+      const n = POUR_TARGETS.length;
+      if (cyc < 0 || cyc >= n) return '';
+      if (cyc === 0) return 'Bloom + Pour 1';
+      const r = (parseFloat(document.getElementById('decay').value) || 90) / 100;
+      return 'Pour ' + (cyc + 1) + ' (' + Math.round(Math.pow(r, cyc) * 100) + '%)';
+    }
+    function clearStepLabel(){
+      stepCycle = -1;
+      const st = document.getElementById('t-step');
+      st.textContent = ''; st.classList.remove('show');
+    }
 
     function render(s) {
       const pos = s % CLOCK_SCOPE;
@@ -1743,10 +1806,19 @@
           ml.textContent = pourTarget(s);
         }
       }
-      document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
-      // Reset hint appears only once a stopped brew has a time to clear.
-      document.querySelector('.dial-reset').classList.toggle('show',
-        !running && !inCountdown && elapsed > 0.05);
+      // Digital timer is hidden during the brew (analog feel); revealed with the
+      // final time only once stopped.
+      const tEl = document.getElementById('t-timer');
+      tEl.textContent = fmtTime(s);
+      const stopped = !running && !inCountdown && elapsed > 0.05;
+      tEl.classList.toggle('show', stopped);
+      // Step label fades STEP_FADE_MS after each new interval; gone when not running.
+      const stepEl = document.getElementById('t-step');
+      const stepVisible = running && stepCycle >= 0 &&
+        (performance.now() - stepShownAt < STEP_FADE_MS) && stepEl.textContent !== '';
+      stepEl.classList.toggle('show', stepVisible);
+      // Reset hint (↺) shows once a stopped brew has a time to clear.
+      document.querySelector('.dial-reset').classList.toggle('show', stopped);
       updateButtonLabel();
     }
 
@@ -1759,6 +1831,12 @@
           const cyc = Math.floor(elapsed / CYCLE_SECS);
           if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
             beep(880, 0.18, 0.45);
+          }
+          // New pour interval → show its step label (fades after 7.5s).
+          if (cyc !== stepCycle) {
+            stepCycle = cyc;
+            document.getElementById('t-step').textContent = stepLabelText(cyc);
+            stepShownAt = performance.now();
           }
         }
         lastTs = ts;
@@ -1805,6 +1883,7 @@
             elapsed = 0;
             running = true;
             lastTs = null;
+            clearStepLabel();                           // arm the step labels (cyc 0 fires next tick)
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
             ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
@@ -1828,6 +1907,7 @@
       brewStartedAt = null;
       goFlashUntil = 0;
       document.getElementById('t-ml').classList.remove('go', 'count-pop');
+      clearStepLabel();
       cancelCountdownAudio();
       render(0);
     }
@@ -1970,9 +2050,12 @@
       if (!b) return [];
       const diff = (a, c) => a != null && a !== '' && c != null && c !== '' && parseFloat(a) !== parseFloat(c);
       const out = [];
-      if (diff(r.grind, b.bestGrind))   out.push('Grind ' + r.grind);
-      if (diff(r.water, b.bestWater))   out.push('Temp ' + r.water);
+      if (diff(r.grind, b.bestGrind))     out.push('Grind ' + r.grind);
+      if (diff(r.water, b.bestWater))     out.push('Temp ' + r.water);
       if (diff(r.contact, b.bestContact)) out.push('Contact ' + fmtMS(parseInt(r.contact)));
+      if (diff(r.agitate, b.bestAgitate)) out.push('Agitate ' + (AGITATE_WORDS[r.agitate] || r.agitate));
+      if (diff(r.decay, b.bestDecay))     out.push('Pour ↘︎ ' + r.decay + '%');
+      if (diff(r.brewTarget, b.bestTarget)) out.push('Target ' + r.brewTarget);
       return out;
     }
 
@@ -2669,6 +2752,7 @@
         $('bb-roast').textContent = '';
         bar.classList.remove('has-bean');
       }
+      updateRecipeHighlights();   // baseline changed → re-flag deviating recipe values
     }
     function selectBean(bean) {
       setBeanBar(bean);                 // swaps coffee + Bean★ + bean note; leaves the recipe alone
@@ -2837,6 +2921,7 @@
     growNotes();
     updateButtonLabel();
     recalcSchedule();
+    updateRecipeHighlights();
     render(0);
     requestAnimationFrame(tick);
   </script>
