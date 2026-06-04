@@ -7,10 +7,10 @@
 
   <!-- PWA / installable -->
   <link rel="manifest" href="manifest.webmanifest">
-  <meta name="theme-color" content="#ffffff">
+  <meta name="theme-color" content="#000000">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Black Magic">
   <link rel="apple-touch-icon" href="icon-180.png">
   <style>
@@ -29,6 +29,8 @@
 
     /* Lock the screen — no page scroll / rubber-band on iPhone (content fits 100dvh) */
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
+    /* Dark by default — native controls (date picker, caret, scrollbars) follow. */
+    html { color-scheme: dark; }
     body {
       font-family: var(--font);
       background: #ececef;
@@ -258,6 +260,15 @@
       letter-spacing: -2px;
       font-variant-numeric: tabular-nums;
     }
+    /* Countdown: the big number pops on each 3-2-1 tick, then flashes "GO"
+       in amber (synced to the GO tone + timer start). */
+    @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
+    .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
+    .pour-number.go { color: var(--accent); letter-spacing: 0; }
+    @media (prefers-reduced-motion: reduce) {
+      .pour-number.count-pop { animation: none; }
+      .ed-bg, .ed-sheet, .screen, .dial-reset { transition: none; }
+    }
 
     /* In-dial live timer (grey, above the pour number) */
     .dial-timer {
@@ -265,7 +276,11 @@
       letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
     }
     /* Grey reset-hint symbol below the pour number (hold the dial 2s to reset) */
-    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex; }
+    /* Hidden until there's something to reset (stopped with a recorded time) —
+       opacity keeps its space so the pour number never shifts. */
+    .dial-reset { color: var(--tertiary); margin-top: 11px; line-height: 0; display: flex;
+      opacity: 0; transition: opacity .3s ease; }
+    .dial-reset.show { opacity: 1; }
     .dial-reset svg { width: 17px; height: 17px; display: block; }
 
     /* Hold-to-reset overlay on the dial (2-second press) */
@@ -351,11 +366,18 @@
 
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
-      align-items: flex-end; justify-content: center; z-index: 60; }
-    .ed-bg.open { display: flex; }
+      align-items: flex-end; justify-content: center; z-index: 60;
+      /* iOS-style spring-up: fade the dim backdrop, slide the sheet. display is
+         discrete so it's animated via allow-discrete + @starting-style. */
+      opacity: 0; transition: opacity .22s ease, display .22s allow-discrete; }
+    .ed-bg.open { display: flex; opacity: 1; }
+    @starting-style { .ed-bg.open { opacity: 0; } }
     .ed-sheet { background: #fff; width: 100%; max-width: 440px; border-radius: 22px 22px 0 0;
       padding: 16px 20px calc(22px + env(safe-area-inset-bottom));
+      transform: translateY(100%); transition: transform .28s cubic-bezier(.32,.72,0,1);
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+    .ed-bg.open .ed-sheet { transform: translateY(0); }
+    @starting-style { .ed-bg.open .ed-sheet { transform: translateY(100%); } }
     .ed-sheet h3 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
       color: var(--secondary); text-align: center; margin-bottom: 16px; }
     .ed-big { display: flex; align-items: center; justify-content: center; gap: 22px; margin-bottom: 16px; }
@@ -635,6 +657,11 @@
 
     /* ── Screens ── */
     .screen[hidden] { display: none; }
+    /* Gentle cross-fade when a screen first renders (brew<->bean swap, launch).
+       Opacity only — transform would make this a containing block for the
+       fixed bottom sheets. */
+    .screen { opacity: 1; transition: opacity .26s ease, display .26s allow-discrete; }
+    @starting-style { .screen:not([hidden]) { opacity: 0; } }
 
     /* ── Bean screen ── */
     input.bean-name {
@@ -816,6 +843,84 @@
       color: #888; cursor: pointer; text-transform: uppercase;
     }
     .history-export:active { color: #000; }
+
+    /* ───────────────────────── Dark theme (default) ─────────────────────────
+       "Black Magic" is a true-black app — dark is the only theme (applies
+       unconditionally via `@media all`, regardless of the phone's setting).
+       Tokens flip light-on-dark; the black emphasis pill (--ink fill) becomes
+       the amber accent so it stays visible; the reset-hold overlay dims to dark
+       instead of white; the progress arc colour is handled in render().
+       (The light base rules above are kept, overridden here, so a future
+       Tools→theme toggle could re-enable light by scoping this block.) */
+    @media all {
+      :root {
+        --ink:       #F2F2F4;
+        --secondary: rgba(235,235,245,0.62);
+        --tertiary:  rgba(235,235,245,0.38);
+        --hairline:  rgba(235,235,245,0.16);
+        --accent:    #D08A52;   /* lighter roasted amber — readable on black */
+      }
+      body { background: #000; }
+      .app { background: #0B0B0C; }
+      /* Hairline-gap grid cells were #fff — match the app bg so the 0.5px gaps
+         read as dividers (like an iOS grouped list on black). */
+      .stats-grid .stat-cell, .bottom-stat { background: #0B0B0C; }
+
+      /* Surfaces that were #fff → elevated dark */
+      .ed-sheet, .history-panel, .ac-list, .act-btn, .ed-big button,
+      .ed-chips .chip, .btn-save.saved, .btn-save.secondary { background: #1C1C1E; }
+      /* Overlays sit outside .app, so they don't inherit its light text colour —
+         set it on the containers (covers the big sheet value, history heading). */
+      .ed-sheet, .history-panel { color: var(--ink); }
+      .bean-new, .act-btn:disabled { background: #161617; }
+
+      /* Emphasis fills that were the black --ink pill → amber accent */
+      .btn-save, .ed-chips .chip.sel, .ed-done, .bc-actions .bc-brew {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .ed-big button:active, .bean-cell .chips button:active, .act-btn:active {
+        background: var(--accent); border-color: var(--accent); color: #100A06; }
+      .btn-save.saved, .btn-save.secondary { color: var(--ink); border-color: var(--hairline); }
+
+      /* Borders that were #e8e8e8 / #f0f0f0 / #ddd */
+      .brew-name, input.brew-name, input.bean-name, input.roaster,
+      .bean-grid, .bean-cell, .verdict-row, .text-field,
+      .history-head, .brew-card, .ac-list { border-color: var(--hairline); }
+      .bean-grid .bean-cell { border-right-color: var(--hairline); border-top-color: var(--hairline); }
+      input.brew-name:focus, input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
+
+      /* Subtle :active / fill greys (#f4–f7, #f0f0f0) */
+      .bean-cell .chips button { background: rgba(235,235,245,0.08); color: var(--secondary); }
+      .bean-new:active, .brew-card:active, .btn-save.secondary:active,
+      .ac-item.active, .ac-item:hover { background: rgba(235,235,245,0.06); }
+      .brew-card.holding { background: rgba(235,235,245,0.09); }
+      .bean-bar:active { background: rgba(235,235,245,0.05); }
+
+      /* Text greys → tokens */
+      .history-close, .brew-card .bc-name, .bc-detail .bc-grid .row,
+      .time-controls .value, .btn-adj, .ac-item, .history-export:active { color: var(--ink); }
+      .text-field input, .text-field textarea { color: var(--ink); }
+      .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
+      .brew-card .bc-stats, .history-export, .bc-detail .bc-grid .row .k,
+      .bc-detail .bc-notes { color: var(--secondary); }
+      .brew-card .bc-date, .history-empty { color: var(--tertiary); }
+
+      /* Placeholders */
+      input.bean-name::placeholder, input.roaster::placeholder,
+      .value-input::placeholder, .verdict-note::placeholder,
+      .text-field input::placeholder, .text-field textarea::placeholder,
+      .notes-input::placeholder { color: var(--tertiary); }
+
+      /* Danger (delete) — readable red on dark */
+      .act-btn.danger { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .act-btn.danger:active { background: #C0392B; border-color: #C0392B; color: #fff; }
+      .bc-actions .bc-delete { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
+      .bc-delete-link { color: rgba(255,123,110,0.55); }
+      .bc-delete-link:active { color: #FF7B6E; }
+
+      /* Timer dial */
+      #timer-svg .t-track { stroke: rgba(235,235,245,0.14); }
+      .dial-hold { background: rgba(16,16,18,0.86); }
+    }
   </style>
 </head>
 <body>
@@ -873,7 +978,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="bloom"></button>
         <input type="hidden" id="bloom" value="72"></div>
-      <div class="stat-cell"><span class="label">Decay</span>
+      <div class="stat-cell"><span class="label">Pour ↘︎</span>
         <button type="button" class="field" data-f="decay"></button>
         <input type="hidden" id="decay" value="90"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -912,7 +1017,7 @@
 
     <!-- Bottom Stats -->
     <div class="bottom-stats">
-      <div class="bottom-stat"><span class="label">Time +/−</span>
+      <div class="bottom-stat"><span class="label">Time Δ</span>
         <button type="button" class="field amber" data-f="time-val"></button>
         <input type="hidden" id="time-val" value=""></div>
       <div class="bottom-stat"><span class="label">TDS</span>
@@ -1052,7 +1157,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="best-bloom"></button>
         <input type="hidden" id="best-bloom"></div>
-      <div class="stat-cell"><span class="label">Decay</span>
+      <div class="stat-cell"><span class="label">Pour ↘︎</span>
         <button type="button" class="field" data-f="best-decay"></button>
         <input type="hidden" id="best-decay"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1205,9 +1310,9 @@
       'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
       'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
       'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
-      'decay':       {label:'Decay', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'decay':       {label:'Pour ↘︎', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
-      'time-val':    {label:'Time +/−', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
+      'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
       'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
@@ -1388,6 +1493,11 @@
     }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
+    // Sound is OFF by default — iOS Web Audio is unreliable (the AudioContext
+    // gets silently interrupted by the system, and the Ring/Silent switch can
+    // mute it). The app is fully usable silently; the visual cues carry the
+    // signal. Flip SOUND_ON to true (or wire a Tools→Sound toggle) to re-enable.
+    const SOUND_ON = false;
     let audioCtx = null;
 
     function getAudio() {
@@ -1403,6 +1513,7 @@
     // NOTE: the physical Ring/Silent switch can still mute Web Audio on iOS.
     let audioPrimed = false;
     function unlockAudio() {
+      if (!SOUND_ON) return;
       const ctx = getAudio();
       if (!audioPrimed) {
         try {
@@ -1420,6 +1531,7 @@
     // (rather than firing oscillators from later setTimeouts) is the key to
     // reliable iOS playback — the countdown queues all its tones at gesture time.
     function tone(freq, dur, when, vol = 0.5) {
+      if (!SOUND_ON) return null;
       try {
         const ctx = getAudio();
         const t0 = (when == null ? ctx.currentTime : when);
@@ -1510,12 +1622,14 @@
     let elapsed = 0, running = false, lastTs = null;
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
+    let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
     let loadedFromHistory = false;   // true while editing a brew loaded from History
 
     function render(s) {
       const pos = s % CLOCK_SCOPE;
       const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
-      const progColor = s >= CLOCK_SCOPE ? '#000' : '#555';   // grey first 4 min, black after
+      // Dark theme always: light arc colours (white past 4:00, grey before).
+      const progColor = s >= CLOCK_SCOPE ? '#F2F2F4' : '#8A8A8E';
       const arc = document.getElementById('t-arc');
       arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
       arc.setAttribute('stroke', progColor);
@@ -1525,8 +1639,19 @@
       hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
-      if (!inCountdown) document.getElementById('t-ml').textContent = pourTarget(s);
+      if (!inCountdown) {
+        const ml = document.getElementById('t-ml');
+        if (goFlashUntil && performance.now() < goFlashUntil) {
+          // hold the "GO" flash for a beat before numbers resume
+        } else {
+          if (goFlashUntil) { goFlashUntil = 0; ml.classList.remove('go'); }
+          ml.textContent = pourTarget(s);
+        }
+      }
       document.getElementById('t-timer').textContent = fmtTime(s);   // live elapsed (results row)
+      // Reset hint appears only once a stopped brew has a time to clear.
+      document.querySelector('.dial-reset').classList.toggle('show',
+        !running && !inCountdown && elapsed > 0.05);
       updateButtonLabel();
     }
 
@@ -1560,16 +1685,21 @@
     }
     function startCountdown() {
       inCountdown = true;
-      const ctx = getAudio();              // resume/unlock audio on this gesture
-      const t0 = ctx.currentTime + 0.06;
+      const ctx = SOUND_ON ? getAudio() : null;   // resume/unlock audio on this gesture
+      const t0 = ctx ? ctx.currentTime + 0.06 : 0;
       countdownNodes = [];
-      [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
-      countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
+      if (ctx) {
+        [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
+        countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
+      }
 
+      const ml = document.getElementById('t-ml');
+      const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
       let count = 3;
       const step = () => {
         if (!inCountdown) return;
-        document.getElementById('t-ml').textContent = count;
+        ml.textContent = count;
+        pop();
         count--;
         if (count > 0) {
           setTimeout(step, 1000);
@@ -1582,6 +1712,10 @@
             lastTs = null;
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
+            ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
+            ml.classList.add('go');
+            pop();
+            goFlashUntil = performance.now() + 550;
             render(0);
           }, 1000);
         }
@@ -1597,6 +1731,8 @@
       elapsed = 0;
       lastTs = null;
       brewStartedAt = null;
+      goFlashUntil = 0;
+      document.getElementById('t-ml').classList.remove('go', 'count-pop');
       cancelCountdownAudio();
       render(0);
     }
@@ -1780,9 +1916,9 @@
               <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
               <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
               <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
-              <div class="row"><span class="k">Decay</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Pour ↘︎</span><span>${r.decay || '—'} %</span></div>
               <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
-              <div class="row"><span class="k">Time +/−</span><span>${r.timeAdj}</span></div>
+              <div class="row"><span class="k">Time Δ</span><span>${r.timeAdj}</span></div>
               <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
               <div class="row"><span class="k">Brew★</span><span>${r.brewRating || r.rating || '—'}</span></div>
               <div class="row"><span class="k">Bean★</span><span>${r.beanRating || '—'}</span></div>
