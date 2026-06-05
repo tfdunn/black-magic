@@ -990,7 +990,7 @@
       <div class="stat-cell"><span class="label">Agitate</span>
         <button type="button" class="field" data-f="agitate"></button>
         <select id="agitate" hidden>
-          <option value="0">0 (none)</option><option value="1">1 (minimal)</option>
+          <option value="0">0 (none)</option><option value="1">1 (mini)</option>
           <option value="2" selected>2 (low)</option><option value="3">3 (mid)</option>
           <option value="4">4 (high)</option>
         </select></div>
@@ -1246,7 +1246,7 @@
         <div class="stat-cell"><span class="label">Agitate</span>
           <button type="button" class="field" data-f="def-agitate"></button>
           <select id="def-agitate" hidden>
-            <option value="0">0 (none)</option><option value="1">1 (minimal)</option>
+            <option value="0">0 (none)</option><option value="1">1 (mini)</option>
             <option value="2">2 (low)</option><option value="3">3 (mid)</option>
             <option value="4">4 (high)</option>
           </select></div>
@@ -1389,7 +1389,7 @@
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
-    const AGITATE_WORDS = { '0':'none','1':'minimal','2':'low','3':'mid','4':'high' };
+    const AGITATE_WORDS = { '0':'none','1':'mini','2':'low','3':'mid','4':'high' };
     const BREW_RATINGS  = { '1':'new','2':'dial','3':'test','4':'good','5':'best' };
     const FX = {
       'dose':        {label:'Dose',  step:0.1, dec:1, trim:1, min:0,  max:99,  unit:'g',  presets:[23,24,25,72], type:'num'},
@@ -1789,8 +1789,8 @@
       const cyc = Math.floor(s / CYCLE_SECS);                 // 1, 2, …
       const num = POUR_TARGETS[Math.min(cyc, n - 1)];
       if (cyc >= n)       return { num, msg: '', fades: false };   // past the last pour → blank (no drawdown)
-      const r = (parseFloat(document.getElementById('decay').value) || 90) / 100;
-      return { num, msg: 'Pour ' + (cyc + 1) + ' (' + Math.round(Math.pow(r, cyc) * 100) + '%)', fades: true };
+      const add = POUR_TARGETS[cyc] - POUR_TARGETS[cyc - 1];       // marginal pour = this target − previous
+      return { num, msg: 'Pour ' + (cyc + 1) + ' (add ' + add + 'ml)', fades: true };
     }
     function clearStepLabel(){
       stepMsgKey = null; lastNum = null;
