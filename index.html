@@ -86,6 +86,7 @@
       letter-spacing: -0.5px;
       color: var(--ink);
       line-height: 1.1;
+      margin-top: 5px;   /* drop the title baseline slightly */
     }
 
     .header .date {
@@ -577,17 +578,14 @@
       padding: 20px 20px 12px;
       border-bottom: 1px solid #e8e8e8;
     }
-    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
-    .history-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      line-height: 1;
-      cursor: pointer;
-      color: #000;
-      font-family: inherit;
-      padding: 0 2px;
+    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; flex: 1; text-align: center; }
+    /* Amber nav buttons in the Brew-History head (left "Brew" closes, right "Tools"). */
+    .hh-nav {
+      background: none; border: none; font-family: inherit; font-size: 16px;
+      color: var(--accent); cursor: pointer; font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0; white-space: nowrap; flex: 0 0 auto;
     }
+    .hh-nav:active { opacity: 0.45; }
     .history-list {
       flex: 1;
       overflow-y: auto;
@@ -964,7 +962,6 @@
     <div class="header">
       <button class="nav-btn" id="btn-to-bean">Bean</button>
       <h1>Black Magic</h1>
-      <div class="date" id="date-display"></div>
       <button class="history-btn" id="btn-history">History</button>
     </div>
 
@@ -1098,15 +1095,13 @@
     <!-- Header -->
     <div class="header">
       <button class="nav-btn" id="btn-to-brew">Brew</button>
-      <h1>Black Magic</h1>
+      <h1 id="bean-title">Bean History</h1>
+      <button class="history-btn" id="btn-beanlist-tools" type="button">Tools</button>
       <button class="history-btn" id="btn-to-beanlist" hidden>Beans</button>
     </div>
 
     <!-- List view (default): create-new on top, then beans newest-first -->
     <div id="bean-list-view">
-      <div class="bean-list-top">
-        <button class="history-export" id="btn-beanlist-tools" type="button">Tools</button>
-      </div>
       <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
       <div class="bean-list" id="bean-list"></div>
     </div>
@@ -1227,8 +1222,9 @@
    <!-- ══ TOOLS SCREEN ══ -->
    <section id="screen-tools" class="screen" hidden>
     <div class="header">
-      <button class="nav-btn" id="btn-tools-back">Done</button>
+      <button class="nav-btn" id="btn-tools-back">Brew</button>
       <h1>Tools</h1>
+      <button class="history-btn" id="btn-tools-bean">Bean</button>
     </div>
 
     <div class="tools-body">
@@ -1291,11 +1287,9 @@
   <div class="history-overlay" id="history-overlay">
     <div class="history-panel">
       <div class="history-head">
-        <h2 id="history-title">History</h2>
-        <div class="hh-actions">
-          <button class="history-export" id="btn-history-tools">Tools</button>
-          <button class="history-close" id="btn-history-close">&times;</button>
-        </div>
+        <button class="hh-nav" id="btn-history-back">Brew</button>
+        <h2 id="history-title">Brew History</h2>
+        <button class="hh-nav" id="btn-history-tools">Tools</button>
       </div>
       <div class="history-list" id="history-list"></div>
     </div>
@@ -1339,14 +1333,7 @@
   <script>
     // ── Date display (live — updates while open and on re-focus) ──
     const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
-    function updateClock() {
-      const d = new Date();
-      const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-      document.getElementById('date-display').textContent =
-        d.toLocaleDateString('en-US', dateOpts) + '  ' + t;
-    }
-    updateClock();
-    setInterval(updateClock, 30000);
+    // (Date/time readout removed from the brew header — superfluous.)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       updateClock();
@@ -2119,7 +2106,7 @@
     let shownData = 'brews';   // dataset the export button writes (beans now export per-bean)
     function openHistory() {
       shownData = 'brews';
-      $('history-title').textContent = 'Brews';
+      $('history-title').textContent = 'Brew History';
       renderHistory();
       $('history-overlay').classList.add('open');
     }
@@ -2321,7 +2308,7 @@
     $('btn-edit-save').addEventListener('click', saveBrew);
 
     $('btn-history').addEventListener('click', openHistory);
-    $('btn-history-close').addEventListener('click', closeHistory);
+    $('btn-history-back').addEventListener('click', closeHistory);   // left "Brew" closes the overlay
     $('history-overlay').addEventListener('click', e => {
       if (e.target === $('history-overlay')) closeHistory();
     });
@@ -2465,7 +2452,8 @@
     $('btn-to-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });
     $('btn-to-brew').addEventListener('click', () => { editingBeanId = null; clearBeanForm(); showScreen('brew'); });
     // Tools: reached from the History overlay header and the bean-list page; Done → brew.
-    $('btn-tools-back').addEventListener('click', () => showScreen('brew'));
+    $('btn-tools-back').addEventListener('click', () => showScreen('brew'));   // left "Brew"
+    $('btn-tools-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });   // right "Bean"
     $('btn-history-tools').addEventListener('click', () => { $('history-overlay').classList.remove('open'); showScreen('tools'); });
     $('btn-beanlist-tools').addEventListener('click', () => showScreen('tools'));
 
@@ -2640,12 +2628,16 @@
     function showBeanList() {
       $('bean-list-view').hidden = false;
       $('bean-form-view').hidden = true;
-      $('btn-to-beanlist').hidden = true;
+      $('bean-title').textContent = 'Bean History';
+      $('btn-beanlist-tools').hidden = false;   // list view: Tools on the right
+      $('btn-to-beanlist').hidden = true;        // (the "Beans" cancel→list is form-only)
       renderBeanList();
     }
     function showBeanForm() {
       $('bean-list-view').hidden = true;
       $('bean-form-view').hidden = false;
+      $('bean-title').textContent = 'Bean Magic';
+      $('btn-beanlist-tools').hidden = true;     // form view: "Beans" (cancel→list) on the right
       $('btn-to-beanlist').hidden = false;
       growBeanForm();                 // size the note textareas now that they're visible
     }
