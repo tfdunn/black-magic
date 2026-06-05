@@ -86,6 +86,7 @@
       letter-spacing: -0.5px;
       color: var(--ink);
       line-height: 1.1;
+      margin-top: 5px;   /* drop the title baseline slightly */
     }
 
     .header .date {
@@ -239,7 +240,7 @@
     /* Clock strokes — progress arc is dark grey for the first 4 min, black past
        it (colour set per-frame in render()); the sweep hand is amber. */
     #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
-    #timer-svg #t-arc   { stroke: #555; transition: stroke-dashoffset 0.1s linear, stroke 0.25s linear; }
+    #timer-svg #t-arc   { stroke: var(--accent); fill: none; }
     #timer-svg #t-hand  { stroke: var(--accent); }
 
     .timer-center {
@@ -264,7 +265,7 @@
        in amber (synced to the GO tone + timer start). */
     @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
     .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
-    .pour-number.go { color: var(--accent); letter-spacing: 0; }
+    .pour-number.go { font-size: 34px; color: var(--accent); letter-spacing: -0.5px; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
       .ed-bg, .ed-sheet, .screen, .dial-reset, .dial-timer, .t-step { transition: none; }
@@ -381,10 +382,13 @@
        bean's best recipe, or the Tools default) light up amber + full size — so an
        unusual recipe announces itself at a glance, mirroring the History deltas.
        Dose & Bloom are never flagged (they scale with the batch), so they stay grey. */
+    /* Quiet reference: values a touch brighter than their labels; deviations go
+       amber at the SAME size (no size jump, so the grid doesn't shift). */
     #screen-brew .stats-grid .field .fnum,
-    #screen-brew .stats-grid .field .dash { font-size: 18px; color: var(--secondary); }
+    #screen-brew .stats-grid .field .dash { font-size: 18px; color: rgba(235,235,245,0.88); }
+    #screen-brew .stats-grid .label { color: rgba(235,235,245,0.5); }
     #screen-brew .stats-grid .field.diff .fnum,
-    #screen-brew .stats-grid .field.diff .dash { font-size: 21px; color: var(--accent); }
+    #screen-brew .stats-grid .field.diff .dash { color: var(--accent); }
 
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
@@ -577,17 +581,14 @@
       padding: 20px 20px 12px;
       border-bottom: 1px solid #e8e8e8;
     }
-    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; }
-    .history-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      line-height: 1;
-      cursor: pointer;
-      color: #000;
-      font-family: inherit;
-      padding: 0 2px;
+    .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; flex: 1; text-align: center; }
+    /* Amber nav buttons in the Brew-History head (left "Brew" closes, right "Tools"). */
+    .hh-nav {
+      background: none; border: none; font-family: inherit; font-size: 16px;
+      color: var(--accent); cursor: pointer; font-weight: 400; letter-spacing: -0.2px;
+      padding: 4px 0; white-space: nowrap; flex: 0 0 auto;
     }
+    .hh-nav:active { opacity: 0.45; }
     .history-list {
       flex: 1;
       overflow-y: auto;
@@ -964,7 +965,6 @@
     <div class="header">
       <button class="nav-btn" id="btn-to-bean">Bean</button>
       <h1>Black Magic</h1>
-      <div class="date" id="date-display"></div>
       <button class="history-btn" id="btn-history">History</button>
     </div>
 
@@ -1023,11 +1023,9 @@
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
           <!-- Outer progress track (fixed 4-min face) -->
           <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
-          <!-- Progress arc (circ = 2π×93 ≈ 584.34) -->
-          <circle id="t-arc" cx="100" cy="100" r="93"
-            stroke-width="3.2" stroke-linecap="round"
-            stroke-dasharray="584.34" stroke-dashoffset="584.34"
-            transform="rotate(-90 100 100)"/>
+          <!-- Progress arc: an amber path redrawn each frame — understated tick
+               marks for the first 4 min, solid amber after (see render()). -->
+          <path id="t-arc" d="" stroke-width="3.2" stroke-linecap="round"/>
           <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
           <g id="t-ticks"></g>
           <!-- Floating second hand: one sweep = one 30s pour cycle -->
@@ -1098,15 +1096,13 @@
     <!-- Header -->
     <div class="header">
       <button class="nav-btn" id="btn-to-brew">Brew</button>
-      <h1>Black Magic</h1>
+      <h1 id="bean-title">Bean History</h1>
+      <button class="history-btn" id="btn-beanlist-tools" type="button">Tools</button>
       <button class="history-btn" id="btn-to-beanlist" hidden>Beans</button>
     </div>
 
     <!-- List view (default): create-new on top, then beans newest-first -->
     <div id="bean-list-view">
-      <div class="bean-list-top">
-        <button class="history-export" id="btn-beanlist-tools" type="button">Tools</button>
-      </div>
       <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
       <div class="bean-list" id="bean-list"></div>
     </div>
@@ -1227,8 +1223,9 @@
    <!-- ══ TOOLS SCREEN ══ -->
    <section id="screen-tools" class="screen" hidden>
     <div class="header">
-      <button class="nav-btn" id="btn-tools-back">Done</button>
+      <button class="nav-btn" id="btn-tools-back">Brew</button>
       <h1>Tools</h1>
+      <button class="history-btn" id="btn-tools-bean">Bean</button>
     </div>
 
     <div class="tools-body">
@@ -1291,11 +1288,9 @@
   <div class="history-overlay" id="history-overlay">
     <div class="history-panel">
       <div class="history-head">
-        <h2 id="history-title">History</h2>
-        <div class="hh-actions">
-          <button class="history-export" id="btn-history-tools">Tools</button>
-          <button class="history-close" id="btn-history-close">&times;</button>
-        </div>
+        <button class="hh-nav" id="btn-history-back">Brew</button>
+        <h2 id="history-title">Brew History</h2>
+        <button class="hh-nav" id="btn-history-tools">Tools</button>
       </div>
       <div class="history-list" id="history-list"></div>
     </div>
@@ -1339,14 +1334,7 @@
   <script>
     // ── Date display (live — updates while open and on re-focus) ──
     const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
-    function updateClock() {
-      const d = new Date();
-      const t = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }).toLowerCase();
-      document.getElementById('date-display').textContent =
-        d.toLocaleDateString('en-US', dateOpts) + '  ' + t;
-    }
-    updateClock();
-    setInterval(updateClock, 30000);
+    // (Date/time readout removed from the brew header — superfluous.)
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       updateClock();
@@ -1698,6 +1686,20 @@
     let POUR_TARGETS = [];
     let TOTAL = 270; // updated by recalcSchedule()
 
+    // Progress-ring geometry: an arc from 12 o'clock clockwise, spanning `frac`
+    // of the circle (radius 93, centre 100,100). At frac>=1 a gap-free full ring.
+    const ARC_TICKS = '3.5 6';   // dash pattern → understated thick amber ticks
+    function arcPath(frac){
+      const cx = 100, cy = 100, r = 93, a0 = -Math.PI / 2;
+      if (frac <= 0) return '';
+      if (frac >= 1)   // full circle as two arcs (no seam)
+        return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`;
+      const a1 = a0 + frac * 2 * Math.PI;
+      const x0 = (cx + r * Math.cos(a0)).toFixed(2), y0 = (cy + r * Math.sin(a0)).toFixed(2);
+      const x1 = (cx + r * Math.cos(a1)).toFixed(2), y1 = (cy + r * Math.sin(a1)).toFixed(2);
+      return `M ${x0} ${y0} A ${r} ${r} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1} ${y1}`;
+    }
+
     function recalcSchedule() {
       const contactSecs = parseInt(document.getElementById('contact').value) || 270;
       const brewTarget  = Math.round(parseFloat(document.getElementById('brew-target').value) || 350);
@@ -1784,13 +1786,13 @@
     }
 
     function render(s) {
-      const pos = s % CLOCK_SCOPE;
-      const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
-      // Dark theme always: light arc colours (white past 4:00, grey before).
-      const progColor = s >= CLOCK_SCOPE ? '#F2F2F4' : '#8A8A8E';
+      // Progress ring: amber tick-marks that grow over the first 4 min, then go
+      // solid amber once past 4:00 (and stay solid — no wrap).
+      const past4 = s >= CLOCK_SCOPE;
+      const frac = past4 ? 1 : (s % CLOCK_SCOPE) / CLOCK_SCOPE;
       const arc = document.getElementById('t-arc');
-      arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
-      arc.setAttribute('stroke', progColor);
+      arc.setAttribute('d', arcPath(frac));
+      arc.setAttribute('stroke-dasharray', past4 ? 'none' : ARC_TICKS);
       const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
       const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
       hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
@@ -1886,7 +1888,7 @@
             clearStepLabel();                           // arm the step labels (cyc 0 fires next tick)
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
-            ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
+            ml.textContent = 'Bloom +';            // amber start flash (cues the first pour), synced to start
             ml.classList.add('go');
             pop();
             goFlashUntil = performance.now() + 550;
@@ -2119,7 +2121,7 @@
     let shownData = 'brews';   // dataset the export button writes (beans now export per-bean)
     function openHistory() {
       shownData = 'brews';
-      $('history-title').textContent = 'Brews';
+      $('history-title').textContent = 'Brew History';
       renderHistory();
       $('history-overlay').classList.add('open');
     }
@@ -2168,10 +2170,11 @@
           setBrews(brews);
         }
         exitBrewEdit();
-        flashSaved();
-        // Side trip done — return to the cup we were brewing, untouched
+        // Side trip done — restore the cup we were brewing (untouched), then
+        // return to the Brew History list (where the edit was launched from).
         if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
         else clearForNextBrew();
+        openHistory();
         return;
       }
       brews.push(collectRecord());
@@ -2215,6 +2218,7 @@
       applyDraftObject(s.draft);
       renderAllFields(); growNotes();
       recalcSchedule();
+      updateRecipeHighlights();
       loadedFromHistory = s.loadedFromHistory;
       inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
       cancelCountdownAudio();
@@ -2225,6 +2229,7 @@
       preEditState = captureBrewState();   // remember the cup we're brewing
       editingBrewId = r.id;           // set first so applyRecord's saveDraft() no-ops
       applyRecord(r);                 // loads every field; sets loadedFromHistory = true
+      updateRecipeHighlights();       // recipe loaded via direct .value = → re-flag deviations
       $('bean-bar').classList.add('locked-field');                          // change coffee in Bean tab
       $('bean-rating').closest('.bottom-stat').classList.add('locked-field'); // Bean★ = verdict
       $('notes-bean').closest('.notes-row').classList.add('locked-field');  // Bean note = verdict
@@ -2260,10 +2265,13 @@
       resetTimer();
       recalcSchedule();
       renderAllFields();
-      growNotes();
+      updateRecipeHighlights();   // recipe just loaded (direct .value =, no change events) → re-flag
+
       saveDraft();
       closeBrewActions(); closeBeanActions(); closeHistory();
       showScreen('brew');
+      growNotes();   // size notes AFTER the brew screen is visible — a hidden textarea
+                     // measures 0 and would collapse the Bean note to one line.
     }
     function brewFromBean(b){
       const live = liveBean(b.id) || b;
@@ -2317,11 +2325,12 @@
       exitBrewEdit();
       if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
       else clearForNextBrew();
+      openHistory();   // back to the Brew History list (edit was launched from there)
     });
     $('btn-edit-save').addEventListener('click', saveBrew);
 
     $('btn-history').addEventListener('click', openHistory);
-    $('btn-history-close').addEventListener('click', closeHistory);
+    $('btn-history-back').addEventListener('click', closeHistory);   // left "Brew" closes the overlay
     $('history-overlay').addEventListener('click', e => {
       if (e.target === $('history-overlay')) closeHistory();
     });
@@ -2465,7 +2474,8 @@
     $('btn-to-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });
     $('btn-to-brew').addEventListener('click', () => { editingBeanId = null; clearBeanForm(); showScreen('brew'); });
     // Tools: reached from the History overlay header and the bean-list page; Done → brew.
-    $('btn-tools-back').addEventListener('click', () => showScreen('brew'));
+    $('btn-tools-back').addEventListener('click', () => showScreen('brew'));   // left "Brew"
+    $('btn-tools-bean').addEventListener('click', () => { beanPickMode = 'manage'; showScreen('bean'); });   // right "Bean"
     $('btn-history-tools').addEventListener('click', () => { $('history-overlay').classList.remove('open'); showScreen('tools'); });
     $('btn-beanlist-tools').addEventListener('click', () => showScreen('tools'));
 
@@ -2640,12 +2650,16 @@
     function showBeanList() {
       $('bean-list-view').hidden = false;
       $('bean-form-view').hidden = true;
-      $('btn-to-beanlist').hidden = true;
+      $('bean-title').textContent = 'Bean History';
+      $('btn-beanlist-tools').hidden = false;   // list view: Tools on the right
+      $('btn-to-beanlist').hidden = true;        // (the "Beans" cancel→list is form-only)
       renderBeanList();
     }
     function showBeanForm() {
       $('bean-list-view').hidden = true;
       $('bean-form-view').hidden = false;
+      $('bean-title').textContent = 'Bean Magic';
+      $('btn-beanlist-tools').hidden = true;     // form view: "Beans" (cancel→list) on the right
       $('btn-to-beanlist').hidden = false;
       growBeanForm();                 // size the note textareas now that they're visible
     }
@@ -2745,7 +2759,15 @@
       growNotes();
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
-        $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
+        // 2nd line: Country Process Varietal · M/D/YY (values only, blanks skipped)
+        const parts = [currentBean.country, currentBean.process, currentBean.varietal]
+          .map(x => (x || '').trim()).filter(Boolean);
+        let sub = parts.join(' ');
+        if (currentBean.roastDate) {
+          const md = fmtDateNumeric(currentBean.roastDate);
+          if (md) sub = sub ? sub + ' · ' + md : md;
+        }
+        $('bb-roast').textContent = sub;
         bar.classList.add('has-bean');
       } else {
         $('bb-name').textContent = 'Select a coffee';
@@ -2772,6 +2794,10 @@
       const dt = new Date(ymd + 'T00:00:00');
       return isNaN(dt) ? ymd
         : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function fmtDateNumeric(ymd) {   // "2026-07-02" → "7/2/26"
+      const dt = new Date(ymd + 'T00:00:00');
+      return isNaN(dt) ? '' : (dt.getMonth()+1) + '/' + dt.getDate() + '/' + String(dt.getFullYear()).slice(-2);
     }
 
     // Scroll-safe long-press for list cards: no preventDefault (so the list still
