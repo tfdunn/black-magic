@@ -114,8 +114,9 @@ detailed sections below predate it — where they conflict, **this block wins**:
 
 ## v6 (June 2026) — segmented %-complete ring + sound back on (latest)
 - **Progress ring redesigned** (the fixed-4-min ticked arc is gone). The ring now =
-  **% complete over the whole brew** (`s / TOTAL`, full circle = contact time, so it
-  never overshoots). It's **segmented — one arc per pour** (`n = contact/30`): grey
+  **% complete over the whole brew** (`s / TOTAL`, full circle = contact time; for
+  overtime behaviour past 100% see v7). It's **segmented — one arc per pour**
+  (`n = contact/30`): grey
   base segments built by `buildSegments()` on `recalcSchedule` (rebuild when contact
   changes), completed pours go **solid amber**, the current one fills, and `#t-dot`
   marks the leading edge. **No sweep hand.** SVG is now `<g id="t-segs">` + `<circle
@@ -126,6 +127,22 @@ detailed sections below predate it — where they conflict, **this block wins**:
   lull slip by. iOS audio still isn't 100% reliable; visual cues back it up.
 - **Tools:** Export/Backup/Restore are now compact (`.tools-data-btn`) on **one row at
   the top**, above the Default Recipe (labels shortened to Export/Backup/Restore).
+
+## v7 (June 2026) — dial polish (latest; overrides above)
+- **Idle dial reads "Ready"** (smaller, muted grey — `.pour-number.ready`, 27px
+  `--secondary`) instead of the bloom number, until the brew starts. `render()` adds
+  the class when `!running && elapsed <= 0.05`; the countdown removes it.
+- **Overtime ring (renderRing now takes the *uncapped* `s/TOTAL`):** lap 0 paints
+  amber up to the bead as before; once past the contact target the bead **keeps
+  sweeping a second lap and ERASES the amber behind it** (a growing grey bite from
+  12 o'clock = "you're over"). Further laps alternate paint/erase (`lap % 2`), so it
+  stays coherent for arbitrarily long brews; the bead always marks "now" and `TIME Δ`
+  carries the exact over/under. (No red/new colour — keeps the single-amber palette.)
+  Also fixed a start glitch where the first segment lit a gap-width *ahead* of the
+  bead: amber is now bounded by the true bead `frac`, not the gapped segment start.
+- **Tools data buttons** are now borderless white all-caps text (EXPORT · BACKUP ·
+  RESTORE, amber on press) — no box. Default-recipe header → **"Default recipe for new
+  beans"**; the "Seeds every new bean…" hint (and orphaned `.tools-hint`) removed.
 
 ## File structure
 ```
