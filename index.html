@@ -2158,10 +2158,11 @@
           setBrews(brews);
         }
         exitBrewEdit();
-        flashSaved();
-        // Side trip done — return to the cup we were brewing, untouched
+        // Side trip done — restore the cup we were brewing (untouched), then
+        // return to the Brew History list (where the edit was launched from).
         if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
         else clearForNextBrew();
+        openHistory();
         return;
       }
       brews.push(collectRecord());
@@ -2205,6 +2206,7 @@
       applyDraftObject(s.draft);
       renderAllFields(); growNotes();
       recalcSchedule();
+      updateRecipeHighlights();
       loadedFromHistory = s.loadedFromHistory;
       inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
       cancelCountdownAudio();
@@ -2215,6 +2217,7 @@
       preEditState = captureBrewState();   // remember the cup we're brewing
       editingBrewId = r.id;           // set first so applyRecord's saveDraft() no-ops
       applyRecord(r);                 // loads every field; sets loadedFromHistory = true
+      updateRecipeHighlights();       // recipe loaded via direct .value = → re-flag deviations
       $('bean-bar').classList.add('locked-field');                          // change coffee in Bean tab
       $('bean-rating').closest('.bottom-stat').classList.add('locked-field'); // Bean★ = verdict
       $('notes-bean').closest('.notes-row').classList.add('locked-field');  // Bean note = verdict
@@ -2250,10 +2253,13 @@
       resetTimer();
       recalcSchedule();
       renderAllFields();
-      growNotes();
+      updateRecipeHighlights();   // recipe just loaded (direct .value =, no change events) → re-flag
+
       saveDraft();
       closeBrewActions(); closeBeanActions(); closeHistory();
       showScreen('brew');
+      growNotes();   // size notes AFTER the brew screen is visible — a hidden textarea
+                     // measures 0 and would collapse the Bean note to one line.
     }
     function brewFromBean(b){
       const live = liveBean(b.id) || b;
@@ -2307,6 +2313,7 @@
       exitBrewEdit();
       if (preEditState) { restoreBrewState(preEditState); preEditState = null; saveDraft(); }
       else clearForNextBrew();
+      openHistory();   // back to the Brew History list (edit was launched from there)
     });
     $('btn-edit-save').addEventListener('click', saveBrew);
 
