@@ -59,6 +59,23 @@ detailed sections below predate it — where they conflict, **this block wins**:
 - Bug fixed: the Bean note no longer collapses to one line on brew-from-bean
   (`growNotes()` now runs after the brew screen is visible).
 
+## v4 (June 2026) — pour ritual + dial + labels (latest; overrides above)
+- **Dial centre follows the real pour ritual** (`currentStep(s)`, all derived from
+  elapsed in `render()`; the old tick-based step detection + "Bloom +" GO flash are
+  gone). Per cycle the big number is the **weight to hit** and the caption the action:
+  0–7.5s **Bloom** wt · "Fast Bloom"; 7.5–22.5s **Pour 1** wt · "1st Pour"; 22.5–30s
+  Pour 1 wt · "Agitate"; each later 30s cycle **Pour k+1** wt · "Pour k+1 (R%)",
+  R = taper^k. Bloom/1st-pour/agitate captions persist until the phase changes; pour
+  captions fade after 7.5s. Number pops on change. Idle previews the bloom number.
+- **Progress ring**: thinner ticks (stroke 2.4). Past 4:00 the full ticked ring stays
+  and a **solid** arc (`#t-arc2`) grows over the overtime lap (4–8 min) — progresses
+  to solid rather than snapping.
+- **Labels:** Brew★ "1 (1st)"→**"1 (new)"**; Agitate "1 (min)"→**"1 (minimal)"**;
+  **Pour ↘ → "Pour Δ"** (the ↘ glyph rendered poorly; Δ matches Time Δ). Ids/CSV
+  unchanged.
+- **Dark-mode fix:** bean-form Name/Roaster text was black-on-black (#000/#555) →
+  now `--ink`/`--secondary`. Reverted the brew-title baseline nudge (header align).
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
