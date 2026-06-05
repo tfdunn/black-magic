@@ -76,6 +76,21 @@ detailed sections below predate it — where they conflict, **this block wins**:
 - **Dark-mode fix:** bean-form Name/Roaster text was black-on-black (#000/#555) →
   now `--ink`/`--secondary`. Reverted the brew-title baseline nudge (header align).
 
+## v6 (June 2026) — segmented %-complete ring + sound back on (latest)
+- **Progress ring redesigned** (the fixed-4-min ticked arc is gone). The ring now =
+  **% complete over the whole brew** (`s / TOTAL`, full circle = contact time, so it
+  never overshoots). It's **segmented — one arc per pour** (`n = contact/30`): grey
+  base segments built by `buildSegments()` on `recalcSchedule` (rebuild when contact
+  changes), completed pours go **solid amber**, the current one fills, and `#t-dot`
+  marks the leading edge. **No sweep hand.** SVG is now `<g id="t-segs">` + `<circle
+  id="t-dot">`; helpers `ringArc`/`ringPos`/`renderRing`. (Removed `t-arc/t-arc2/
+  t-hand/t-ticks/t-track`, `arcPath`, `drawTicks`, `CLOCK_SCOPE`, `CIRC`.)
+- **Sound back ON** (`SOUND_ON = true`): countdown tones + a beep at each 30s pour
+  boundary (the "be ready to pour" cue), since the ring alone could let a mid-brew
+  lull slip by. iOS audio still isn't 100% reliable; visual cues back it up.
+- **Tools:** Export/Backup/Restore are now compact (`.tools-data-btn`) on **one row at
+  the top**, above the Default Recipe (labels shortened to Export/Backup/Restore).
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)

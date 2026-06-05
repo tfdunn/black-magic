@@ -238,9 +238,9 @@
 
     /* Clock strokes — progress arc is dark grey for the first 4 min, black past
        it (colour set per-frame in render()); the sweep hand is amber. */
-    #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
-    #timer-svg #t-arc, #timer-svg #t-arc2 { stroke: var(--accent); fill: none; }
-    #timer-svg #t-hand  { stroke: var(--accent); }
+    #timer-svg .seg-grey  { stroke: rgba(235,235,245,0.22); stroke-width: 3.4; fill: none; stroke-linecap: round; }
+    #timer-svg .seg-amber { stroke: var(--accent); stroke-width: 3.4; fill: none; stroke-linecap: round; }
+    #timer-svg #t-dot     { fill: var(--accent); }
 
     .timer-center {
       position: absolute;
@@ -777,7 +777,10 @@
       max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
     .tools-body .stats-grid { margin-bottom: 2px; }
     .tools-hint { font-size: 12px; color: var(--tertiary); text-align: center; margin: 8px 0 2px; line-height: 1.35; }
-    .tools-data { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+    .tools-data { display: flex; gap: 8px; margin: 2px 0 10px; }
+    .tools-data-btn { flex: 1; padding: 9px 4px; border-radius: 10px; border: 1.5px solid var(--ink);
+      background: #1C1C1E; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+    .tools-data-btn:active { background: var(--accent); border-color: var(--accent); color: #100A06; }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -952,7 +955,6 @@
       .bc-delete-link:active { color: #FF7B6E; }
 
       /* Timer dial */
-      #timer-svg .t-track { stroke: rgba(235,235,245,0.14); }
       .dial-hold { background: rgba(16,16,18,0.86); }
     }
   </style>
@@ -1023,19 +1025,12 @@
     <div class="timer-section">
       <div class="timer-circle-wrap">
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
-          <!-- Outer progress track (fixed 4-min face) -->
-          <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
-          <!-- Progress arc: amber paths redrawn each frame. t-arc = understated
-               ticks that grow over the first 4 min; t-arc2 = a solid arc that
-               grows over the overtime lap (4–8 min) on top of the full ticked
-               ring (see render()). -->
-          <path id="t-arc"  d="" stroke-width="2.4" stroke-linecap="round"/>
-          <path id="t-arc2" d="" stroke-width="2.4" stroke-linecap="round"/>
-          <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
-          <g id="t-ticks"></g>
-          <!-- Floating second hand: one sweep = one 30s pour cycle -->
-          <line id="t-hand" x1="100" y1="60" x2="100" y2="16"
-            stroke-width="3.2" stroke-linecap="round"/>
+          <!-- Segmented progress ring: one arc segment per pour (n = contact/30),
+               built by buildSegments() and redrawn when contact changes. The ring
+               = % complete over the whole brew; completed segments go solid amber,
+               the current one fills, and t-dot marks the leading edge (see render). -->
+          <g id="t-segs"></g>
+          <circle id="t-dot" r="4.6"/>
         </svg>
         <div class="timer-center">
           <div class="dial-timer" id="t-timer">0:00</div>
@@ -1234,6 +1229,14 @@
     </div>
 
     <div class="tools-body">
+      <!-- Data — compact row at the top -->
+      <div class="tools-data">
+        <button class="tools-data-btn" id="btn-export" type="button">Export</button>
+        <button class="tools-data-btn" id="btn-backup" type="button">Backup</button>
+        <button class="tools-data-btn" id="btn-restore" type="button">Restore</button>
+        <input type="file" id="restore-file" accept="application/json,.json" hidden>
+      </div>
+
       <!-- Default recipe — seeds every new bean (amber = editable) -->
       <div class="bean-section-label">Default Recipe</div>
       <div class="stats-grid def-grid">
@@ -1275,15 +1278,6 @@
           <input type="hidden" id="def-target"></div>
       </div>
       <p class="tools-hint">Seeds every new bean you create. Existing beans keep their own recipe.</p>
-
-      <!-- Data -->
-      <div class="bean-section-label">Data</div>
-      <div class="tools-data">
-        <button class="act-btn" id="btn-export" type="button">Export CSV (beans + brews)</button>
-        <button class="act-btn" id="btn-backup" type="button">Backup — save all data (JSON)</button>
-        <button class="act-btn" id="btn-restore" type="button">Restore — replace from backup…</button>
-        <input type="file" id="restore-file" accept="application/json,.json" hidden>
-      </div>
     </div>
    </section>
 
@@ -1626,11 +1620,11 @@
     }
 
     // ── Audio (Web Audio API, created on first user gesture) ─────
-    // Sound is OFF by default — iOS Web Audio is unreliable (the AudioContext
-    // gets silently interrupted by the system, and the Ring/Silent switch can
-    // mute it). The app is fully usable silently; the visual cues carry the
-    // signal. Flip SOUND_ON to true (or wire a Tools→Sound toggle) to re-enable.
-    const SOUND_ON = false;
+    // Sound ON: countdown tones + a beep at each 30s pour boundary (the "be ready
+    // to pour" cue). iOS Web Audio isn't 100% reliable (the AudioContext can be
+    // interrupted by the system, and the Ring/Silent switch can mute it), but it
+    // generally works; the visual cues (filling segment, number pop) back it up.
+    const SOUND_ON = true;
     let audioCtx = null;
 
     function getAudio() {
@@ -1687,22 +1681,46 @@
     // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
     // Sum of n pours = BREW_TARGET  →  x = BREW_TARGET · (1−r) / (1−r^n)
     const CYCLE_SECS = 30;
-    const CLOCK_SCOPE = 240; // timer face always spans 4 minutes; wraps if brew is longer
     let POUR_TARGETS = [];
     let TOTAL = 270; // updated by recalcSchedule()
 
     // Progress-ring geometry: an arc from 12 o'clock clockwise, spanning `frac`
     // of the circle (radius 93, centre 100,100). At frac>=1 a gap-free full ring.
-    const ARC_TICKS = '3.5 6';   // dash pattern → understated thick amber ticks
-    function arcPath(frac){
-      const cx = 100, cy = 100, r = 93, a0 = -Math.PI / 2;
-      if (frac <= 0) return '';
-      if (frac >= 1)   // full circle as two arcs (no seam)
-        return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`;
-      const a1 = a0 + frac * 2 * Math.PI;
-      const x0 = (cx + r * Math.cos(a0)).toFixed(2), y0 = (cy + r * Math.sin(a0)).toFixed(2);
-      const x1 = (cx + r * Math.cos(a1)).toFixed(2), y1 = (cy + r * Math.sin(a1)).toFixed(2);
-      return `M ${x0} ${y0} A ${r} ${r} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1} ${y1}`;
+    // ── Segmented progress ring (one segment per pour; ring = % of the whole brew) ──
+    const SVG_NS = 'http://www.w3.org/2000/svg';
+    const RING_R = 93, SEG_GAP = 0.013;   // gap (as a fraction of the circle) between segments
+    const ringPos = (frac, r = RING_R) =>
+      [100 + r * Math.cos(-Math.PI/2 + frac*2*Math.PI), 100 + r * Math.sin(-Math.PI/2 + frac*2*Math.PI)];
+    function ringArc(f0, f1){
+      if (f1 - f0 <= 0.0005) return '';
+      const [x0,y0] = ringPos(f0), [x1,y1] = ringPos(f1);
+      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${RING_R} ${RING_R} 0 ${(f1-f0)>0.5?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    }
+    let segAmber = [];   // per-segment amber overlay paths, updated each frame
+    function buildSegments(){
+      const g = document.getElementById('t-segs');
+      g.innerHTML = ''; segAmber = [];
+      const n = Math.max(1, POUR_TARGETS.length);
+      for (let k = 0; k < n; k++){
+        const f0 = k/n + SEG_GAP, f1 = (k+1)/n - SEG_GAP;
+        const grey = document.createElementNS(SVG_NS, 'path');
+        grey.setAttribute('class', 'seg-grey'); grey.setAttribute('d', ringArc(f0, f1));
+        g.appendChild(grey);
+        const amber = document.createElementNS(SVG_NS, 'path');
+        amber.setAttribute('class', 'seg-amber'); amber.setAttribute('d', '');
+        g.appendChild(amber);
+        segAmber.push({ el: amber, f0, f1, start: k/n, end: (k+1)/n });
+      }
+    }
+    function renderRing(frac){
+      for (const s of segAmber){
+        let t = (frac - s.start) / (s.end - s.start);   // fill fraction within this segment
+        t = Math.max(0, Math.min(1, t));
+        s.el.setAttribute('d', t > 0 ? ringArc(s.f0, s.f0 + (s.f1 - s.f0) * t) : '');
+      }
+      const dot = document.getElementById('t-dot');
+      if (frac > 0.001) { const [x,y] = ringPos(Math.min(frac, 1)); dot.setAttribute('cx', x.toFixed(2)); dot.setAttribute('cy', y.toFixed(2)); dot.style.display = ''; }
+      else dot.style.display = 'none';
     }
 
     function recalcSchedule() {
@@ -1726,7 +1744,7 @@
       }
       POUR_TARGETS[POUR_TARGETS.length - 1] = brewTarget; // exact final target
 
-      drawTicks();
+      buildSegments();   // one ring segment per pour
     }
 
     function pourTarget(s) {
@@ -1740,32 +1758,7 @@
       return `${m}:${String(sec).padStart(2, '0')}`;
     }
 
-    // ── Tick marks — fixed 4-min face, no numeric labels ─────────
-    function drawTicks() {
-      const g = document.getElementById('t-ticks');
-      g.innerHTML = '';
-      const ns = 'http://www.w3.org/2000/svg';
-      const n = CLOCK_SCOPE / CYCLE_SECS; // 8
-      for (let i = 0; i < n; i++) {
-        const tickSecs = (i + 1) * CYCLE_SECS;
-        const isMinute = tickSecs % 60 === 0;
-        const isTop = (i === n - 1);   // 12 o'clock — bold cycle anchor (start/end mark)
-        const a = ((i + 1) / n) * 2 * Math.PI - Math.PI / 2;
-        const r0 = isTop ? 74 : 77, r1 = isTop ? 90 : (isMinute ? 86 : 82);
-        const ln = document.createElementNS(ns, 'line');
-        ln.setAttribute('x1', (100 + r0 * Math.cos(a)).toFixed(2));
-        ln.setAttribute('y1', (100 + r0 * Math.sin(a)).toFixed(2));
-        ln.setAttribute('x2', (100 + r1 * Math.cos(a)).toFixed(2));
-        ln.setAttribute('y2', (100 + r1 * Math.sin(a)).toFixed(2));
-        ln.setAttribute('stroke', isTop ? 'rgba(60,60,67,0.40)' : isMinute ? 'rgba(60,60,67,0.28)' : 'rgba(60,60,67,0.16)');
-        ln.setAttribute('stroke-width', isTop ? '3.4' : isMinute ? '2.8' : '1.3');
-        ln.setAttribute('stroke-linecap', 'round');
-        g.appendChild(ln);
-      }
-    }
-
     // ── Timer state ──────────────────────────────────────────────
-    const CIRC = 2 * Math.PI * 93;
     let elapsed = 0, running = false, lastTs = null;
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
@@ -1799,25 +1792,10 @@
     }
 
     function render(s) {
-      // Progress ring: amber ticks grow over the first 4 min (t-arc); past 4:00 the
-      // full ticked ring stays and a solid arc grows over the overtime lap (t-arc2).
-      const arc = document.getElementById('t-arc'), arc2 = document.getElementById('t-arc2');
-      if (s < CLOCK_SCOPE) {
-        arc.setAttribute('d', arcPath(s / CLOCK_SCOPE));
-        arc.setAttribute('stroke-dasharray', ARC_TICKS);
-        arc2.setAttribute('d', '');
-      } else {
-        arc.setAttribute('d', arcPath(1));
-        arc.setAttribute('stroke-dasharray', ARC_TICKS);
-        arc2.setAttribute('d', arcPath(Math.min((s - CLOCK_SCOPE) / CLOCK_SCOPE, 1)));
-        arc2.setAttribute('stroke-dasharray', 'none');
-      }
-      const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
-      const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
-      hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
-      hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
-      hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
-      hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
+      // Progress ring = % complete over the whole brew: completed pour segments go
+      // solid amber, the current one fills, t-dot marks the leading edge. Capped at
+      // a full ring past the contact target (TIME Δ carries any over/under).
+      renderRing(TOTAL > 0 ? Math.min(s / TOTAL, 1) : 0);
 
       const step = currentStep(s);
       const ml = document.getElementById('t-ml');
