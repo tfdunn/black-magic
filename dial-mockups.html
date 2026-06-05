@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dial mockups</title>
+<style>
+  :root{ --accent:#D08A52; --ink:#F2F2F4; --sec:rgba(235,235,245,.6);
+         --grey:rgba(235,235,245,.26); --track:rgba(235,235,245,.12); }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0B0B0C;color:var(--ink);font-family:-apple-system,system-ui,sans-serif;padding:18px}
+  h1{font-size:16px;font-weight:700;text-align:center;margin-bottom:2px}
+  .sub{font-size:12px;color:var(--sec);text-align:center;margin-bottom:16px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 14px;max-width:720px;margin:0 auto}
+  @media (max-width:640px){ .grid{grid-template-columns:1fr;max-width:380px} .dialwrap{width:280px;height:280px} }
+  .cell{background:#0E0E10;border:1px solid rgba(255,255,255,.06);border-radius:16px;padding:10px 8px 14px}
+  .clabel{font-size:12px;font-weight:600;text-align:center;color:var(--accent);margin-bottom:2px;letter-spacing:.02em}
+  .cnote{font-size:10.5px;color:var(--sec);text-align:center;margin-bottom:6px}
+  .dialwrap{position:relative;width:300px;height:300px;margin:0 auto}
+  .dialwrap svg{width:100%;height:100%;overflow:visible}
+  .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+  .num{font-size:64px;font-weight:700;letter-spacing:-2px;line-height:.9}
+  .cap{font-size:14px;color:var(--sec);margin-top:8px}
+</style>
+</head>
+<body>
+  <h1>Progress ring — arc = % complete · beads/segments = pour intervals</h1>
+  <div class="sub">4:30 brew · 9 pours · ~30% complete (pour 3 underway)</div>
+  <div class="grid" id="grid"></div>
+
+<script>
+const N = 9;                 // pours (contact 4:30 / 30s)
+const ELAPSED = 80, CONTACT = 270;
+const PCT = ELAPSED / CONTACT;            // 0.296 — overall % complete
+const WITHIN = (ELAPSED % 30) / 30;       // 0.667 — position within current 30s pour
+const R = 80, CX = 100, CY = 100;
+const A0 = -Math.PI/2;
+const pos = (frac, r=R) => [CX + r*Math.cos(A0+frac*2*Math.PI), CY + r*Math.sin(A0+frac*2*Math.PI)];
+function arc(fromF, toF, r=R){
+  if (toF - fromF <= 0) return '';
+  const [x0,y0]=pos(fromF,r), [x1,y1]=pos(Math.min(toF,0.99999),r);
+  const large = (toF-fromF) > 0.5 ? 1 : 0;
+  return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+}
+const SW = 'stroke-width="4" fill="none" stroke-linecap="round"';
+
+function svgOpen(){ return `<svg viewBox="0 0 200 200">`; }
+function track(){ return `<circle cx="100" cy="100" r="${R}" stroke="var(--track)" stroke-width="3" fill="none"/>`; }
+function leadingDot(){ const [x,y]=pos(PCT); return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="4.5" fill="var(--accent)"/>`; }
+function sweepHand(){ const [x1,y1]=pos(WITHIN,44),[x2,y2]=pos(WITHIN,78);
+  return `<line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round"/>`; }
+
+function beads(){           // n dots on the wire: amber if reached, grey if ahead
+  let s='';
+  for(let k=0;k<N;k++){ const f=k/N; const [x,y]=pos(f);
+    const lit = f <= PCT + 1e-6;
+    s += `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${lit?5:4}" fill="${lit?'var(--accent)':'var(--grey)'}"/>`; }
+  return s;
+}
+function beadsDial(hand){
+  return svgOpen()+track()
+    + `<path d="${arc(0,PCT)}" stroke="var(--accent)" ${SW}/>`   // continuous amber fill
+    + beads()
+    + (hand==='dot'?leadingDot():sweepHand())
+    + `</svg>`;
+}
+function segmentsDial(hand){
+  const gap=0.012;          // small gap between segments
+  let s=svgOpen();
+  for(let k=0;k<N;k++){
+    const f0=k/N+gap, f1=(k+1)/N-gap;
+    const segStart=k/N, segEnd=(k+1)/N;
+    // how far the overall fill reaches into this segment
+    let fillTo = (PCT-segStart)/(segEnd-segStart);   // 0..1 within segment
+    fillTo = Math.max(0, Math.min(1, fillTo));
+    s += `<path d="${arc(f0,f1)}" stroke="var(--grey)" ${SW}/>`;       // grey base
+    if (fillTo>0){ const amberEnd=f0+(f1-f0)*fillTo;
+      s += `<path d="${arc(f0,amberEnd)}" stroke="var(--accent)" ${SW}/>`; }
+  }
+  s += (hand==='dot'?leadingDot():sweepHand());
+  return s+`</svg>`;
+}
+function center(){ return `<div class="center"><div class="num">155</div><div class="cap">Pour 3 (add 46ml)</div></div>`; }
+
+const cells = [
+  ['A · Beads + leading dot', 'n grey beads light amber as passed; small dot = you-are-here', beadsDial('dot')],
+  ['B · Beads + sweep hand', 'same, but a hand also sweeps within each 30s pour', beadsDial('sweep')],
+  ['C · Segmented + leading dot', 'ring split into n arcs; completed solid, current fills', segmentsDial('dot')],
+  ['D · Segmented + sweep hand', 'same, but a hand also sweeps within each 30s pour', segmentsDial('sweep')],
+];
+document.getElementById('grid').innerHTML = cells.map(([t,note,svg]) =>
+  `<div class="cell"><div class="clabel">${t}</div><div class="cnote">${note}</div>
+   <div class="dialwrap">${svg}${center()}</div></div>`).join('');
+</script>
+</body>
+</html>
