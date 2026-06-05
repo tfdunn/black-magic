@@ -5,6 +5,42 @@ A single-page mobile web app for logging and timing pour over coffee brews. Desi
 
 The original design mockup is `Black Magic iPhone Mockup.pdf` (Adobe Illustrator). `timer-alternatives.html` is a scratchpad from phase 1 exploring three clock designs; it can be ignored going forward.
 
+## Brew method (TFD's technique — non-standard; the whole design assumes it)
+**Read this first.** The app is built around one specific pour-over method that differs
+from common practice. Several design choices look wrong without this context — don't
+"fix" them toward standard pour-over.
+
+- **Bloom and Pour 1 share the first 30-second interval — there is NO standalone bloom
+  phase.** The first cycle (0–30s) is: pour the **bloom** in the first ~7–10s
+  ("Fast Bloom"), **tare the scale to zero**, immediately do the **1st pour**
+  ("1st Pour"), then **agitate** — all inside the one interval. (He used to bloom
+  separately but found front-loading the pour yields more fruit/complexity.)
+  - Because the scale is **tared after the bloom**, the **bloom volume is NOT part of
+    the cumulative pour targets.** `POUR_TARGETS` is the *post-tare* geometric series
+    that sums to the **Output** (e.g. 350 ml); the **Bloom** (~72–85 ml) is a *separate*
+    field, poured then zeroed away. So on the dial, 0–7.5s shows the **Bloom** number and
+    7.5s onward shows the **cumulative pour** numbers — they are different scales, by design.
+  - **Why Bloom stays its own field:** it's the **contact-time dial-in knob.** If a new
+    bean finishes off the target time (e.g. 4:45 vs a 4:30 goal), use the end flow rate
+    (say 24 ml / 30 s) to compute a bloom correction — next brew add ~12 ml of bloom and
+    the contact time lands close. So Bloom trades against contact time, not against output.
+
+- **No drawdown — a constant-dripper-equilibrium method.** He pours a geometric decay
+  schedule (each pour ≈ **Pour Δ %** of the previous, default 90%) every 30s, which holds
+  the water in the dripper at a roughly **constant reservoir volume** ("equilibrium
+  volume," ~110 ml): pour-in rate ≈ drip-out rate. He **pulls the dripper the instant the
+  cup reaches 350.0 ml and stops the timer** — he does **NOT** wait for the bed to draw
+  down. Hence there is **no drawdown phase** anywhere (schedule, dial, captions): the brew
+  ends at the last scheduled pour, not when the dripper empties. (The **−2s** baked into
+  the TIME Δ calc is the reaction-time correction for stopping right at 350.) The 90%
+  decay is empirically derived and robust across beans/recipes (drip-out slows as the
+  filter gradually clogs, so each pour is slightly smaller to stay at equilibrium).
+
+- **Cadence & shape:** 1–2 cups/day, essentially always a **4:30 contact time** (his
+  standard). Pours `n = contact / 30` (9 at 4:30; practical range ~6–14, with **9 and 13**
+  most common). Marginal pours shrink (57, 52, 46, 41 … ml) — the dial shows these as
+  "**add N ml**" under each cumulative target.
+
 ## v2 (June 2026) — what changed since the sections below were written
 The app went through a refinement pass (originally prototyped as a parallel "Claude
 Magic" fork, then promoted to be *the* app; old v1 is at git tag `v1-final`). The
