@@ -239,7 +239,7 @@
     /* Clock strokes — progress arc is dark grey for the first 4 min, black past
        it (colour set per-frame in render()); the sweep hand is amber. */
     #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
-    #timer-svg #t-arc   { stroke: var(--accent); fill: none; }
+    #timer-svg #t-arc, #timer-svg #t-arc2 { stroke: var(--accent); fill: none; }
     #timer-svg #t-hand  { stroke: var(--accent); }
 
     .timer-center {
@@ -1025,9 +1025,12 @@
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
           <!-- Outer progress track (fixed 4-min face) -->
           <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
-          <!-- Progress arc: an amber path redrawn each frame — understated tick
-               marks for the first 4 min, solid amber after (see render()). -->
-          <path id="t-arc" d="" stroke-width="3.2" stroke-linecap="round"/>
+          <!-- Progress arc: amber paths redrawn each frame. t-arc = understated
+               ticks that grow over the first 4 min; t-arc2 = a solid arc that
+               grows over the overtime lap (4–8 min) on top of the full ticked
+               ring (see render()). -->
+          <path id="t-arc"  d="" stroke-width="2.4" stroke-linecap="round"/>
+          <path id="t-arc2" d="" stroke-width="2.4" stroke-linecap="round"/>
           <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
           <g id="t-ticks"></g>
           <!-- Floating second hand: one sweep = one 30s pour cycle -->
@@ -1766,48 +1769,63 @@
     let elapsed = 0, running = false, lastTs = null;
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
-    let goFlashUntil = 0;            // hold the amber "GO" in the dial for a beat after start
     let loadedFromHistory = false;   // true while editing a brew loaded from History
-    let stepCycle = -1, stepShownAt = 0;   // current pour interval + when its label appeared
-    const STEP_FADE_MS = 7500;             // step label fades this long after a new interval starts
+    let stepMsgKey = null, stepShownAt = 0, lastNum = null;  // current caption + when it appeared
+    const STEP_FADE_MS = 7500;       // pour captions fade this long after the interval starts
 
-    // Per-interval caption under the pour number. cyc 0 = "Bloom + Pour 1";
-    // cyc k = "Pour k+1 (R%)" where R = taper^k (each pour is taper% of the one
-    // before). Blank before the brew and after the last scheduled pour (no drawdown).
-    function stepLabelText(cyc){
+    // The dial centre through a brew, matched to the real pour ritual. Within the
+    // first 30s: 0–7.5s pour the bloom ("Fast Bloom"), tare, 7.5–22.5s 1st pour
+    // ("1st Pour"), 22.5–30s "Agitate". Each later 30s cycle is one pour:
+    // "Pour k+1 (R%)" where R = taper^k. `num` = the weight to hit; `msg` = the
+    // caption; `fades` = whether the caption fades after 7.5s (pours) or persists
+    // until the phase changes (the bloom / 1st-pour / agitate sub-steps).
+    const BLOOM_END = 7.5, POUR1_END = 22.5, CYCLE0_END = 30;
+    function currentStep(s){
       const n = POUR_TARGETS.length;
-      if (cyc < 0 || cyc >= n) return '';
-      if (cyc === 0) return 'Bloom + Pour 1';
+      if (n === 0)        return { num: 0, msg: '', fades: false };
+      if (s < BLOOM_END)  return { num: parseFloat(document.getElementById('bloom').value) || 0, msg: 'Fast Bloom', fades: false };
+      if (s < POUR1_END)  return { num: POUR_TARGETS[0], msg: '1st Pour', fades: false };
+      if (s < CYCLE0_END) return { num: POUR_TARGETS[0], msg: 'Agitate',  fades: false };
+      const cyc = Math.floor(s / CYCLE_SECS);                 // 1, 2, …
+      const num = POUR_TARGETS[Math.min(cyc, n - 1)];
+      if (cyc >= n)       return { num, msg: '', fades: false };   // past the last pour → blank (no drawdown)
       const r = (parseFloat(document.getElementById('decay').value) || 90) / 100;
-      return 'Pour ' + (cyc + 1) + ' (' + Math.round(Math.pow(r, cyc) * 100) + '%)';
+      return { num, msg: 'Pour ' + (cyc + 1) + ' (' + Math.round(Math.pow(r, cyc) * 100) + '%)', fades: true };
     }
     function clearStepLabel(){
-      stepCycle = -1;
+      stepMsgKey = null; lastNum = null;
       const st = document.getElementById('t-step');
       st.textContent = ''; st.classList.remove('show');
     }
 
     function render(s) {
-      // Progress ring: amber tick-marks that grow over the first 4 min, then go
-      // solid amber once past 4:00 (and stay solid — no wrap).
-      const past4 = s >= CLOCK_SCOPE;
-      const frac = past4 ? 1 : (s % CLOCK_SCOPE) / CLOCK_SCOPE;
-      const arc = document.getElementById('t-arc');
-      arc.setAttribute('d', arcPath(frac));
-      arc.setAttribute('stroke-dasharray', past4 ? 'none' : ARC_TICKS);
+      // Progress ring: amber ticks grow over the first 4 min (t-arc); past 4:00 the
+      // full ticked ring stays and a solid arc grows over the overtime lap (t-arc2).
+      const arc = document.getElementById('t-arc'), arc2 = document.getElementById('t-arc2');
+      if (s < CLOCK_SCOPE) {
+        arc.setAttribute('d', arcPath(s / CLOCK_SCOPE));
+        arc.setAttribute('stroke-dasharray', ARC_TICKS);
+        arc2.setAttribute('d', '');
+      } else {
+        arc.setAttribute('d', arcPath(1));
+        arc.setAttribute('stroke-dasharray', ARC_TICKS);
+        arc2.setAttribute('d', arcPath(Math.min((s - CLOCK_SCOPE) / CLOCK_SCOPE, 1)));
+        arc2.setAttribute('stroke-dasharray', 'none');
+      }
       const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
       const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
       hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y1', (100 + 50 * Math.sin(a)).toFixed(2));
       hand.setAttribute('x2', (100 + 84 * Math.cos(a)).toFixed(2));
       hand.setAttribute('y2', (100 + 84 * Math.sin(a)).toFixed(2));
+
+      const step = currentStep(s);
+      const ml = document.getElementById('t-ml');
       if (!inCountdown) {
-        const ml = document.getElementById('t-ml');
-        if (goFlashUntil && performance.now() < goFlashUntil) {
-          // hold the "GO" flash for a beat before numbers resume
-        } else {
-          if (goFlashUntil) { goFlashUntil = 0; ml.classList.remove('go'); }
-          ml.textContent = pourTarget(s);
+        ml.textContent = step.num;
+        if (running && step.num !== lastNum) {            // pop the number when it changes
+          lastNum = step.num;
+          ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
         }
       }
       // Digital timer is hidden during the brew (analog feel); revealed with the
@@ -1816,10 +1834,12 @@
       tEl.textContent = fmtTime(s);
       const stopped = !running && !inCountdown && elapsed > 0.05;
       tEl.classList.toggle('show', stopped);
-      // Step label fades STEP_FADE_MS after each new interval; gone when not running.
+      // Step caption: sub-step labels persist until the phase changes; pour labels
+      // fade after STEP_FADE_MS. Gone when not running.
       const stepEl = document.getElementById('t-step');
-      const stepVisible = running && stepCycle >= 0 &&
-        (performance.now() - stepShownAt < STEP_FADE_MS) && stepEl.textContent !== '';
+      if (step.msg !== stepMsgKey) { stepMsgKey = step.msg; stepEl.textContent = step.msg; stepShownAt = performance.now(); }
+      const stepVisible = running && step.msg !== '' &&
+        (!step.fades || performance.now() - stepShownAt < STEP_FADE_MS);
       stepEl.classList.toggle('show', stepVisible);
       // Reset hint (↺) shows once a stopped brew has a time to clear.
       document.querySelector('.dial-reset').classList.toggle('show', stopped);
@@ -1836,12 +1856,7 @@
           if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
             beep(880, 0.18, 0.45);
           }
-          // New pour interval → show its step label (fades after 7.5s).
-          if (cyc !== stepCycle) {
-            stepCycle = cyc;
-            document.getElementById('t-step').textContent = stepLabelText(cyc);
-            stepShownAt = performance.now();
-          }
+          // (Dial number + caption are derived from elapsed in render()/currentStep.)
         }
         lastTs = ts;
       } else {
@@ -1887,14 +1902,11 @@
             elapsed = 0;
             running = true;
             lastTs = null;
-            clearStepLabel();                           // arm the step labels (cyc 0 fires next tick)
+            clearStepLabel();
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
-            ml.textContent = 'Bloom +';            // amber start flash (cues the first pour), synced to start
-            ml.classList.add('go');
-            pop();
-            goFlashUntil = performance.now() + 550;
-            render(0);
+            ml.classList.remove('go');
+            render(0);   // straight into the bloom phase: bloom number + "Fast Bloom"
           }, 1000);
         }
       };
@@ -1909,7 +1921,6 @@
       elapsed = 0;
       lastTs = null;
       brewStartedAt = null;
-      goFlashUntil = 0;
       document.getElementById('t-ml').classList.remove('go', 'count-pop');
       clearStepLabel();
       cancelCountdownAudio();
