@@ -265,6 +265,7 @@
     @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
     .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
     .pour-number.go { font-size: 34px; color: var(--accent); letter-spacing: -0.5px; }
+    .pour-number.ready { font-size: 27px; font-weight: 500; color: var(--secondary); letter-spacing: 0; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
       .ed-bg, .ed-sheet, .screen, .dial-reset, .dial-timer, .t-step { transition: none; }
@@ -776,11 +777,11 @@
     .tools-body { padding-top: 6px; overflow-y: auto;
       max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
     .tools-body .stats-grid { margin-bottom: 2px; }
-    .tools-hint { font-size: 12px; color: var(--tertiary); text-align: center; margin: 8px 0 2px; line-height: 1.35; }
-    .tools-data { display: flex; gap: 8px; margin: 2px 0 10px; }
-    .tools-data-btn { flex: 1; padding: 9px 4px; border-radius: 10px; border: 1.5px solid var(--ink);
-      background: #1C1C1E; color: var(--ink); font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
-    .tools-data-btn:active { background: var(--accent); border-color: var(--accent); color: #100A06; }
+    .tools-data { display: flex; gap: 8px; margin: 4px 0 10px; }
+    .tools-data-btn { flex: 1; padding: 9px 4px; background: none; border: none; color: var(--ink);
+      font-family: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.09em; cursor: pointer; }
+    .tools-data-btn:active { color: var(--accent); }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -1238,7 +1239,7 @@
       </div>
 
       <!-- Default recipe — seeds every new bean (amber = editable) -->
-      <div class="bean-section-label">Default Recipe</div>
+      <div class="bean-section-label">Default recipe for new beans</div>
       <div class="stats-grid def-grid">
         <div class="stat-cell"><span class="label">Dose</span>
           <button type="button" class="field" data-f="def-dose"></button>
@@ -1277,7 +1278,6 @@
           <button type="button" class="field" data-f="def-target"></button>
           <input type="hidden" id="def-target"></div>
       </div>
-      <p class="tools-hint">Seeds every new bean you create. Existing beans keep their own recipe.</p>
     </div>
    </section>
 
@@ -1709,17 +1709,25 @@
         const amber = document.createElementNS(SVG_NS, 'path');
         amber.setAttribute('class', 'seg-amber'); amber.setAttribute('d', '');
         g.appendChild(amber);
-        segAmber.push({ el: amber, f0, f1, start: k/n, end: (k+1)/n });
+        segAmber.push({ el: amber, f0, f1 });
       }
     }
+    // frac = s / TOTAL, uncapped. Lap 0 paints amber up to the bead. Past the
+    // contact target the bead keeps sweeping a second lap and ERASES the amber
+    // behind it (a growing grey bite = "you're over"); each further lap alternates
+    // paint/erase so it stays coherent for arbitrarily long brews. TIME Δ carries
+    // the exact over/under. The bead always marks "now".
     function renderRing(frac){
+      const lap = Math.floor(frac), within = frac - lap;
+      const erasing = lap % 2 === 1;
+      const cov0 = erasing ? within : 0;   // amber-covered interval [cov0, cov1] this lap
+      const cov1 = erasing ? 1 : within;
       for (const s of segAmber){
-        let t = (frac - s.start) / (s.end - s.start);   // fill fraction within this segment
-        t = Math.max(0, Math.min(1, t));
-        s.el.setAttribute('d', t > 0 ? ringArc(s.f0, s.f0 + (s.f1 - s.f0) * t) : '');
+        const a0 = Math.max(s.f0, cov0), a1 = Math.min(s.f1, cov1);
+        s.el.setAttribute('d', a1 > a0 ? ringArc(a0, a1) : '');
       }
       const dot = document.getElementById('t-dot');
-      if (frac > 0.001) { const [x,y] = ringPos(Math.min(frac, 1)); dot.setAttribute('cx', x.toFixed(2)); dot.setAttribute('cy', y.toFixed(2)); dot.style.display = ''; }
+      if (frac > 0.001) { const [x,y] = ringPos(within); dot.setAttribute('cx', x.toFixed(2)); dot.setAttribute('cy', y.toFixed(2)); dot.style.display = ''; }
       else dot.style.display = 'none';
     }
 
@@ -1795,12 +1803,14 @@
       // Progress ring = % complete over the whole brew: completed pour segments go
       // solid amber, the current one fills, t-dot marks the leading edge. Capped at
       // a full ring past the contact target (TIME Δ carries any over/under).
-      renderRing(TOTAL > 0 ? Math.min(s / TOTAL, 1) : 0);
+      renderRing(TOTAL > 0 ? s / TOTAL : 0);
 
       const step = currentStep(s);
       const ml = document.getElementById('t-ml');
       if (!inCountdown) {
-        ml.textContent = step.num;
+        const idle = !running && elapsed <= 0.05;         // reset, before the brew starts
+        ml.textContent = idle ? 'Ready' : step.num;
+        ml.classList.toggle('ready', idle);
         if (running && step.num !== lastNum) {            // pop the number when it changes
           lastNum = step.num;
           ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
@@ -1868,6 +1878,7 @@
       let count = 3;
       const step = () => {
         if (!inCountdown) return;
+        ml.classList.remove('ready');
         ml.textContent = count;
         pop();
         count--;
