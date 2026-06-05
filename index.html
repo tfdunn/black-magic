@@ -240,7 +240,7 @@
     /* Clock strokes — progress arc is dark grey for the first 4 min, black past
        it (colour set per-frame in render()); the sweep hand is amber. */
     #timer-svg .t-track { stroke: rgba(60,60,67,0.10); }
-    #timer-svg #t-arc   { stroke: #555; transition: stroke-dashoffset 0.1s linear, stroke 0.25s linear; }
+    #timer-svg #t-arc   { stroke: var(--accent); fill: none; }
     #timer-svg #t-hand  { stroke: var(--accent); }
 
     .timer-center {
@@ -1023,11 +1023,9 @@
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
           <!-- Outer progress track (fixed 4-min face) -->
           <circle class="t-track" cx="100" cy="100" r="93" stroke-width="2.6"/>
-          <!-- Progress arc (circ = 2π×93 ≈ 584.34) -->
-          <circle id="t-arc" cx="100" cy="100" r="93"
-            stroke-width="3.2" stroke-linecap="round"
-            stroke-dasharray="584.34" stroke-dashoffset="584.34"
-            transform="rotate(-90 100 100)"/>
+          <!-- Progress arc: an amber path redrawn each frame — understated tick
+               marks for the first 4 min, solid amber after (see render()). -->
+          <path id="t-arc" d="" stroke-width="3.2" stroke-linecap="round"/>
           <!-- Tick marks: fixed 4-min face (8 × 30s), drawn by JS -->
           <g id="t-ticks"></g>
           <!-- Floating second hand: one sweep = one 30s pour cycle -->
@@ -1688,6 +1686,20 @@
     let POUR_TARGETS = [];
     let TOTAL = 270; // updated by recalcSchedule()
 
+    // Progress-ring geometry: an arc from 12 o'clock clockwise, spanning `frac`
+    // of the circle (radius 93, centre 100,100). At frac>=1 a gap-free full ring.
+    const ARC_TICKS = '3.5 6';   // dash pattern → understated thick amber ticks
+    function arcPath(frac){
+      const cx = 100, cy = 100, r = 93, a0 = -Math.PI / 2;
+      if (frac <= 0) return '';
+      if (frac >= 1)   // full circle as two arcs (no seam)
+        return `M ${cx} ${cy - r} A ${r} ${r} 0 1 1 ${cx} ${cy + r} A ${r} ${r} 0 1 1 ${cx} ${cy - r}`;
+      const a1 = a0 + frac * 2 * Math.PI;
+      const x0 = (cx + r * Math.cos(a0)).toFixed(2), y0 = (cy + r * Math.sin(a0)).toFixed(2);
+      const x1 = (cx + r * Math.cos(a1)).toFixed(2), y1 = (cy + r * Math.sin(a1)).toFixed(2);
+      return `M ${x0} ${y0} A ${r} ${r} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1} ${y1}`;
+    }
+
     function recalcSchedule() {
       const contactSecs = parseInt(document.getElementById('contact').value) || 270;
       const brewTarget  = Math.round(parseFloat(document.getElementById('brew-target').value) || 350);
@@ -1774,13 +1786,13 @@
     }
 
     function render(s) {
-      const pos = s % CLOCK_SCOPE;
-      const arcFrac = (pos === 0 && s > 0) ? 1 : pos / CLOCK_SCOPE;
-      // Dark theme always: light arc colours (white past 4:00, grey before).
-      const progColor = s >= CLOCK_SCOPE ? '#F2F2F4' : '#8A8A8E';
+      // Progress ring: amber tick-marks that grow over the first 4 min, then go
+      // solid amber once past 4:00 (and stay solid — no wrap).
+      const past4 = s >= CLOCK_SCOPE;
+      const frac = past4 ? 1 : (s % CLOCK_SCOPE) / CLOCK_SCOPE;
       const arc = document.getElementById('t-arc');
-      arc.setAttribute('stroke-dashoffset', (CIRC * (1 - arcFrac)).toFixed(3));
-      arc.setAttribute('stroke', progColor);
+      arc.setAttribute('d', arcPath(frac));
+      arc.setAttribute('stroke-dasharray', past4 ? 'none' : ARC_TICKS);
       const a = ((s % CYCLE_SECS) / CYCLE_SECS) * 2 * Math.PI - Math.PI / 2;
       const hand = document.getElementById('t-hand');   // inner r=50 keeps clear of the center number
       hand.setAttribute('x1', (100 + 50 * Math.cos(a)).toFixed(2));
