@@ -2440,11 +2440,17 @@
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
-    // Generic EXPORT = a full dump of BOTH datasets (no locking; re-runnable). Two
-    // files → your two spreadsheet sheets. Staggered so iOS doesn't drop the 2nd.
+    // Generic EXPORT = a full dump of BOTH datasets (no locking; re-runnable). ONE
+    // file (one iOS "Save to Files" tap) — beans + brews blocks separated by marker
+    // lines; the Excel macro splits on them back into the two tables.
+    const EXPORT_BEANS_MARK = '@@BLACKMAGIC:BEANS@@';
+    const EXPORT_BREWS_MARK = '@@BLACKMAGIC:BREWS@@';
+    function exportCombinedCSV() {
+      return EXPORT_BEANS_MARK + '\r\n' + beansToCSV() +
+             '\r\n' + EXPORT_BREWS_MARK + '\r\n' + brewsToCSV();
+    }
     $('btn-export').addEventListener('click', () => {
-      downloadCSV('brews.csv', brewsToCSV());
-      setTimeout(() => downloadCSV('beans.csv', beansToCSV()), 700);
+      downloadCSV('blackmagic.csv', exportCombinedCSV());
       const btn = $('btn-export');
       const orig = btn.textContent;
       btn.textContent = 'exported ✓';

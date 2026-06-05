@@ -441,21 +441,35 @@ bestDose/bestGrind/bestAgitate/bestContact/bestWater/bestBloom/bestDecay/bestTar
 bestRecipeRating, locked, exportedAt, updatedAt`.
 
 ### Export model (two paths)
-- **EXPORT** (overlay) — full dump of **both** `brews.csv` + `beans.csv`, all records,
-  **no locking**, re-runnable (staggered 700ms for iOS). The Excel feed.
+- **EXPORT** (overlay) — full dump of **both** datasets in **ONE file**
+  `blackmagic.csv` (`exportCombinedCSV()`): the beans block, a `@@BLACKMAGIC:BEANS@@`
+  marker line above it and a `@@BLACKMAGIC:BREWS@@` marker before the brews block.
+  One file = one iOS "Save to Files" tap; the Excel macro splits on the markers back
+  into the two tables. No locking, re-runnable. (Was two staggered files
+  brews.csv/beans.csv pre-v7.) The Excel feed.
 - **BACKUP / RESTORE** — full JSON of beans+brews (`exportJSON`/`importJSON`); the
   PWA-reinstall safety net (RESTORE replaces all data).
 - (Per-bean export + freeze/lock was **retired** — the global EXPORT is the only feed.)
-- All CSVs carry stable **ID** keys for Excel upsert: beans `ID`; brews `ID` + `Bean_ID`
-  (FK). Unit conversions on export: `Time_Aim` = contact secs→min, `Pour_Decay` = %→fraction,
-  `Output` = brewTarget. **beans.csv** also carries the best recipe as
+- Each section carries stable **ID** keys for Excel upsert: beans `ID`; brews `ID` +
+  `Bean_ID` (FK). Unit conversions on export: `Time_Aim` = contact secs→min,
+  `Pour_Decay` = %→fraction, `Output` = brewTarget. The **beans** block also carries
+  the best recipe as
   `Best_Dose/Best_Grind/Best_Temp/Best_Time_Aim/Best_Bloom/Best_Pour_Decay/Best_Agitate/Best_Output`
   (same unit conventions: `Best_Time_Aim` = min, `Best_Pour_Decay` = fraction).
 
 ## Excel integration
 Workbook `~/Downloads/TFD Coffee Log 2026 Claude.xlsx` (ListObjects `BeanLog`,
-`BrewLog`) ingests the CSVs via a VBA **upsert** macro `ImportBlackMagic` (source:
-`~/Downloads/BlackMagicImport.bas`): matches by app `ID` (stored Text), appends new /
+`BrewLog`) ingests the export via a VBA **upsert** macro `ImportBlackMagic` (source:
+`~/Downloads/BlackMagicImport.bas`; assign it to a sheet button). **One-click, no
+prompts:** it reads `blackmagic.csv` from `CSV_FOLDER` (hardcoded to the iCloud folder
+`/Users/tfd_2023/Documents/Black Magic Export Restore`, where the phone exports; set
+`CSV_FOLDER=""` to use the workbook's own folder) and splits it on the
+`@@BLACKMAGIC:BEANS@@`/`@@BLACKMAGIC:BREWS@@` markers (`SplitSections`/`TrimWS`/
+`ParseCsv`). Mac sandbox access is granted via `GrantAccessToMultipleFiles` (a
+ONE-TIME consent prompt the first run); if the file is missing/denied it falls back
+to a manual `GetOpenFilename` picker. Note: the `.bas` is just source — after editing
+it you must re-import the module into the workbook (VBE ▸ remove module ▸ Import
+File). It matches by app `ID` (stored Text), appends new /
 updates existing rows, assigns next `Bag` to new beans, writes only app-input columns
 and leaves Excel formula columns alone (Combo_Name, Pour1, EY*/EQV*, and brew
 Bag/Country/Roaster derived via `XLOOKUP` on `Bean_ID`). The macro maps **csv→xl** by
@@ -466,10 +480,10 @@ match (Grind ~7–9, Temp °F, Contact min). Bean★ → BeanLog `Rating`: the *
 workbook renamed its `Grade` column to `Rating`, so the macro's `Rating→Rating` mapping
 lands (the stale Downloads copy still says `Grade` — rename it there too if you re-import).
 **Mac VBA constraints (cost a lot of debugging):** Excel-for-Mac has NO `FileDialog`,
-`Scripting.Dictionary`, or `FileSystemObject` — the macro uses `GetOpenFilename` (no
-Win-style filter), VBA `Collection`, and native binary read + a hand-rolled UTF-8 decoder.
-**Never open the CSVs directly in Excel** — it converts 13-digit IDs to `1.78E+12` and
-collapses them. Pour1 (geometric first pour) = `Output·(1−r)/(1−r^n)`, `n = Time_Aim/0.5`.
+`Scripting.Dictionary`, or `FileSystemObject` — the macro uses `GrantAccessToMultipleFiles`
++ `GetOpenFilename` (no Win-style filter), VBA `Collection`, and native binary read + a
+hand-rolled UTF-8 decoder. **Never open `blackmagic.csv` directly in Excel** — it converts
+13-digit IDs to `1.78E+12` and collapses them. Pour1 (geometric first pour) = `Output·(1−r)/(1−r^n)`, `n = Time_Aim/0.5`.
 
 ## Phase 3 ideas (not yet started)
 - Chart TDS or Rating over time
