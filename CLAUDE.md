@@ -36,6 +36,29 @@ detailed sections below predate it — where they conflict, **this block wins**:
   "Pour 3 (81%)"… (% = taper^k). It shares one slot with the reset ↺ hint (which
   shows only when stopped). No drawdown phase (constant-dripper-equilibrium method).
 
+## v3 (June 2026) — nav + brew-screen polish (overrides older sections too)
+- **Per-screen headers**, all amber-left / white-center-title / amber-right:
+  Brew = `Bean · Black Magic · History`; Brew History = `Brew · Brew History ·
+  Tools` (the ✕ is gone — left "Brew" closes the overlay); Bean list = `Brew ·
+  Bean History · Tools`; Bean form = `Brew · Bean Magic · Beans`; Tools = `Brew ·
+  Tools · Bean`. The bean header's title + right button toggle between list/form
+  (`showBeanList`/`showBeanForm`). The date/time readout was removed from the brew
+  header (`updateClock`/`#date-display` gone).
+- **Coffee bar 2nd line** = `Country Process Varietal · M/D/YY` (values only,
+  blanks skipped; `fmtDateNumeric`).
+- **Recipe exceptions-pop** refined: deviations stay the SAME size as the others
+  (just amber — no layout shift); non-amber values brightened and labels dimmed so
+  a label reads distinctly from its value. Highlights recompute after any recipe
+  load (`startBrewWith`/`restoreBrewState`/`enterBrewEdit`), not just on bean change.
+- **Countdown flash** "GO" → **"Bloom +"** (cues the first pour).
+- **Progress ring** is now amber **tick-marks** (a per-frame `<path>` via `arcPath`)
+  that grow over 4 min, then go **solid** amber past 4:00; the grey 30s face ticks
+  stay.
+- **Editing a brew** returns to the Brew History list on Save *and* Cancel (the cup
+  underneath is restored first). Bean edit already returned to the bean list.
+- Bug fixed: the Bean note no longer collapses to one line on brew-from-bean
+  (`growNotes()` now runs after the brew screen is visible).
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
