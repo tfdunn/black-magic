@@ -265,7 +265,7 @@
        in amber (synced to the GO tone + timer start). */
     @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
     .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
-    .pour-number.go { color: var(--accent); letter-spacing: 0; }
+    .pour-number.go { font-size: 34px; color: var(--accent); letter-spacing: -0.5px; }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
       .ed-bg, .ed-sheet, .screen, .dial-reset, .dial-timer, .t-step { transition: none; }
@@ -382,10 +382,13 @@
        bean's best recipe, or the Tools default) light up amber + full size — so an
        unusual recipe announces itself at a glance, mirroring the History deltas.
        Dose & Bloom are never flagged (they scale with the batch), so they stay grey. */
+    /* Quiet reference: values a touch brighter than their labels; deviations go
+       amber at the SAME size (no size jump, so the grid doesn't shift). */
     #screen-brew .stats-grid .field .fnum,
-    #screen-brew .stats-grid .field .dash { font-size: 18px; color: var(--secondary); }
+    #screen-brew .stats-grid .field .dash { font-size: 18px; color: rgba(235,235,245,0.88); }
+    #screen-brew .stats-grid .label { color: rgba(235,235,245,0.5); }
     #screen-brew .stats-grid .field.diff .fnum,
-    #screen-brew .stats-grid .field.diff .dash { font-size: 21px; color: var(--accent); }
+    #screen-brew .stats-grid .field.diff .dash { color: var(--accent); }
 
     /* ── Tap-to-edit sheet ── */
     .ed-bg { position: fixed; inset: 0; background: rgba(0,0,0,.30); display: none;
@@ -1873,7 +1876,7 @@
             clearStepLabel();                           // arm the step labels (cyc 0 fires next tick)
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
             countdownNodes = [];
-            ml.textContent = 'GO';                 // amber GO flash, synced to the GO tone + start
+            ml.textContent = 'Bloom +';            // amber start flash (cues the first pour), synced to start
             ml.classList.add('go');
             pop();
             goFlashUntil = performance.now() + 550;
@@ -2737,7 +2740,15 @@
       growNotes();
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
-        $('bb-roast').textContent = currentBean.roastDate ? 'roast ' + fmtDateShort(currentBean.roastDate) : '';
+        // 2nd line: Country Process Varietal · M/D/YY (values only, blanks skipped)
+        const parts = [currentBean.country, currentBean.process, currentBean.varietal]
+          .map(x => (x || '').trim()).filter(Boolean);
+        let sub = parts.join(' ');
+        if (currentBean.roastDate) {
+          const md = fmtDateNumeric(currentBean.roastDate);
+          if (md) sub = sub ? sub + ' · ' + md : md;
+        }
+        $('bb-roast').textContent = sub;
         bar.classList.add('has-bean');
       } else {
         $('bb-name').textContent = 'Select a coffee';
@@ -2764,6 +2775,10 @@
       const dt = new Date(ymd + 'T00:00:00');
       return isNaN(dt) ? ymd
         : dt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+    function fmtDateNumeric(ymd) {   // "2026-07-02" → "7/2/26"
+      const dt = new Date(ymd + 'T00:00:00');
+      return isNaN(dt) ? '' : (dt.getMonth()+1) + '/' + dt.getDate() + '/' + String(dt.getFullYear()).slice(-2);
     }
 
     // Scroll-safe long-press for list cards: no preventDefault (so the list still
