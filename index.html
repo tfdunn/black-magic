@@ -86,7 +86,6 @@
       letter-spacing: -0.5px;
       color: var(--ink);
       line-height: 1.1;
-      margin-top: 5px;   /* drop the title baseline slightly */
     }
 
     .header .date {
@@ -919,6 +918,9 @@
       .history-head, .brew-card, .ac-list { border-color: var(--hairline); }
       .bean-grid .bean-cell { border-right-color: var(--hairline); border-top-color: var(--hairline); }
       input.brew-name:focus, input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
+      /* Bean form name/roaster were dark text (#000/#555) → invisible on dark */
+      input.bean-name { color: var(--ink); }
+      input.roaster { color: var(--secondary); }
 
       /* Subtle :active / fill greys (#f4–f7, #f0f0f0) */
       .bean-cell .chips button { background: rgba(235,235,245,0.08); color: var(--secondary); }
@@ -988,7 +990,7 @@
       <div class="stat-cell"><span class="label">Agitate</span>
         <button type="button" class="field" data-f="agitate"></button>
         <select id="agitate" hidden>
-          <option value="0">0 (none)</option><option value="1">1 (min)</option>
+          <option value="0">0 (none)</option><option value="1">1 (minimal)</option>
           <option value="2" selected>2 (low)</option><option value="3">3 (mid)</option>
           <option value="4">4 (high)</option>
         </select></div>
@@ -1009,7 +1011,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="bloom"></button>
         <input type="hidden" id="bloom" value="72"></div>
-      <div class="stat-cell"><span class="label">Pour ↘︎</span>
+      <div class="stat-cell"><span class="label">Pour Δ</span>
         <button type="button" class="field" data-f="decay"></button>
         <input type="hidden" id="decay" value="90"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1058,7 +1060,7 @@
       <div class="bottom-stat"><span class="label">Brew★</span>
         <button type="button" class="field amber" data-f="brew-rating"></button>
         <select id="brew-rating" hidden>
-          <option value="" selected>—</option><option value="1">1 (1st)</option>
+          <option value="" selected>—</option><option value="1">1 (new)</option>
           <option value="2">2 (dial)</option><option value="3">3 (test)</option>
           <option value="4">4 (good)</option><option value="5">5 (best)</option>
         </select></div>
@@ -1190,7 +1192,7 @@
       <div class="stat-cell"><span class="label">Bloom</span>
         <button type="button" class="field" data-f="best-bloom"></button>
         <input type="hidden" id="best-bloom"></div>
-      <div class="stat-cell"><span class="label">Pour ↘︎</span>
+      <div class="stat-cell"><span class="label">Pour Δ</span>
         <button type="button" class="field" data-f="best-decay"></button>
         <input type="hidden" id="best-decay"></div>
       <div class="stat-cell"><span class="label">Target</span>
@@ -1241,7 +1243,7 @@
         <div class="stat-cell"><span class="label">Agitate</span>
           <button type="button" class="field" data-f="def-agitate"></button>
           <select id="def-agitate" hidden>
-            <option value="0">0 (none)</option><option value="1">1 (min)</option>
+            <option value="0">0 (none)</option><option value="1">1 (minimal)</option>
             <option value="2">2 (low)</option><option value="3">3 (mid)</option>
             <option value="4">4 (high)</option>
           </select></div>
@@ -1262,7 +1264,7 @@
         <div class="stat-cell"><span class="label">Bloom</span>
           <button type="button" class="field" data-f="def-bloom"></button>
           <input type="hidden" id="def-bloom"></div>
-        <div class="stat-cell"><span class="label">Pour ↘︎</span>
+        <div class="stat-cell"><span class="label">Pour Δ</span>
           <button type="button" class="field" data-f="def-decay"></button>
           <input type="hidden" id="def-decay"></div>
         <div class="stat-cell"><span class="label">Target</span>
@@ -1384,8 +1386,8 @@
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
-    const AGITATE_WORDS = { '0':'none','1':'min','2':'low','3':'mid','4':'high' };
-    const BREW_RATINGS  = { '1':'1st','2':'dial','3':'test','4':'good','5':'best' };
+    const AGITATE_WORDS = { '0':'none','1':'minimal','2':'low','3':'mid','4':'high' };
+    const BREW_RATINGS  = { '1':'new','2':'dial','3':'test','4':'good','5':'best' };
     const FX = {
       'dose':        {label:'Dose',  step:0.1, dec:1, trim:1, min:0,  max:99,  unit:'g',  presets:[23,24,25,72], type:'num'},
       'grind':       {label:'Grind', step:0.5, dec:1, trim:1, min:0,  max:40,  unit:'#',  presets:[7,8,9,10],    type:'num'},
@@ -1393,7 +1395,7 @@
       'contact':     {label:'Contact', step:30, min:60, max:600, presets:[210,240,270,300,390], type:'time'},
       'water':       {label:'Water', step:1, min:150, max:212, unit:'°F', presets:[196,200,204,208,212], type:'num'},
       'bloom':       {label:'Bloom', step:2, min:0, max:400, unit:'ml', presets:[80,100,120,300], type:'num'},
-      'decay':       {label:'Pour ↘︎', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
+      'decay':       {label:'Pour Δ', step:1, min:0, max:100, unit:'%', presets:[85,90,95,100], type:'num'},
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
       'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
@@ -2056,7 +2058,7 @@
       if (diff(r.water, b.bestWater))     out.push('Temp ' + r.water);
       if (diff(r.contact, b.bestContact)) out.push('Contact ' + fmtMS(parseInt(r.contact)));
       if (diff(r.agitate, b.bestAgitate)) out.push('Agitate ' + (AGITATE_WORDS[r.agitate] || r.agitate));
-      if (diff(r.decay, b.bestDecay))     out.push('Pour ↘︎ ' + r.decay + '%');
+      if (diff(r.decay, b.bestDecay))     out.push('Pour Δ ' + r.decay + '%');
       if (diff(r.brewTarget, b.bestTarget)) out.push('Target ' + r.brewTarget);
       return out;
     }
@@ -2096,7 +2098,7 @@
               <div class="row"><span class="k">Contact</span><span>${r.contactText}</span></div>
               <div class="row"><span class="k">Water</span><span>${r.water || '—'} F°</span></div>
               <div class="row"><span class="k">Bloom</span><span>${r.bloom || '—'} ml</span></div>
-              <div class="row"><span class="k">Pour ↘︎</span><span>${r.decay || '—'} %</span></div>
+              <div class="row"><span class="k">Pour Δ</span><span>${r.decay || '—'} %</span></div>
               <div class="row"><span class="k">Target</span><span>${r.brewTarget || '—'} ml</span></div>
               <div class="row"><span class="k">Time Δ</span><span>${r.timeAdj}</span></div>
               <div class="row"><span class="k">TDS</span><span>${r.tds || '—'}</span></div>
