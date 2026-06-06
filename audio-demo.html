@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#000">
+<title>Black Magic — sound audition</title>
+<style>
+  :root{
+    --ink:#F2F2F4; --secondary:rgba(235,235,245,.62); --tertiary:rgba(235,235,245,.4);
+    --hairline:rgba(235,235,245,.16); --accent:#D08A52; --bg:#000; --card:#1C1C1E;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:var(--font);
+    -webkit-font-smoothing:antialiased;padding:24px 18px calc(40px + env(safe-area-inset-bottom));max-width:440px;margin:0 auto}
+  h1{font-size:21px;font-weight:700;color:rgba(235,235,245,.7);text-align:center;letter-spacing:-.3px}
+  .sub{font-size:12.5px;color:var(--secondary);text-align:center;margin-top:6px;line-height:1.45}
+  .vol{display:flex;align-items:center;gap:10px;margin:20px 2px 22px;font-size:12px;color:var(--secondary)}
+  .vol input{flex:1;accent-color:var(--accent)}
+  .vol .pct{width:38px;text-align:right;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--hairline);border-radius:16px;
+    padding:15px 16px 17px;margin-bottom:14px}
+  .card h2{font-size:16px;font-weight:700}
+  .card p{font-size:12px;color:var(--secondary);line-height:1.4;margin-top:4px}
+  .row{display:flex;gap:8px;margin-top:13px}
+  .btn{flex:1;background:#000;border:1px solid var(--hairline);border-radius:999px;
+    color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;padding:11px 6px;
+    cursor:pointer;transition:transform .1s ease, background .1s ease}
+  .btn:active{transform:scale(.96);background:var(--accent);border-color:var(--accent);color:#100A06}
+  .note{font-size:11.5px;color:var(--tertiary);text-align:center;margin-top:10px;line-height:1.5}
+</style>
+</head>
+<body>
+  <h1>Sound audition</h1>
+  <div class="sub">Low-latency Web Audio (the proposed engine). Tap to hear each candidate.<br>Quiet by design — turn your volume up a bit. (Off the iPhone silent switch.)</div>
+
+  <div class="vol">
+    <span>Vol</span>
+    <input id="vol" type="range" min="0" max="50" value="22">
+    <span class="pct" id="volpct">22%</span>
+  </div>
+
+  <div id="cards"></div>
+  <div class="note">Pour cue = the every-30s "pour now" beep · Countdown = the 3·2·1·GO before start · Sub = the soft 1st-pour/agitate nudges (10s &amp; 20s).</div>
+
+<script>
+let ctx, MASTER = 0.22;
+function ac(){
+  ctx = ctx || new (window.AudioContext || window.webkitAudioContext)();
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx;
+}
+// One sine/triangle voice with soft attack + exponential decay.
+function voice(t0, freq, dur, opt){
+  opt = opt || {};
+  const c = ac(), o = c.createOscillator(), g = c.createGain();
+  o.type = opt.type || 'sine';
+  o.frequency.setValueAtTime(freq, t0);
+  if (opt.glideTo) o.frequency.exponentialRampToValueAtTime(opt.glideTo, t0 + dur);
+  o.connect(g); g.connect(c.destination);
+  const peak = (opt.vol != null ? opt.vol : 0.5) * MASTER;
+  const atk = opt.atk != null ? opt.atk : 0.008;
+  g.gain.setValueAtTime(0.0001, t0);
+  g.gain.linearRampToValueAtTime(peak, t0 + atk);
+  g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+  o.start(t0); o.stop(t0 + dur + 0.03);
+}
+// Short filtered-noise transient (for the wood/knock attack).
+function noise(t0, dur, freq, q, vol){
+  const c = ac(), n = Math.floor(dur * c.sampleRate);
+  const buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random()*2 - 1) * (1 - i/n);
+  const src = c.createBufferSource(); src.buffer = buf;
+  const bp = c.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = freq; bp.Q.value = q || 4;
+  const g = c.createGain(); g.gain.value = (vol != null ? vol : 0.3) * MASTER;
+  src.connect(bp); bp.connect(g); g.connect(c.destination);
+  src.start(t0); src.stop(t0 + dur);
+}
+
+// ── Candidate sound sets ──────────────────────────────────────────
+const CANDIDATES = {
+  tick: {
+    name: 'Soft sine tick',
+    desc: 'A single short, gentle sine pip. The most minimal, cleanest timing cue.',
+    pour: t => voice(t, 520, 0.14, {vol:0.5, atk:0.005}),
+    sub:  t => voice(t, 440, 0.12, {vol:0.32, atk:0.005}),
+    count: t => { voice(t,523.25,0.12,{vol:0.5}); voice(t+0.5,587.33,0.12,{vol:0.5});
+                  voice(t+1.0,659.25,0.12,{vol:0.5}); voice(t+1.5,880,0.26,{vol:0.55,atk:0.01}); }
+  },
+  tine: {
+    name: 'Soft Tine (current timbre)',
+    desc: 'Exactly the sine voices you have now — just lag-free. Smallest change.',
+    pour: t => voice(t, 660, 0.22, {vol:0.5, atk:0.012}),
+    sub:  t => voice(t, 440, 0.16, {vol:0.30, atk:0.012}),
+    count: t => { voice(t,523.25,0.18,{vol:0.55,atk:0.012}); voice(t+0.6,587.33,0.18,{vol:0.55,atk:0.012});
+                  voice(t+1.2,659.25,0.18,{vol:0.55,atk:0.012});
+                  voice(t+1.8,659.25,0.16,{vol:0.6,atk:0.012}); voice(t+1.93,880,0.32,{vol:0.6,atk:0.012}); }
+  },
+  wood: {
+    name: 'Warm wood pluck',
+    desc: 'A short marimba/woodblock-like “tock” — warm and organic, not electronic.',
+    pour: t => { noise(t,0.012,900,6,0.25); voice(t,415,0.18,{type:'triangle',vol:0.5,atk:0.002}); voice(t,830,0.10,{type:'triangle',vol:0.18,atk:0.002}); },
+    sub:  t => { noise(t,0.010,800,6,0.16); voice(t,330,0.15,{type:'triangle',vol:0.34,atk:0.002}); },
+    count: t => { const k=(tt,f)=>{noise(tt,0.012,900,6,0.22);voice(tt,f,0.16,{type:'triangle',vol:0.5,atk:0.002});};
+                  k(t,392); k(t+0.5,466); k(t+1.0,523);
+                  noise(t+1.5,0.012,1100,6,0.25); voice(t+1.5,659,0.28,{type:'triangle',vol:0.55,atk:0.002}); }
+  },
+  knock: {
+    name: 'Muted knock',
+    desc: 'A very soft, low thud — felt more than heard. The quietest option.',
+    pour: t => { noise(t,0.014,260,3,0.22); voice(t,150,0.13,{vol:0.55,atk:0.003}); },
+    sub:  t => { noise(t,0.012,240,3,0.15); voice(t,140,0.11,{vol:0.36,atk:0.003}); },
+    count: t => { const k=(tt,f)=>{noise(tt,0.014,260,3,0.2);voice(tt,f,0.12,{vol:0.55,atk:0.003});};
+                  k(t,150); k(t+0.5,165); k(t+1.0,180);
+                  noise(t+1.5,0.016,300,3,0.26); voice(t+1.5,196,0.18,{vol:0.6,atk:0.003}); }
+  }
+};
+
+const cards = document.getElementById('cards');
+Object.entries(CANDIDATES).forEach(([key, s]) => {
+  const el = document.createElement('div'); el.className = 'card';
+  el.innerHTML = `<h2>${s.name}</h2><p>${s.desc}</p>
+    <div class="row">
+      <button class="btn" data-k="${key}" data-p="pour">Pour cue</button>
+      <button class="btn" data-k="${key}" data-p="sub">Sub-beep</button>
+      <button class="btn" data-k="${key}" data-p="count">Countdown</button>
+    </div>`;
+  cards.appendChild(el);
+});
+document.addEventListener('click', e => {
+  const b = e.target.closest('.btn'); if (!b) return;
+  const c = ac(); CANDIDATES[b.dataset.k][b.dataset.p](c.currentTime + 0.02);
+});
+const vol = document.getElementById('vol'), pct = document.getElementById('volpct');
+vol.addEventListener('input', () => { MASTER = vol.value / 100; pct.textContent = vol.value + '%'; });
+</script>
+</body>
+</html>
