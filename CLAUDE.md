@@ -173,6 +173,48 @@ detailed sections below predate it — where they conflict, **this block wins**:
   inherent to the media-channel playback that buys Silent-Mode survival; not "fixed,"
   masked. (The step caption already fades over 0.5s.)
 
+## v9 (June 2026) — dual-cadence dial + left-dial/right-rail layout (latest; overrides the dial/notes/ring parts of v2–v8)
+The whole timer was redesigned around the insight that a pour-over is a
+**dual-cadence instrument**: a fast 30s "when to pour" heartbeat and a slow
+whole-brew journey. The centered dial-with-text is gone.
+- **Layout:** the brew screen's timer is now a row (`.brew-instrument`) — a
+  **pure analog dial on the LEFT** + a **readout rail on the RIGHT** holding the
+  big cumulative pour number (`#t-ml`), a flexible caption (`#t-step`), and a
+  **round** start/stop/save button (`#btn-save`, `.btn-round`). The old centered
+  `.timer-section`/`.timer-center`/`.dial-timer`/`.dial-sub` + the bottom
+  `.save-row` start button are removed; `.save-row` now holds only the edit-mode
+  cancel/save row. The round button's hold-to-save is an amber SVG ring
+  (`.btn-ring-fill`, stroke-dashoffset over 2s) instead of the pill's scaleX fill;
+  the button is **dark grey, not amber** (amber stays off the action button).
+- **Dial (`renderDial`, drawn each frame; replaced the segmented %-ring —
+  `buildSegments`/`renderRing`/`ringArc`/`segAmber`/`t-segs`/`t-dot` all gone):**
+  • a faint full **track** (`#t-face`) + a **subtle amber PROGRESS arc**
+  (`#t-prog`, `progArc()`, stroke 2 @ 0.6 opacity) = elapsed/contact, continuous
+  whole-brew time on the rim;  • **journey pips** (`#t-pips`, `buildPips()`, one
+  per pour at `i/n` around the rim, radius PIP_R=92) riding on the arc — `.done`
+  amber for poured, `.cur` amber-ring for the current pour, grey ahead;  • an amber
+  **heartbeat HAND** (`#t-hand`+`#t-handdot`, HAND_R=76) that sweeps **one full lap
+  per 30s** pour cycle — the live motion. (Sub-pips for 1st-pour/agitate were
+  prototyped then dropped — less is more; the captions + soft beeps carry them.)
+- **Flexible caption (`currentStep` rewritten):** `Ready` then `3·2·1` (in the
+  caption, no animation) before start; first interval **0–10s "Fast Bloom"** (num =
+  Bloom) · **10–20s "Pour {pour1}ml"** · **20–30s "Agitate"**; each later interval
+  shows **"Pour {Δ}ml"** (marginal add) for its first 20s then the **live timer**
+  for the last 10s; once contact is exceeded the **timer shows indefinitely** until
+  stop. Big number = the **cumulative** target (bloom weight previewed at idle); it
+  blooms-in on change. When stopped the caption shows the final m:ss.
+- **Reset:** the ↺ moved into the dial at **half-way from centre to the south edge**
+  (`.dial-reset`, top 75%) with a **"RESET" label** above it, amber, shown **only
+  when stopped** (the stop→save window); hold-the-dial-2s to reset is unchanged.
+- **Sound:** added a softer/lower **sub-beep** (`subAudio`, 440 Hz, `SUB_SPEC`) at
+  the **10s and 20s** marks of the first interval only; the 30s pour-boundary beep
+  is retained. Countdown no longer animates the number.
+- **Notes are now FIXED footprints** (`growNotes` rewritten): **Brew = 2 lines,
+  Bean = 4 lines**, each scrolling within itself — so the brew screen always
+  presents with the same spacing (the freed space from moving the button into the
+  rail pays for it). The shared anti-correlation budget (`NOTES_BUDGET_LINES`) is
+  gone.
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
