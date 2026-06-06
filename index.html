@@ -245,10 +245,12 @@
       letter-spacing: -2px;
       font-variant-numeric: tabular-nums;
     }
-    /* Countdown: the big number pops on each 3-2-1 tick, then flashes "GO"
-       in amber (synced to the GO tone + timer start). */
-    @keyframes count-pop { 0% { transform: scale(1.35); } 55% { transform: scale(0.97); } 100% { transform: scale(1); } }
-    .pour-number.count-pop { animation: count-pop 0.42s cubic-bezier(.2,.9,.3,1.25); }
+    /* Countdown / pour-number change: the big number BLOOMS in (soft fade + gentle
+       scale-up, no hard pop). Spreading the visual event over ~0.5s hides the iOS
+       HTMLAudio start latency (~0.25s) — the beep lands mid-bloom and reads as synced,
+       on phone and desktop alike, since there's no sharp instant to disagree with. */
+    @keyframes count-pop { 0% { opacity: 0.2; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
+    .pour-number.count-pop { animation: count-pop 0.5s cubic-bezier(.25,.6,.3,1); }
     .pour-number.go { font-size: 34px; color: var(--accent); letter-spacing: -0.5px; }
     .pour-number.ready { font-size: 27px; font-weight: 500; color: var(--secondary); letter-spacing: 0; }
     @media (prefers-reduced-motion: reduce) {

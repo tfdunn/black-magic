@@ -165,6 +165,13 @@ detailed sections below predate it — where they conflict, **this block wins**:
   .bean-section-label` 12px) with more space above.
 - **Landscape CSS counter-rotate removed** (looked kludgy); a rotated Safari tab now
   just reflows. The installed PWA still locks portrait via the manifest.
+- **`count-pop` softened to a bloom** (opacity 0.2→1 + scale 0.9→1 over 0.5s ease-out,
+  was a sharp 1.35→1 scale bounce). iOS HTMLAudio has ~0.25s start latency vs the
+  instant visual; spreading the number's visual change over ~0.5s lets the beep land
+  mid-bloom and read as synced — device-independent (no sharp instant to disagree
+  with), so it doesn't look wrong on desktop where audio is instant. The latency is
+  inherent to the media-channel playback that buys Silent-Mode survival; not "fixed,"
+  masked. (The step caption already fades over 0.5s.)
 
 ## File structure
 ```
