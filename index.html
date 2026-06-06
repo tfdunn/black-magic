@@ -1719,12 +1719,15 @@
       const [x0,y0] = polarXY(f0, PIP_R), [x1,y1] = polarXY(f1, PIP_R);
       return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 ${(f1-f0) > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
     }
+    // pips[i] = pour i+1, placed at its COMPLETION position (i+1)/n — so pour 1 sits
+    // one segment clockwise of 12, and the last pour lands AT 12 o'clock (the finish):
+    // each pip lights amber exactly when the progress arc reaches it (pour complete).
     let pips = [];
     function buildPips(){
       const g = document.getElementById('t-pips'); g.innerHTML = ''; pips = [];
       const n = Math.max(1, POUR_TARGETS.length);
       for (let i = 0; i < n; i++){
-        const [x,y] = polarXY(i / n, PIP_R);
+        const [x,y] = polarXY((i + 1) / n, PIP_R);
         const c = document.createElementNS(SVG_NS, 'circle');
         c.setAttribute('cx', x.toFixed(2)); c.setAttribute('cy', y.toFixed(2));
         c.setAttribute('r', '4.5'); c.setAttribute('class', 'pip');
@@ -1748,10 +1751,10 @@
       const active = running || (!inCountdown && elapsed > 0.05);   // brewing or stopped-with-time
       for (let i = 0; i < n; i++){
         let cls;
-        if (lap === 0) {                               // normal brew (or idle): pour milestones
+        if (lap === 0) {                               // normal: done = pour complete; cur = the pour you're filling toward
           cls = i < cyc ? 'pip done' : (active && i === cyc && cyc < n) ? 'pip cur' : 'pip';
-        } else {                                       // overtime: amber only where the arc still covers
-          const p = i / n;
+        } else {                                       // overtime: amber only where the arc still covers (pip at its completion frac)
+          const p = (i + 1) / n;
           cls = (p >= cov0 - 1e-4 && p <= cov1 + 1e-4) ? 'pip done' : 'pip';
         }
         pips[i].setAttribute('class', cls);
