@@ -216,22 +216,22 @@
 
     /* Dial strokes */
     #timer-svg #t-face       { stroke: var(--hairline); stroke-width: 1; fill: none; }
+    #timer-svg #t-prog       { stroke: var(--accent); stroke-width: 2; stroke-opacity: 0.6; stroke-linecap: round; fill: none; }
     #timer-svg .pip          { fill: #3a3a3c; }
     #timer-svg .pip.done     { fill: var(--accent); }
     #timer-svg .pip.cur      { fill: none; stroke: var(--accent); stroke-width: 2.2; }
-    #timer-svg .subpip       { fill: #3a3a3c; }
-    #timer-svg .subpip.done  { fill: var(--accent); }
     #timer-svg #t-hand       { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
     #timer-svg #t-handdot    { fill: var(--accent); }
 
-    /* Reset ↺ — amber, south of the dial, shown only when stopped */
+    /* Reset (label + ↺) — amber, half-way from centre to the south edge, stopped only */
     .dial-reset {
-      position: absolute; left: 0; right: 0; bottom: 16px;
-      display: flex; align-items: center; justify-content: center;
-      color: var(--accent); line-height: 0; opacity: 0; transition: opacity .3s ease;
+      position: absolute; left: 0; right: 0; top: 75%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--accent); opacity: 0; transition: opacity .3s ease;
       pointer-events: none;
     }
     .dial-reset.show { opacity: 1; }
+    .dial-reset .dr-label { font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; line-height: 1; }
     .dial-reset svg { width: 19px; height: 19px; display: block; }
 
     /* Readout rail (cumulative pour + flexible caption on top, round button below) */
@@ -1017,18 +1017,21 @@
     <div class="brew-instrument">
       <div class="timer-circle-wrap" id="dial-wrap">
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
-          <!-- Pure dial: faint face ring; journey pips (one per pour, fill amber as
-               poured); two small sub-pips subdividing the first segment (1st pour @10s,
-               agitate @20s, on the journey ring); and the amber heartbeat HAND that
-               sweeps one full lap per 30s pour cycle (the live "when to pour" motion).
-               Pips + hand are drawn each frame in renderDial(). -->
+          <!-- Pure dial. Rim: a faint full track + a subtle amber PROGRESS arc
+               (elapsed / contact — continuous whole-brew time) with journey pips on
+               it (one per pour, fill amber as poured). Inside: the amber heartbeat
+               HAND, one full lap per 30s pour cycle (the live "when to pour" motion).
+               Arc + pips + hand are drawn each frame in renderDial(). -->
           <circle id="t-face" cx="100" cy="100" r="92"/>
+          <path id="t-prog"/>
           <g id="t-pips"></g>
-          <g id="t-subpips"></g>
           <line id="t-hand" x1="100" y1="100" x2="100" y2="24"/>
           <circle id="t-handdot" r="4"/>
         </svg>
-        <span class="dial-reset" id="t-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></span>
+        <div class="dial-reset" id="t-reset" aria-hidden="true">
+          <span class="dr-label">Reset</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg>
+        </div>
         <div class="dial-hold" aria-hidden="true">
           <span class="dh-label">hold to reset</span>
           <span class="dh-bar"></span>
@@ -1715,20 +1718,31 @@
     let POUR_TARGETS = [];
     let TOTAL = 270; // updated by recalcSchedule()
 
-    // ── Dial geometry: journey pips on the rim + a heartbeat hand ──
-    // The dial carries TWO cadences. Slow: the JOURNEY — n pips around the rim
-    // (360° = contact time, one pip per 30s pour), filling amber as each pour
-    // completes, with two small SUB-PIPS subdividing the first segment (1st pour
-    // @10s ≈ "2 min", agitate @20s ≈ "4 min"). Fast: the HEARTBEAT HAND, one full
-    // lap per 30s pour cycle — the live "when to pour" motion. frac is a fraction of
-    // a full turn measured clockwise from 12 o'clock.
+    // ── Dial geometry: progress arc + journey pips on the rim + a heartbeat hand ──
+    // The dial carries TWO cadences. Slow: the JOURNEY — a subtle amber PROGRESS arc
+    // (elapsed / contact, continuous whole-brew time) with n pips around the rim
+    // (360° = contact time, one pip per 30s pour) that fill amber as each pour
+    // completes. Fast: the HEARTBEAT HAND, one full lap per 30s pour cycle — the live
+    // "when to pour" motion. frac = a fraction of a full turn clockwise from 12 o'clock.
     const SVG_NS = 'http://www.w3.org/2000/svg';
     const PIP_R = 92, HAND_R = 76;
     const polarXY = (frac, r) => {
       const a = (-90 + frac * 360) * Math.PI / 180;
       return [100 + r * Math.cos(a), 100 + r * Math.sin(a)];
     };
-    let pips = [], subPips = [];
+    // Amber progress arc, clockwise from 12 o'clock, spanning `frac` of the rim circle.
+    function progArc(frac){
+      frac = Math.max(0, Math.min(1, frac));
+      if (frac <= 0.0001) return '';
+      const [x0,y0] = polarXY(0, PIP_R);
+      if (frac >= 0.9999) {                                   // full ring → two half-arcs
+        const [xm,ym] = polarXY(0.5, PIP_R);
+        return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${xm.toFixed(2)} ${ym.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${x0.toFixed(2)} ${y0.toFixed(2)}`;
+      }
+      const [x1,y1] = polarXY(frac, PIP_R);
+      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    }
+    let pips = [];
     function buildPips(){
       const g = document.getElementById('t-pips'); g.innerHTML = ''; pips = [];
       const n = Math.max(1, POUR_TARGETS.length);
@@ -1739,17 +1753,10 @@
         c.setAttribute('r', '3.2'); c.setAttribute('class', 'pip');
         g.appendChild(c); pips.push(c);
       }
-      const sg = document.getElementById('t-subpips'); sg.innerHTML = ''; subPips = [];
-      [10, 20].forEach(t => {
-        const [x,y] = polarXY(TOTAL > 0 ? t / TOTAL : 0, PIP_R);
-        const c = document.createElementNS(SVG_NS, 'circle');
-        c.setAttribute('cx', x.toFixed(2)); c.setAttribute('cy', y.toFixed(2));
-        c.setAttribute('r', '2'); c.setAttribute('class', 'subpip');
-        sg.appendChild(c); subPips.push({ el: c, t });
-      });
     }
-    // Paint the dial for elapsed s: pip states, first-interval sub-pips, sweep hand.
+    // Paint the dial for elapsed s: progress arc, pip states, sweep hand.
     function renderDial(s){
+      document.getElementById('t-prog').setAttribute('d', progArc(TOTAL > 0 ? s / TOTAL : 0));
       const n = pips.length;
       const cyc = Math.floor(s / CYCLE_SECS);          // current interval index
       const active = running || (!inCountdown && elapsed > 0.05);   // brewing or stopped-with-time
@@ -1759,11 +1766,6 @@
           : (active && i === cyc && cyc < n) ? 'pip cur'
           : 'pip');
       }
-      const showSub = cyc === 0;                       // first interval only (incl. idle/countdown)
-      subPips.forEach(p => {
-        p.el.style.display = showSub ? '' : 'none';
-        p.el.setAttribute('class', s >= p.t ? 'subpip done' : 'subpip');
-      });
       const [hx, hy] = polarXY((s % CYCLE_SECS) / CYCLE_SECS, HAND_R);
       const hand = document.getElementById('t-hand'), hd = document.getElementById('t-handdot');
       hand.setAttribute('x2', hx.toFixed(2)); hand.setAttribute('y2', hy.toFixed(2));
