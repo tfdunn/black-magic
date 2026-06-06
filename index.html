@@ -69,7 +69,7 @@
       font-size: 23px;
       font-weight: 700;
       letter-spacing: -0.5px;
-      color: var(--ink);
+      color: rgba(235,235,245,0.7);   /* light grey, not full white */
       line-height: 1.1;
     }
 
@@ -231,8 +231,7 @@
       pointer-events: none;
     }
     .dial-reset.show { opacity: 1; }
-    .dial-reset .dr-label { font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; line-height: 1; }
-    .dial-reset svg { width: 19px; height: 19px; display: block; }
+    .dial-reset svg { width: 21px; height: 21px; display: block; }
 
     /* Readout rail (cumulative pour + flexible caption on top, round button below) */
     .rail {
@@ -276,13 +275,13 @@
     }
     .btn-round:active { transform: scale(0.96); opacity: 0.9; }
     .btn-round.saved { background: var(--accent); color: #100A06; border-color: var(--accent); }
-    .btn-round .btn-label { position: relative; z-index: 1; }
+    .btn-round .btn-label { position: relative; z-index: 1; text-align: center; line-height: 1.08; }
     .btn-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
     .btn-ring-fill {
       fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round;
       stroke-dasharray: 289; stroke-dashoffset: 289;   /* 2π·46 ≈ 289 (empty) */
     }
-    .btn-round.holding .btn-ring-fill { stroke-dashoffset: 0; transition: stroke-dashoffset 2s linear; }
+    .btn-round.holding .btn-ring-fill { stroke-dashoffset: 0; transition: stroke-dashoffset 1s linear; }
 
     /* Hold-to-reset overlay on the dial (2-second press) */
     .dial-hold {
@@ -667,6 +666,15 @@
     .screen { opacity: 1; transition: opacity .26s ease, display .26s allow-discrete; }
     @starting-style { .screen:not([hidden]) { opacity: 0; } }
 
+    /* The brew screen fills the app height and spreads its blocks down the full page
+       (the fixed-height notes + compact dial rail freed the vertical room). Scoped to
+       :not([hidden]) so it still hides when another screen is shown. */
+    #screen-brew:not([hidden]) {
+      display: flex; flex-direction: column;
+      flex: 1 1 auto; min-height: 0;
+      justify-content: space-between;
+    }
+
     /* ── Bean screen ── */
     input.bean-name {
       width: 100%; font-size: 20px; font-weight: 600; color: #000;
@@ -1029,7 +1037,6 @@
           <circle id="t-handdot" r="4"/>
         </svg>
         <div class="dial-reset" id="t-reset" aria-hidden="true">
-          <span class="dr-label">Reset</span>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg>
         </div>
         <div class="dial-hold" aria-hidden="true">
@@ -1356,9 +1363,9 @@
       if (labelLocked) return;
       const lab = document.getElementById('btn-label');
       if (!lab) return;
-      lab.textContent = (running || inCountdown) ? 'stop'
-                      : (elapsed > 0) ? 'save brew'
-                      : 'start';
+      if (running || inCountdown) lab.textContent = 'stop';
+      else if (elapsed > 0)       lab.innerHTML = 'save<br>brew';   // stacked in the round button
+      else                        lab.textContent = 'start';
     }
 
     // Notes have FIXED footprints so the brew screen always presents with the same
@@ -1730,17 +1737,15 @@
       const a = (-90 + frac * 360) * Math.PI / 180;
       return [100 + r * Math.cos(a), 100 + r * Math.sin(a)];
     };
-    // Amber progress arc, clockwise from 12 o'clock, spanning `frac` of the rim circle.
-    function progArc(frac){
-      frac = Math.max(0, Math.min(1, frac));
-      if (frac <= 0.0001) return '';
-      const [x0,y0] = polarXY(0, PIP_R);
-      if (frac >= 0.9999) {                                   // full ring → two half-arcs
-        const [xm,ym] = polarXY(0.5, PIP_R);
+    // Amber arc on the rim, clockwise from frac f0 to f1 (fractions of a full turn).
+    function arcSeg(f0, f1){
+      if (f1 - f0 <= 0.0001) return '';
+      if (f1 - f0 >= 0.9999) {                                // full ring → two half-arcs
+        const [x0,y0] = polarXY(f0, PIP_R), [xm,ym] = polarXY(f0 + 0.5, PIP_R);
         return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${xm.toFixed(2)} ${ym.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${x0.toFixed(2)} ${y0.toFixed(2)}`;
       }
-      const [x1,y1] = polarXY(frac, PIP_R);
-      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+      const [x0,y0] = polarXY(f0, PIP_R), [x1,y1] = polarXY(f1, PIP_R);
+      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 ${(f1-f0) > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
     }
     let pips = [];
     function buildPips(){
@@ -1750,21 +1755,34 @@
         const [x,y] = polarXY(i / n, PIP_R);
         const c = document.createElementNS(SVG_NS, 'circle');
         c.setAttribute('cx', x.toFixed(2)); c.setAttribute('cy', y.toFixed(2));
-        c.setAttribute('r', '3.2'); c.setAttribute('class', 'pip');
+        c.setAttribute('r', '4.5'); c.setAttribute('class', 'pip');
         g.appendChild(c); pips.push(c);
       }
     }
     // Paint the dial for elapsed s: progress arc, pip states, sweep hand.
+    // The arc = elapsed / contact. Lap 0 paints amber up to the leading edge; once
+    // contact is exceeded (lap ≥ 1) odd laps ERASE the amber back to grey from 12
+    // o'clock (a growing grey bite = "you're over"), pips reverting with it. The 30s
+    // heartbeat hand keeps marking "now"; TIME Δ carries the exact over/under.
     function renderDial(s){
-      document.getElementById('t-prog').setAttribute('d', progArc(TOTAL > 0 ? s / TOTAL : 0));
+      const frac = TOTAL > 0 ? s / TOTAL : 0;
+      const lap = Math.floor(frac), within = frac - lap;
+      const erasing = lap % 2 === 1;
+      const cov0 = erasing ? within : 0;               // amber-covered arc interval this lap
+      const cov1 = erasing ? 1 : within;
+      document.getElementById('t-prog').setAttribute('d', arcSeg(cov0, cov1));
       const n = pips.length;
       const cyc = Math.floor(s / CYCLE_SECS);          // current interval index
       const active = running || (!inCountdown && elapsed > 0.05);   // brewing or stopped-with-time
       for (let i = 0; i < n; i++){
-        pips[i].setAttribute('class',
-          i < cyc ? 'pip done'
-          : (active && i === cyc && cyc < n) ? 'pip cur'
-          : 'pip');
+        let cls;
+        if (lap === 0) {                               // normal brew (or idle): pour milestones
+          cls = i < cyc ? 'pip done' : (active && i === cyc && cyc < n) ? 'pip cur' : 'pip';
+        } else {                                       // overtime: amber only where the arc still covers
+          const p = i / n;
+          cls = (p >= cov0 - 1e-4 && p <= cov1 + 1e-4) ? 'pip done' : 'pip';
+        }
+        pips[i].setAttribute('class', cls);
       }
       const [hx, hy] = polarXY((s % CYCLE_SECS) / CYCLE_SECS, HAND_R);
       const hand = document.getElementById('t-hand'), hd = document.getElementById('t-handdot');
@@ -2217,6 +2235,7 @@
         else { startCountdown(); }                                // idle
       },
       onHold: saveBrew,
+      holdMs: 1000,                                               // save hold — half the 2s reset hold
       holdWhen: () => (elapsed > 0 && !running && !inCountdown)    // stopped only
     });
 
