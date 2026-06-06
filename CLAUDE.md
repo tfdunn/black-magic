@@ -215,6 +215,37 @@ whole-brew journey. The centered dial-with-text is gone.
   rail pays for it). The shared anti-correlation budget (`NOTES_BUDGET_LINES`) is
   gone.
 
+## v9.2 (June 2026) — dial polish, full-page spacing + Web Audio revert (latest; overrides the v8 audio block)
+- **Overtime erase is back:** once contact is exceeded the progress arc (and the
+  pips under it) **ERASE amber back to grey** from 12 o'clock (a growing grey bite =
+  "you're over") instead of sitting static — the 30s heartbeat hand keeps marking
+  "now", TIME Δ carries the exact over/under. `arcSeg(f0,f1)` generalises the arc;
+  `renderDial` does the lap math (odd laps erase).
+- **Dial details:** bigger journey pips (r 3.2 → 4.5); the 1st-pour/agitate sub-pips
+  were dropped (captions + soft beeps carry them); reset is **glyph only** (no
+  "RESET" label) and sits **half-way from centre to the south edge** (stopped only).
+- **Round button:** "save brew" stacks on two lines (save / brew); **save hold
+  halved to 1s** (`btn-save` holdMs + the ring-fill transition) — the dial reset
+  hold stays 2s.
+- **Headings** (Black Magic / Bean History / Tools / Brew History) are **light grey**
+  (`rgba(235,235,245,.7)`), not full white.
+- **Full-page spacing:** the brew screen flexes to fill the app height and spreads
+  its blocks down the page (`#screen-brew:not([hidden]) { display:flex; flex:1;
+  justify-content:space-between }`).
+- **Audio reverted to Web Audio** (the v8 HTMLAudio/WAV engine is retired). The v8
+  media-channel playback survived the Ring/Silent switch but lagged ~0.25s behind the
+  visual; Web Audio schedules on the audio clock (near-zero latency). **Tradeoff: the
+  iPhone Ring/Silent switch now mutes cues.** Timbre = **"Soft Sine Tick"**: pour =
+  one soft 520 Hz sine pip (`playPour`), sub-cue = 440 Hz softer (`playSub`, 10s/20s
+  first interval), countdown = 523/587/659 pips 1s apart + an 880 GO (`playCountdown`,
+  scheduled on the audio clock, cancellable via `countdownNodes`). One soft-attack/
+  exp-decay `tone()` voice; a lazy shared `audioCtx()` resumed on first gesture
+  (`unlockAudio`). **The Tools volume slider now truly scales output** (per-voice gain
+  × `SOUND_VOL`), unlike HTMLAudio.volume which iOS ignored; default `SOUND_VOL` 0.18.
+  (Removed `renderTones`/`wavURI`/`buildSoundAssets`/`playClip`/the three `<audio>`
+  elements + their specs.) `audio-demo.html` is a standalone tap-to-hear audition
+  page for the candidate timbres (not part of the app).
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)

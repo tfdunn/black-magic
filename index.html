@@ -1617,14 +1617,15 @@
       applyDraftObject(d);
     }
 
-    // ── Audio (Soft Tine, pre-rendered to WAV and played via <audio>) ─────
-    // The countdown + the 30s pour-boundary beep play through HTMLAudio elements,
-    // NOT Web Audio, so they (a) go out iOS's MEDIA channel and survive the
-    // Ring/Silent switch, and (b) don't depend on an AudioContext the system can
-    // interrupt. Each cue is synthesised to a soft-attack / gentle-decay sine WAV
-    // data-URI with the master volume baked in (iOS ignores HTMLAudio.volume), then
-    // just played. SOUND_ON / SOUND_VOL live in Tools and persist in localStorage.
-    let SOUND_ON = true, SOUND_VOL = 0.10;
+    // ── Audio (Soft Sine Tick, synthesised live via Web Audio) ────────────
+    // Reverted from the v8 HTMLAudio/WAV engine. That played out iOS's MEDIA
+    // channel (so it survived the Ring/Silent switch) but at ~0.25s start
+    // latency, which lagged the visual cue. Web Audio schedules on the audio
+    // clock → near-zero latency. TRADEOFF: the iPhone Ring/Silent switch DOES
+    // mute Web Audio. The Tools volume slider now genuinely scales output (per-
+    // voice gain × SOUND_VOL master), unlike HTMLAudio.volume which iOS ignored.
+    // SOUND_ON / SOUND_VOL live in Tools and persist in localStorage.
+    let SOUND_ON = true, SOUND_VOL = 0.18;
     const SOUND_KEY = 'blackmagic.sound';
     function loadSoundPrefs() {
       try {
@@ -1637,86 +1638,57 @@
       try { localStorage.setItem(SOUND_KEY, JSON.stringify({ on: SOUND_ON, vol: SOUND_VOL })); } catch (e) {}
     }
 
-    // Soft Tine voice specs: { freq Hz, start s, dur s, vol 0–1 before master }.
-    const SR = 22050;
-    const COUNTDOWN_SPEC = [
-      { freq: 523.25, start: 0,    dur: 0.18, vol: 0.55 },   // 3
-      { freq: 587.33, start: 1,    dur: 0.18, vol: 0.55 },   // 2
-      { freq: 659.25, start: 2,    dur: 0.18, vol: 0.55 },   // 1
-      { freq: 659.25, start: 3,    dur: 0.16, vol: 0.60 },   // GO — soft two-note rise
-      { freq: 880.00, start: 3.13, dur: 0.32, vol: 0.60 }
-    ];
-    const POUR_SPEC = [{ freq: 660, start: 0, dur: 0.22, vol: 0.50 }];
-    // Softer, lower sub-cue for the 1st-pour (10s) + agitate (20s) marks in the first
-    // interval — quieter + lower than the 30s pour beep so it reads as a gentle nudge.
-    const SUB_SPEC  = [{ freq: 440, start: 0, dur: 0.16, vol: 0.30 }];
-
-    // Render tone specs to a mono Float32 buffer (12ms attack, gentle exp decay —
-    // no click). Each tone's vol is scaled by SOUND_VOL (the master level).
-    function renderTones(spec) {
-      let end = 0;
-      for (const t of spec) end = Math.max(end, t.start + t.dur + 0.04);
-      const n = Math.max(1, Math.ceil(end * SR)), out = new Float32Array(n);
-      const atk = Math.floor(0.012 * SR);
-      for (const t of spec) {
-        const s0 = Math.floor(t.start * SR), len = Math.floor(t.dur * SR);
-        const amp = t.vol * SOUND_VOL, w = 2 * Math.PI * t.freq;
-        for (let i = 0; i < len; i++) {
-          const idx = s0 + i; if (idx >= n) break;
-          const env = i < atk ? i / atk : Math.exp(-3.5 * (i - atk) / Math.max(1, len - atk));
-          out[idx] += Math.sin(w * i / SR) * amp * env;
-        }
-      }
-      return out;
+    // Lazy shared AudioContext, created/resumed on the first user gesture (iOS
+    // won't let it start otherwise).
+    let audioCtxObj = null;
+    function audioCtx() {
+      try {
+        if (!audioCtxObj) audioCtxObj = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtxObj.state === 'suspended') audioCtxObj.resume();
+      } catch (e) { return null; }
+      return audioCtxObj;
     }
-
-    // Mono Float32 → 16-bit PCM WAV → base64 data URI.
-    function wavURI(samples) {
-      const n = samples.length, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
-      let p = 0;
-      const str = s => { for (let i = 0; i < s.length; i++) dv.setUint8(p++, s.charCodeAt(i)); };
-      const u32 = v => { dv.setUint32(p, v, true); p += 4; };
-      const u16 = v => { dv.setUint16(p, v, true); p += 2; };
-      str('RIFF'); u32(36 + n * 2); str('WAVE');
-      str('fmt '); u32(16); u16(1); u16(1); u32(SR); u32(SR * 2); u16(2); u16(16);
-      str('data'); u32(n * 2);
-      for (let i = 0; i < n; i++) {
-        const s = Math.max(-1, Math.min(1, samples[i]));
-        dv.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7FFF, true); p += 2;
-      }
-      const bytes = new Uint8Array(buf); let bin = '';
-      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      return 'data:audio/wav;base64,' + btoa(bin);
-    }
-
-    const countdownAudio = new Audio(), pourAudio = new Audio(), subAudio = new Audio();
-    countdownAudio.preload = pourAudio.preload = subAudio.preload = 'auto';
-    function buildSoundAssets() {   // (re)render the clips at the current SOUND_VOL
-      countdownAudio.src = wavURI(renderTones(COUNTDOWN_SPEC));
-      pourAudio.src = wavURI(renderTones(POUR_SPEC));
-      subAudio.src = wavURI(renderTones(SUB_SPEC));
-    }
-
-    // First gesture: unlock both elements (muted play→pause) so later, timer-driven
-    // .play() calls are allowed by iOS.
-    function unlockAudio() {
-      [countdownAudio, pourAudio, subAudio].forEach(a => {
-        if (a._unlocked) return;
-        a.muted = true;
-        const p = a.play();
-        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; a._unlocked = true; }).catch(() => { a.muted = false; });
-        else a.muted = false;
-      });
-    }
+    function unlockAudio() { audioCtx(); }
     ['touchend', 'pointerdown'].forEach(ev => window.addEventListener(ev, unlockAudio));
 
-    function playClip(a) {
-      if (!SOUND_ON) return;
-      try { a.pause(); a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
+    // One soft sine voice: 6ms attack + gentle exponential decay (no click). `vol`
+    // is pre-master; SOUND_VOL is the master level. Returns the oscillator so a
+    // scheduled countdown can be cancelled.
+    function tone(t0, freq, dur, vol, atk) {
+      const c = audioCtx(); if (!c) return null;
+      const o = c.createOscillator(), g = c.createGain();
+      o.type = 'sine'; o.frequency.setValueAtTime(freq, t0);
+      o.connect(g); g.connect(c.destination);
+      const peak = Math.max(0.0001, vol * SOUND_VOL);
+      atk = atk || 0.006;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(peak, t0 + atk);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+      o.start(t0); o.stop(t0 + dur + 0.03);
+      return o;
+    }
+    // Soft Sine Tick cues. pour = the every-30s "pour now" tick; sub = a softer,
+    // lower 1st-pour/agitate nudge (10s & 20s); countdown = 3·2·1 pips + a GO rise,
+    // scheduled 1s apart to track the visual 3-2-1.
+    function playPour() { const c = audioCtx(); if (SOUND_ON && c) tone(c.currentTime + 0.01, 520, 0.14, 0.5); }
+    function playSub()  { const c = audioCtx(); if (SOUND_ON && c) tone(c.currentTime + 0.01, 440, 0.12, 0.32); }
+    let countdownNodes = [];
+    function playCountdown() {
+      const c = audioCtx(); if (!SOUND_ON || !c) return;
+      const t = c.currentTime + 0.02;
+      countdownNodes = [
+        tone(t,     523.25, 0.13, 0.5),
+        tone(t + 1, 587.33, 0.13, 0.5),
+        tone(t + 2, 659.25, 0.13, 0.5),
+        tone(t + 3, 880.00, 0.28, 0.55, 0.01)   // GO
+      ].filter(Boolean);
+    }
+    function cancelCountdownAudio() {
+      countdownNodes.forEach(o => { try { o.stop(); } catch (e) {} });
+      countdownNodes = [];
     }
 
     loadSoundPrefs();
-    buildSoundAssets();
 
     // ── Pour schedule (dynamic — rebuilt from CONTACT, DECAY, BREW TARGET) ──
     // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
@@ -1883,11 +1855,11 @@
           // Beep at each 30-second pour boundary, but only for scheduled pours
           const cyc = Math.floor(elapsed / CYCLE_SECS);
           if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
-            playClip(pourAudio);
+            playPour();
           }
           // Softer sub-cues at the 1st-pour (10s) + agitate (20s) marks — first interval only
           [10, 20].forEach(mark => {
-            if (prev < mark && elapsed >= mark && elapsed < CYCLE_SECS) playClip(subAudio);
+            if (prev < mark && elapsed >= mark && elapsed < CYCLE_SECS) playSub();
           });
           // (Dial pips/hand + number + caption are derived from elapsed in render().)
         }
@@ -1900,14 +1872,12 @@
     }
 
     // ── 3-second countdown before brew starts ────────────────────
-    // The whole 3·2·1·GO Soft-Tine sequence is one pre-rendered clip, played at the
-    // start gesture; the visual count runs off setTimeout alongside it.
-    function cancelCountdownAudio() {
-      try { countdownAudio.pause(); countdownAudio.currentTime = 0; } catch (e) {}
-    }
+    // The 3·2·1·GO tick sequence is scheduled on the audio clock at the start
+    // gesture; the visual count runs off setTimeout alongside it. A cancelling
+    // tap stops the scheduled tones (cancelCountdownAudio, in the audio block).
     function startCountdown() {
       inCountdown = true;
-      playClip(countdownAudio);
+      playCountdown();
 
       const cap = document.getElementById('t-step');
       document.getElementById('t-ml').textContent = currentStep(0).num;   // preview the bloom weight
@@ -2515,10 +2485,10 @@
     }
     sndToggle.addEventListener('click', () => {
       SOUND_ON = !SOUND_ON; saveSoundPrefs(); renderSoundUI();
-      if (SOUND_ON) { unlockAudio(); playClip(pourAudio); }   // a quick sample on enable
+      if (SOUND_ON) { unlockAudio(); playPour(); }   // a quick sample on enable
     });
     sndVol.addEventListener('input', () => { SOUND_VOL = (+sndVol.value) / 100; sndVolVal.textContent = sndVol.value + '%'; });
-    sndVol.addEventListener('change', () => { saveSoundPrefs(); buildSoundAssets(); playClip(pourAudio); });
+    sndVol.addEventListener('change', () => { saveSoundPrefs(); playPour(); });   // live gain — no re-render needed
     renderSoundUI();
 
     // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
