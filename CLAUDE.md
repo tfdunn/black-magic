@@ -144,6 +144,28 @@ detailed sections below predate it — where they conflict, **this block wins**:
   RESTORE, amber on press) — no box. Default-recipe header → **"Default recipe for new
   beans"**; the "Seeds every new bean…" hint (and orphaned `.tools-hint`) removed.
 
+## v8 (June 2026) — Soft Tine sound via HTMLAudio + Tools controls (latest)
+- **Sound engine rebuilt off Web Audio.** The countdown (3·2·1·GO) and the 30s
+  pour-boundary cue are now **"Soft Tine"** — soft-attack/gentle-decay sine voices
+  **pre-rendered to 16-bit WAV data-URIs** (`renderTones`→`wavURI`→`buildSoundAssets`)
+  and played through two **HTMLAudio** elements (`countdownAudio`, `pourAudio`,
+  via `playClip`). This plays on iOS's **media channel so it survives the Ring/Silent
+  switch**, and removes the interruptible AudioContext entirely. The whole countdown
+  is one clip (played at the start gesture); `unlockAudio()` does a muted play→pause
+  on first touch so timer-driven plays are allowed. (Removed `tone`/`beep`/`getAudio`/
+  `audioCtx`/`countdownNodes` and the visibility `resume()`.) **Volume is baked into
+  the WAV** (iOS ignores `HTMLAudio.volume`) and the clips re-render on volume change.
+  Soft Tine: countdown C5/D5/E5 pips + an E5→A5 GO rise; pour = one 660 Hz note.
+- **Tools gains a Sound row** (under EXPORT/BACKUP/RESTORE, above the recipe): an
+  on/off **toggle** (`#snd-toggle`, amber=on / dim=off) + a **volume slider**
+  (`#snd-vol`, 0–40%, **default 10%**) with a % readout. `SOUND_ON`/`SOUND_VOL` are
+  now mutable, persisted to `localStorage['blackmagic.sound']` `{on,vol}`, loaded on
+  launch. Toggling on / releasing the slider plays a sample pour beep.
+- **Tools "Default recipe for new beans"** title enlarged (`.tools-body
+  .bean-section-label` 12px) with more space above.
+- **Landscape CSS counter-rotate removed** (looked kludgy); a rotated Safari tab now
+  just reflows. The installed PWA still locks portrait via the manifest.
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
@@ -254,9 +276,9 @@ an unsaved brew survives a close/reopen — `loadDraft()` restores it on launch 
 ratings + both notes + selected coffee, then recomputes the schedule); `clearDraft()` runs
 on save and reset.
 
-**Portrait lock:** manifest `orientation:"portrait"` (installed PWA) plus a CSS
-counter-rotate fallback (landscape phone → rotate app −90°) so the brew screen always
-renders portrait regardless of device rotation.
+**Portrait lock:** manifest `orientation:"portrait"` keeps the installed PWA upright.
+(The old CSS counter-rotate fallback for a rotated Safari tab was removed in v8 — it
+looked kludgy; a rotated tab now just reflows.)
 
 ## Timer logic
 
@@ -314,14 +336,12 @@ Brew★ for the next cup **without saving** (keeps coffee + recipe + Bean★). A
 `clearForNextBrew()` also runs right after a save. Recipe-field changes call the lighter
 `resetTimer()` (clock only).
 
-### Sound (Web Audio API, no files)
-- Countdown: 392 Hz, 440 Hz, 523 Hz (one per second); GO tone 784 Hz; 30-s marks 880 Hz.
-- All countdown tones are **scheduled on the AudioContext clock at the start gesture**
-  (via `tone(freq, dur, when, vol)`), not fired from `setTimeout`, for reliable iOS
-  playback. `getAudio()` resumes a suspended/interrupted context and recreates a
-  closed one. **Caveat:** the iOS hardware Ring/Silent switch can still mute Web
-  Audio — no web API overrides it (a silent-`<audio>` unmute hack is a possible
-  future add).
+### Sound — **see v8 (Soft Tine via HTMLAudio/WAV); the Web Audio version below is retired**
+- *(historical)* Web Audio oscillators scheduled on the AudioContext clock; brighter
+  tones (392/440/523 → 784 GO, 880 pour). Replaced in v8 because the iOS Ring/Silent
+  switch muted Web Audio and the AudioContext could be interrupted. The v8 engine
+  pre-renders Soft Tine to WAV data-URIs played through `<audio>` (media channel →
+  survives Silent Mode), with on/off + volume in Tools. Details in the v8 block.
 
 ## Key CSS patterns
 - `.value-input` — shared style for editable stat inputs/selects; hides spinners,

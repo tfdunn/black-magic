@@ -43,23 +43,8 @@
       text-rendering: optimizeLegibility;
     }
 
-    /* Stay portrait regardless of device rotation. The manifest requests portrait
-       for the installed PWA; this counter-rotates the app if iOS rotates anyway
-       (e.g. in a Safari tab). Only fires on a landscape phone (coarse pointer). */
-    @media (orientation: landscape) and (pointer: coarse) and (max-height: 600px) {
-      body {
-        width: 100vh; height: 100vw;
-        transform: rotate(-90deg);
-        transform-origin: top left;
-        /* rotate(-90) about top-left swings the box above the viewport;
-           translate it back down by one viewport height (top:100vh). */
-        inset: auto; top: 100vh; left: 0;
-      }
-      /* The rotated stage is 100vw tall (the phone's long side); make the app
-         fill it instead of the short-side 100dvh, or it leaves a white gap. */
-      .app { min-height: 100vw; }
-    }
-
+    /* No CSS orientation lock — the installed PWA stays portrait via the manifest;
+       in a rotated Safari tab the layout simply reflows (predictable, if imperfect). */
     .app {
       background: #fff;
       width: 100%;
@@ -782,6 +767,16 @@
       font-family: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.09em; cursor: pointer; }
     .tools-data-btn:active { color: var(--accent); }
+    .tools-sound { display: flex; align-items: center; gap: 14px; margin: 8px 0 2px; }
+    .tools-sound-toggle { background: none; border: none; font-family: inherit; font-size: 13px;
+      font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
+      white-space: nowrap; padding: 9px 0; cursor: pointer; }
+    .tools-sound-toggle.off { color: var(--tertiary); }
+    .tools-sound-vol { flex: 1; accent-color: var(--accent); height: 24px; }
+    .tools-sound-vol:disabled { opacity: 0.3; }
+    .tools-sound-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
+      color: var(--secondary); width: 3.2ch; text-align: right; }
+    .tools-body .bean-section-label { font-size: 12px; margin-top: 24px; }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -1238,6 +1233,13 @@
         <input type="file" id="restore-file" accept="application/json,.json" hidden>
       </div>
 
+      <!-- Sound — Soft Tine; on/off + volume (for testing), persisted in localStorage -->
+      <div class="tools-sound">
+        <button class="tools-sound-toggle" id="snd-toggle" type="button" role="switch" aria-checked="true">Sound on</button>
+        <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="40" step="1" value="10" aria-label="Sound volume">
+        <span class="tools-sound-val" id="snd-vol-val">10%</span>
+      </div>
+
       <!-- Default recipe — seeds every new bean (amber = editable) -->
       <div class="bean-section-label">Default recipe for new beans</div>
       <div class="stats-grid def-grid">
@@ -1337,7 +1339,6 @@
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) return;
       updateClock();
-      if (audioCtx) audioCtx.resume();   // re-prime audio after returning from background (iOS)
     });
 
     // ── TIME +/- display ─────────────────────────────────────────
@@ -1619,63 +1620,102 @@
       applyDraftObject(d);
     }
 
-    // ── Audio (Web Audio API, created on first user gesture) ─────
-    // Sound ON: countdown tones + a beep at each 30s pour boundary (the "be ready
-    // to pour" cue). iOS Web Audio isn't 100% reliable (the AudioContext can be
-    // interrupted by the system, and the Ring/Silent switch can mute it), but it
-    // generally works; the visual cues (filling segment, number pop) back it up.
-    const SOUND_ON = true;
-    let audioCtx = null;
-
-    function getAudio() {
-      if (!audioCtx || audioCtx.state === 'closed')
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-      if (audioCtx.state !== 'running') audioCtx.resume();   // covers 'suspended' + iOS 'interrupted'
-      return audioCtx;
+    // ── Audio (Soft Tine, pre-rendered to WAV and played via <audio>) ─────
+    // The countdown + the 30s pour-boundary beep play through HTMLAudio elements,
+    // NOT Web Audio, so they (a) go out iOS's MEDIA channel and survive the
+    // Ring/Silent switch, and (b) don't depend on an AudioContext the system can
+    // interrupt. Each cue is synthesised to a soft-attack / gentle-decay sine WAV
+    // data-URI with the master volume baked in (iOS ignores HTMLAudio.volume), then
+    // just played. SOUND_ON / SOUND_VOL live in Tools and persist in localStorage.
+    let SOUND_ON = true, SOUND_VOL = 0.10;
+    const SOUND_KEY = 'blackmagic.sound';
+    function loadSoundPrefs() {
+      try {
+        const s = JSON.parse(localStorage.getItem(SOUND_KEY) || '{}');
+        if (typeof s.on === 'boolean') SOUND_ON = s.on;
+        if (typeof s.vol === 'number') SOUND_VOL = Math.max(0, Math.min(1, s.vol));
+      } catch (e) {}
+    }
+    function saveSoundPrefs() {
+      try { localStorage.setItem(SOUND_KEY, JSON.stringify({ on: SOUND_ON, vol: SOUND_VOL })); } catch (e) {}
     }
 
-    // Keep audio unlocked across gestures AND app re-focus. iOS suspends the
-    // AudioContext when backgrounded and needs a resume on the next interaction,
-    // so we re-prime on every gesture (cheap) instead of just once.
-    // NOTE: the physical Ring/Silent switch can still mute Web Audio on iOS.
-    let audioPrimed = false;
-    function unlockAudio() {
-      if (!SOUND_ON) return;
-      const ctx = getAudio();
-      if (!audioPrimed) {
-        try {
-          const src = ctx.createBufferSource();
-          src.buffer = ctx.createBuffer(1, 1, 22050);
-          src.connect(ctx.destination);
-          src.start(0);
-          audioPrimed = true;
-        } catch (e) {}
+    // Soft Tine voice specs: { freq Hz, start s, dur s, vol 0–1 before master }.
+    const SR = 22050;
+    const COUNTDOWN_SPEC = [
+      { freq: 523.25, start: 0,    dur: 0.18, vol: 0.55 },   // 3
+      { freq: 587.33, start: 1,    dur: 0.18, vol: 0.55 },   // 2
+      { freq: 659.25, start: 2,    dur: 0.18, vol: 0.55 },   // 1
+      { freq: 659.25, start: 3,    dur: 0.16, vol: 0.60 },   // GO — soft two-note rise
+      { freq: 880.00, start: 3.13, dur: 0.32, vol: 0.60 }
+    ];
+    const POUR_SPEC = [{ freq: 660, start: 0, dur: 0.22, vol: 0.50 }];
+
+    // Render tone specs to a mono Float32 buffer (12ms attack, gentle exp decay —
+    // no click). Each tone's vol is scaled by SOUND_VOL (the master level).
+    function renderTones(spec) {
+      let end = 0;
+      for (const t of spec) end = Math.max(end, t.start + t.dur + 0.04);
+      const n = Math.max(1, Math.ceil(end * SR)), out = new Float32Array(n);
+      const atk = Math.floor(0.012 * SR);
+      for (const t of spec) {
+        const s0 = Math.floor(t.start * SR), len = Math.floor(t.dur * SR);
+        const amp = t.vol * SOUND_VOL, w = 2 * Math.PI * t.freq;
+        for (let i = 0; i < len; i++) {
+          const idx = s0 + i; if (idx >= n) break;
+          const env = i < atk ? i / atk : Math.exp(-3.5 * (i - atk) / Math.max(1, len - atk));
+          out[idx] += Math.sin(w * i / SR) * amp * env;
+        }
       }
+      return out;
+    }
+
+    // Mono Float32 → 16-bit PCM WAV → base64 data URI.
+    function wavURI(samples) {
+      const n = samples.length, buf = new ArrayBuffer(44 + n * 2), dv = new DataView(buf);
+      let p = 0;
+      const str = s => { for (let i = 0; i < s.length; i++) dv.setUint8(p++, s.charCodeAt(i)); };
+      const u32 = v => { dv.setUint32(p, v, true); p += 4; };
+      const u16 = v => { dv.setUint16(p, v, true); p += 2; };
+      str('RIFF'); u32(36 + n * 2); str('WAVE');
+      str('fmt '); u32(16); u16(1); u16(1); u32(SR); u32(SR * 2); u16(2); u16(16);
+      str('data'); u32(n * 2);
+      for (let i = 0; i < n; i++) {
+        const s = Math.max(-1, Math.min(1, samples[i]));
+        dv.setInt16(p, s < 0 ? s * 0x8000 : s * 0x7FFF, true); p += 2;
+      }
+      const bytes = new Uint8Array(buf); let bin = '';
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      return 'data:audio/wav;base64,' + btoa(bin);
+    }
+
+    const countdownAudio = new Audio(), pourAudio = new Audio();
+    countdownAudio.preload = pourAudio.preload = 'auto';
+    function buildSoundAssets() {   // (re)render both clips at the current SOUND_VOL
+      countdownAudio.src = wavURI(renderTones(COUNTDOWN_SPEC));
+      pourAudio.src = wavURI(renderTones(POUR_SPEC));
+    }
+
+    // First gesture: unlock both elements (muted play→pause) so later, timer-driven
+    // .play() calls are allowed by iOS.
+    function unlockAudio() {
+      [countdownAudio, pourAudio].forEach(a => {
+        if (a._unlocked) return;
+        a.muted = true;
+        const p = a.play();
+        if (p && p.then) p.then(() => { a.pause(); a.currentTime = 0; a.muted = false; a._unlocked = true; }).catch(() => { a.muted = false; });
+        else a.muted = false;
+      });
     }
     ['touchend', 'pointerdown'].forEach(ev => window.addEventListener(ev, unlockAudio));
 
-    // Schedule a tone on the AudioContext's own clock. Scheduling ahead of time
-    // (rather than firing oscillators from later setTimeouts) is the key to
-    // reliable iOS playback — the countdown queues all its tones at gesture time.
-    function tone(freq, dur, when, vol = 0.5) {
-      if (!SOUND_ON) return null;
-      try {
-        const ctx = getAudio();
-        const t0 = (when == null ? ctx.currentTime : when);
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.connect(gain);
-        gain.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(vol, t0);
-        gain.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-        osc.start(t0);
-        osc.stop(t0 + dur);
-        return osc;
-      } catch (e) { return null; }
+    function playClip(a) {
+      if (!SOUND_ON) return;
+      try { a.pause(); a.currentTime = 0; const p = a.play(); if (p && p.catch) p.catch(() => {}); } catch (e) {}
     }
-    function beep(freq, dur, vol = 0.5) { return tone(freq, dur, null, vol); }
+
+    loadSoundPrefs();
+    buildSoundAssets();
 
     // ── Pour schedule (dynamic — rebuilt from CONTACT, DECAY, BREW TARGET) ──
     // Geometric decay series: pour_i = x · r^i, where r = DECAY/100
@@ -1842,7 +1882,7 @@
           // Beep at each 30-second pour boundary, but only for scheduled pours
           const cyc = Math.floor(elapsed / CYCLE_SECS);
           if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
-            beep(880, 0.18, 0.45);
+            playClip(pourAudio);
           }
           // (Dial number + caption are derived from elapsed in render()/currentStep.)
         }
@@ -1855,23 +1895,14 @@
     }
 
     // ── 3-second countdown before brew starts ────────────────────
-    // Pitches rise G4→A4→C5 to build anticipation; GO tone is G5. All four
-    // tones are scheduled on the audio clock at the start gesture, so iOS plays
-    // them reliably even though the visual countdown runs off setTimeout.
-    let countdownNodes = [];
+    // The whole 3·2·1·GO Soft-Tine sequence is one pre-rendered clip, played at the
+    // start gesture; the visual count runs off setTimeout alongside it.
     function cancelCountdownAudio() {
-      countdownNodes.forEach(o => { try { o && o.stop(); } catch (e) {} });
-      countdownNodes = [];
+      try { countdownAudio.pause(); countdownAudio.currentTime = 0; } catch (e) {}
     }
     function startCountdown() {
       inCountdown = true;
-      const ctx = SOUND_ON ? getAudio() : null;   // resume/unlock audio on this gesture
-      const t0 = ctx ? ctx.currentTime + 0.06 : 0;
-      countdownNodes = [];
-      if (ctx) {
-        [392, 440, 523].forEach((p, i) => countdownNodes.push(tone(p, 0.15, t0 + i, 0.6)));
-        countdownNodes.push(tone(784, 0.4, t0 + 3, 0.7)); // G5 "GO"
-      }
+      playClip(countdownAudio);
 
       const ml = document.getElementById('t-ml');
       const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
@@ -1893,7 +1924,6 @@
             lastTs = null;
             clearStepLabel();
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
-            countdownNodes = [];
             ml.classList.remove('go');
             render(0);   // straight into the bloom phase: bloom number + "Fast Bloom"
           }, 1000);
@@ -2468,6 +2498,25 @@
       if (file) { const reader = new FileReader(); reader.onload = () => importJSON(reader.result); reader.readAsText(file); }
       e.target.value = '';   // allow re-importing the same file
     });
+
+    // ── Tools: Sound on/off + volume (Soft Tine) ─────────────────
+    const sndToggle = $('snd-toggle'), sndVol = $('snd-vol'), sndVolVal = $('snd-vol-val');
+    function renderSoundUI() {
+      const pct = Math.round(SOUND_VOL * 100);
+      sndToggle.textContent = SOUND_ON ? 'Sound on' : 'Sound off';
+      sndToggle.classList.toggle('off', !SOUND_ON);
+      sndToggle.setAttribute('aria-checked', String(SOUND_ON));
+      sndVol.value = pct;
+      sndVol.disabled = !SOUND_ON;
+      sndVolVal.textContent = pct + '%';
+    }
+    sndToggle.addEventListener('click', () => {
+      SOUND_ON = !SOUND_ON; saveSoundPrefs(); renderSoundUI();
+      if (SOUND_ON) { unlockAudio(); playClip(pourAudio); }   // a quick sample on enable
+    });
+    sndVol.addEventListener('input', () => { SOUND_VOL = (+sndVol.value) / 100; sndVolVal.textContent = sndVol.value + '%'; });
+    sndVol.addEventListener('change', () => { saveSoundPrefs(); buildSoundAssets(); playClip(pourAudio); });
+    renderSoundUI();
 
     // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
     let currentScreen = 'brew';
