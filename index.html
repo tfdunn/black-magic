@@ -196,106 +196,107 @@
       -webkit-appearance: none; appearance: none;
     }
 
-    /* ── Timer Area ── */
-    .timer-section {
+    /* ── Timer instrument: pure dial (left) + readout rail (right) ── */
+    .brew-instrument {
       display: flex;
-      flex-direction: column;
       align-items: center;
-      justify-content: center;
-      padding: 8px 0 2px;
+      gap: 4px;
+      padding: 10px 0 4px;
     }
-
     .timer-circle-wrap {
       position: relative;
-      width: 235px;
-      height: 235px;
-      margin: 0 auto 2px;
+      flex: 0 0 auto;
+      width: 206px;
+      height: 206px;
       cursor: pointer;           /* hold 2s to reset (no tap action) */
       -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
     }
     .timer-circle-wrap:active { opacity: 0.92; }
+    .timer-circle-wrap svg#timer-svg { width: 100%; height: 100%; overflow: visible; }
 
-    .timer-circle-wrap svg {
-      width: 100%;
-      height: 100%;
-      overflow: visible;
-    }
+    /* Dial strokes */
+    #timer-svg #t-face       { stroke: var(--hairline); stroke-width: 1; fill: none; }
+    #timer-svg #t-prog       { stroke: var(--accent); stroke-width: 2; stroke-opacity: 0.6; stroke-linecap: round; fill: none; }
+    #timer-svg .pip          { fill: #3a3a3c; }
+    #timer-svg .pip.done     { fill: var(--accent); }
+    #timer-svg .pip.cur      { fill: none; stroke: var(--accent); stroke-width: 2.2; }
+    #timer-svg #t-hand       { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
+    #timer-svg #t-handdot    { fill: var(--accent); }
 
-    /* Clock strokes — progress arc is dark grey for the first 4 min, black past
-       it (colour set per-frame in render()); the sweep hand is amber. */
-    #timer-svg .seg-grey  { stroke: rgba(235,235,245,0.22); stroke-width: 3.4; fill: none; stroke-linecap: round; }
-    #timer-svg .seg-amber { stroke: var(--accent); stroke-width: 3.4; fill: none; stroke-linecap: round; }
-    #timer-svg #t-dot     { fill: var(--accent); }
-
-    .timer-center {
-      position: absolute;
-      inset: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+    /* Reset (label + ↺) — amber, half-way from centre to the south edge, stopped only */
+    .dial-reset {
+      position: absolute; left: 0; right: 0; top: 75%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 3px;
+      color: var(--accent); opacity: 0; transition: opacity .3s ease;
       pointer-events: none;
     }
+    .dial-reset.show { opacity: 1; }
+    .dial-reset .dr-label { font-size: 10px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; line-height: 1; }
+    .dial-reset svg { width: 19px; height: 19px; display: block; }
 
-    .pour-number {
-      font-size: 54px;
-      font-weight: 700;
-      color: var(--ink);
-      line-height: 0.9;
-      letter-spacing: -2px;
-      font-variant-numeric: tabular-nums;
+    /* Readout rail (cumulative pour + flexible caption on top, round button below) */
+    .rail {
+      flex: 1; align-self: stretch; min-width: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: space-between;
+      padding: 8px 0 6px;
     }
-    /* Countdown / pour-number change: the big number BLOOMS in (soft fade + gentle
-       scale-up, no hard pop). Spreading the visual event over ~0.5s hides the iOS
-       HTMLAudio start latency (~0.25s) — the beep lands mid-bloom and reads as synced,
-       on phone and desktop alike, since there's no sharp instant to disagree with. */
+    .rail-readout { display: flex; flex-direction: column; align-items: center; }
+    .pour-number {
+      font-size: 50px; font-weight: 700; color: var(--ink);
+      line-height: 0.9; letter-spacing: -2px; font-variant-numeric: tabular-nums;
+    }
+    /* Big number BLOOMS in on change (soft fade + gentle scale, no hard pop) — masks
+       the iOS HTMLAudio start latency so the beep reads as synced. */
     @keyframes count-pop { 0% { opacity: 0.2; transform: scale(0.9); } 100% { opacity: 1; transform: scale(1); } }
     .pour-number.count-pop { animation: count-pop 0.5s cubic-bezier(.25,.6,.3,1); }
-    .pour-number.go { font-size: 34px; color: var(--accent); letter-spacing: -0.5px; }
-    .pour-number.ready { font-size: 27px; font-weight: 500; color: var(--secondary); letter-spacing: 0; }
+    /* Flexible caption: ritual step ("Fast Bloom" / "Pour 57ml" / "Agitate") for the
+       first 20s of each interval, then the live timer for the last 10s (and indefinitely
+       once contact is exceeded); "Ready"/3·2·1 before the brew starts. */
+    .rail-cap {
+      font-size: 15px; font-weight: 500; color: var(--secondary);
+      letter-spacing: 0.02em; margin-top: 11px; min-height: 18px;
+      font-variant-numeric: tabular-nums; white-space: nowrap;
+    }
     @media (prefers-reduced-motion: reduce) {
       .pour-number.count-pop { animation: none; }
-      .ed-bg, .ed-sheet, .screen, .dial-reset, .dial-timer, .t-step { transition: none; }
+      .ed-bg, .ed-sheet, .screen, .dial-reset { transition: none; }
     }
 
-    /* In-dial live timer (grey, above the pour number) */
-    /* In-dial digital timer — hidden during the brew (analog feel); revealed
-       only when stopped, showing the final time. Space is reserved (opacity)
-       so the pour number never shifts between states. */
-    .dial-timer {
-      font-size: 15px; font-weight: 500; color: var(--secondary);
-      letter-spacing: 0.5px; margin-bottom: 4px; font-variant-numeric: tabular-nums;
-      opacity: 0; transition: opacity .3s ease;
-    }
-    .dial-timer.show { opacity: 1; }
-    /* One slot below the pour number, fixed height so layout is constant. It
-       shows the fading per-pour step label while running, or the reset hint (↺)
-       when stopped — only one is visible at a time. */
-    .dial-sub { position: relative; width: 100%; height: 17px; margin-top: 9px; }
-    .t-step, .dial-reset {
-      position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%);
+    /* Round action button — tap: start / stop; hold 2s (stopped): save. The amber
+       ring sweeps closed over the 2s hold. */
+    .btn-round {
+      position: relative; flex: 0 0 auto;
+      width: 94px; height: 94px; border-radius: 50%;
+      background: #1C1C1E; color: var(--ink);
+      border: 1px solid var(--hairline);
+      font-size: 16px; font-weight: 600; letter-spacing: -0.2px; font-family: inherit;
       display: flex; align-items: center; justify-content: center;
+      cursor: pointer; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+      transition: transform .12s ease, opacity .15s;
     }
-    .t-step { font-size: 12.5px; font-weight: 500; color: var(--secondary); letter-spacing: 0.02em;
-      white-space: nowrap; opacity: 0; transition: opacity .5s ease; }
-    .t-step.show { opacity: 1; }
-    .dial-reset { color: var(--tertiary); line-height: 0; opacity: 0; transition: opacity .3s ease; }
-    .dial-reset.show { opacity: 1; }
-    .dial-reset svg { width: 17px; height: 17px; display: block; }
+    .btn-round:active { transform: scale(0.96); opacity: 0.9; }
+    .btn-round.saved { background: var(--accent); color: #100A06; border-color: var(--accent); }
+    .btn-round .btn-label { position: relative; z-index: 1; }
+    .btn-ring { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); pointer-events: none; }
+    .btn-ring-fill {
+      fill: none; stroke: var(--accent); stroke-width: 4; stroke-linecap: round;
+      stroke-dasharray: 289; stroke-dashoffset: 289;   /* 2π·46 ≈ 289 (empty) */
+    }
+    .btn-round.holding .btn-ring-fill { stroke-dashoffset: 0; transition: stroke-dashoffset 2s linear; }
 
     /* Hold-to-reset overlay on the dial (2-second press) */
     .dial-hold {
       position: absolute; inset: 0; border-radius: 50%;
       display: none; flex-direction: column; align-items: center; justify-content: center;
-      gap: 12px; background: rgba(255,255,255,0.84); pointer-events: none;
+      gap: 12px; background: rgba(0,0,0,0.80); pointer-events: none;
     }
     .timer-circle-wrap.holding .dial-hold { display: flex; }
     .dial-hold .dh-label {
-      font-size: 12px; font-weight: 600; letter-spacing: 0.1em;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
       text-transform: uppercase; color: var(--secondary);
     }
     .dial-hold .dh-bar {
-      width: 96px; height: 4px; border-radius: 2px; background: var(--hairline);
+      width: 84px; height: 4px; border-radius: 2px; background: var(--hairline);
       position: relative; overflow: hidden;
     }
     .dial-hold .dh-bar::after {
@@ -305,13 +306,6 @@
     .timer-circle-wrap.holding .dial-hold .dh-bar::after {
       transform: scaleX(1); transition: transform 2s linear;
     }
-    /* Hold-to-save fill on the brew button (2-second press) */
-    .btn-save .btn-fill {
-      position: absolute; left: 0; top: 0; bottom: 0; width: 100%;
-      background: var(--accent); transform: scaleX(0); transform-origin: left; z-index: 0;
-    }
-    .btn-save.holding .btn-fill { transform: scaleX(1); transition: transform 2s linear; }
-    .btn-save .btn-label { position: relative; z-index: 1; }
 
     /* ── Bottom Stats Row ── */
     .bottom-stats {
@@ -1019,29 +1013,39 @@
         <input type="hidden" id="brew-target" value="350"></div>
     </div>
 
-    <!-- Timer -->
-    <div class="timer-section">
-      <div class="timer-circle-wrap">
+    <!-- Timer instrument: pure analog dial (left) + readout rail (right) -->
+    <div class="brew-instrument">
+      <div class="timer-circle-wrap" id="dial-wrap">
         <svg id="timer-svg" viewBox="0 0 200 200" fill="none">
-          <!-- Segmented progress ring: one arc segment per pour (n = contact/30),
-               built by buildSegments() and redrawn when contact changes. The ring
-               = % complete over the whole brew; completed segments go solid amber,
-               the current one fills, and t-dot marks the leading edge (see render). -->
-          <g id="t-segs"></g>
-          <circle id="t-dot" r="4.6"/>
+          <!-- Pure dial. Rim: a faint full track + a subtle amber PROGRESS arc
+               (elapsed / contact — continuous whole-brew time) with journey pips on
+               it (one per pour, fill amber as poured). Inside: the amber heartbeat
+               HAND, one full lap per 30s pour cycle (the live "when to pour" motion).
+               Arc + pips + hand are drawn each frame in renderDial(). -->
+          <circle id="t-face" cx="100" cy="100" r="92"/>
+          <path id="t-prog"/>
+          <g id="t-pips"></g>
+          <line id="t-hand" x1="100" y1="100" x2="100" y2="24"/>
+          <circle id="t-handdot" r="4"/>
         </svg>
-        <div class="timer-center">
-          <div class="dial-timer" id="t-timer">0:00</div>
-          <div class="pour-number" id="t-ml">0</div>
-          <div class="dial-sub">
-            <span class="t-step" id="t-step"></span>
-            <span class="dial-reset" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg></span>
-          </div>
+        <div class="dial-reset" id="t-reset" aria-hidden="true">
+          <span class="dr-label">Reset</span>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 2.6-6.4"/><path d="M3 3v4.5h4.5"/></svg>
         </div>
         <div class="dial-hold" aria-hidden="true">
           <span class="dh-label">hold to reset</span>
           <span class="dh-bar"></span>
         </div>
+      </div>
+      <div class="rail">
+        <div class="rail-readout">
+          <div class="pour-number" id="t-ml">0</div>
+          <div class="rail-cap" id="t-step">Ready</div>
+        </div>
+        <button class="btn-round" id="btn-save" aria-label="start">
+          <svg class="btn-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="btn-ring-fill" cx="50" cy="50" r="46"/></svg>
+          <span class="btn-label" id="btn-label">start</span>
+        </button>
       </div>
     </div>
 
@@ -1077,9 +1081,8 @@
       </div>
     </div>
 
-    <!-- Save -->
-    <div class="save-row">
-      <button class="btn-save" id="btn-save"><span class="btn-fill" aria-hidden="true"></span><span class="btn-label" id="btn-label">start</span></button>
+    <!-- Edit-mode actions (replaces the round button while editing a past brew) -->
+    <div class="save-row" id="save-row">
       <div class="edit-actions" id="edit-actions" hidden>
         <button type="button" class="btn-save secondary" id="btn-edit-cancel">cancel</button>
         <button type="button" class="btn-save" id="btn-edit-save">save</button>
@@ -1358,31 +1361,16 @@
                       : 'start';
     }
 
-    // Notes: the Brew + Bean fields share a fixed ~4-line budget. Each takes only
-    // the lines its content needs; the short field yields its slack to the long one
-    // (exploits the Brew↔Bean anti-correlation). Only when BOTH want more than their
-    // half does anything scroll. Total footprint is constant → page stays one screen.
-    const NOTES_BUDGET_LINES = 4;
+    // Notes have FIXED footprints so the brew screen always presents with the same
+    // spacing: Brew = 2 lines, Bean = 4 lines. Each scrolls within itself past that.
+    // (The freed space from moving the start/stop button into the dial rail pays for
+    // the always-reserved lines.)
+    const NOTES_BREW_LINES = 2, NOTES_BEAN_LINES = 4;
     function growNotes() {
       const brew = document.getElementById('notes-brew'), bean = document.getElementById('notes-bean');
       const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
-      const budget = NOTES_BUDGET_LINES * lh;
-      // natural content height of each (uncapped)
-      const need = {};
-      [brew, bean].forEach(el => { el.style.height = 'auto'; need[el.id] = el.scrollHeight; });
-      const half = budget / 2;
-      let hBrew, hBean;
-      if (need['notes-brew'] + need['notes-bean'] <= budget) {
-        hBrew = need['notes-brew']; hBean = need['notes-bean'];      // both fit
-      } else if (need['notes-brew'] <= half) {
-        hBrew = need['notes-brew']; hBean = budget - hBrew;          // brew short → bean takes the rest
-      } else if (need['notes-bean'] <= half) {
-        hBean = need['notes-bean']; hBrew = budget - hBean;          // bean short → brew takes the rest
-      } else {
-        hBrew = half; hBean = half;                                  // both long → split evenly, both scroll
-      }
-      brew.style.height = Math.max(lh, hBrew) + 'px';
-      bean.style.height = Math.max(lh, hBean) + 'px';
+      brew.style.height = (NOTES_BREW_LINES * lh) + 'px';
+      bean.style.height = (NOTES_BEAN_LINES * lh) + 'px';
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
@@ -1652,6 +1640,9 @@
       { freq: 880.00, start: 3.13, dur: 0.32, vol: 0.60 }
     ];
     const POUR_SPEC = [{ freq: 660, start: 0, dur: 0.22, vol: 0.50 }];
+    // Softer, lower sub-cue for the 1st-pour (10s) + agitate (20s) marks in the first
+    // interval — quieter + lower than the 30s pour beep so it reads as a gentle nudge.
+    const SUB_SPEC  = [{ freq: 440, start: 0, dur: 0.16, vol: 0.30 }];
 
     // Render tone specs to a mono Float32 buffer (12ms attack, gentle exp decay —
     // no click). Each tone's vol is scaled by SOUND_VOL (the master level).
@@ -1691,17 +1682,18 @@
       return 'data:audio/wav;base64,' + btoa(bin);
     }
 
-    const countdownAudio = new Audio(), pourAudio = new Audio();
-    countdownAudio.preload = pourAudio.preload = 'auto';
-    function buildSoundAssets() {   // (re)render both clips at the current SOUND_VOL
+    const countdownAudio = new Audio(), pourAudio = new Audio(), subAudio = new Audio();
+    countdownAudio.preload = pourAudio.preload = subAudio.preload = 'auto';
+    function buildSoundAssets() {   // (re)render the clips at the current SOUND_VOL
       countdownAudio.src = wavURI(renderTones(COUNTDOWN_SPEC));
       pourAudio.src = wavURI(renderTones(POUR_SPEC));
+      subAudio.src = wavURI(renderTones(SUB_SPEC));
     }
 
     // First gesture: unlock both elements (muted play→pause) so later, timer-driven
     // .play() calls are allowed by iOS.
     function unlockAudio() {
-      [countdownAudio, pourAudio].forEach(a => {
+      [countdownAudio, pourAudio, subAudio].forEach(a => {
         if (a._unlocked) return;
         a.muted = true;
         const p = a.play();
@@ -1726,51 +1718,60 @@
     let POUR_TARGETS = [];
     let TOTAL = 270; // updated by recalcSchedule()
 
-    // Progress-ring geometry: an arc from 12 o'clock clockwise, spanning `frac`
-    // of the circle (radius 93, centre 100,100). At frac>=1 a gap-free full ring.
-    // ── Segmented progress ring (one segment per pour; ring = % of the whole brew) ──
+    // ── Dial geometry: progress arc + journey pips on the rim + a heartbeat hand ──
+    // The dial carries TWO cadences. Slow: the JOURNEY — a subtle amber PROGRESS arc
+    // (elapsed / contact, continuous whole-brew time) with n pips around the rim
+    // (360° = contact time, one pip per 30s pour) that fill amber as each pour
+    // completes. Fast: the HEARTBEAT HAND, one full lap per 30s pour cycle — the live
+    // "when to pour" motion. frac = a fraction of a full turn clockwise from 12 o'clock.
     const SVG_NS = 'http://www.w3.org/2000/svg';
-    const RING_R = 93, SEG_GAP = 0.013;   // gap (as a fraction of the circle) between segments
-    const ringPos = (frac, r = RING_R) =>
-      [100 + r * Math.cos(-Math.PI/2 + frac*2*Math.PI), 100 + r * Math.sin(-Math.PI/2 + frac*2*Math.PI)];
-    function ringArc(f0, f1){
-      if (f1 - f0 <= 0.0005) return '';
-      const [x0,y0] = ringPos(f0), [x1,y1] = ringPos(f1);
-      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${RING_R} ${RING_R} 0 ${(f1-f0)>0.5?1:0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+    const PIP_R = 92, HAND_R = 76;
+    const polarXY = (frac, r) => {
+      const a = (-90 + frac * 360) * Math.PI / 180;
+      return [100 + r * Math.cos(a), 100 + r * Math.sin(a)];
+    };
+    // Amber progress arc, clockwise from 12 o'clock, spanning `frac` of the rim circle.
+    function progArc(frac){
+      frac = Math.max(0, Math.min(1, frac));
+      if (frac <= 0.0001) return '';
+      const [x0,y0] = polarXY(0, PIP_R);
+      if (frac >= 0.9999) {                                   // full ring → two half-arcs
+        const [xm,ym] = polarXY(0.5, PIP_R);
+        return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${xm.toFixed(2)} ${ym.toFixed(2)} A ${PIP_R} ${PIP_R} 0 1 1 ${x0.toFixed(2)} ${y0.toFixed(2)}`;
+      }
+      const [x1,y1] = polarXY(frac, PIP_R);
+      return `M ${x0.toFixed(2)} ${y0.toFixed(2)} A ${PIP_R} ${PIP_R} 0 ${frac > 0.5 ? 1 : 0} 1 ${x1.toFixed(2)} ${y1.toFixed(2)}`;
     }
-    let segAmber = [];   // per-segment amber overlay paths, updated each frame
-    function buildSegments(){
-      const g = document.getElementById('t-segs');
-      g.innerHTML = ''; segAmber = [];
+    let pips = [];
+    function buildPips(){
+      const g = document.getElementById('t-pips'); g.innerHTML = ''; pips = [];
       const n = Math.max(1, POUR_TARGETS.length);
-      for (let k = 0; k < n; k++){
-        const f0 = k/n + SEG_GAP, f1 = (k+1)/n - SEG_GAP;
-        const grey = document.createElementNS(SVG_NS, 'path');
-        grey.setAttribute('class', 'seg-grey'); grey.setAttribute('d', ringArc(f0, f1));
-        g.appendChild(grey);
-        const amber = document.createElementNS(SVG_NS, 'path');
-        amber.setAttribute('class', 'seg-amber'); amber.setAttribute('d', '');
-        g.appendChild(amber);
-        segAmber.push({ el: amber, f0, f1 });
+      for (let i = 0; i < n; i++){
+        const [x,y] = polarXY(i / n, PIP_R);
+        const c = document.createElementNS(SVG_NS, 'circle');
+        c.setAttribute('cx', x.toFixed(2)); c.setAttribute('cy', y.toFixed(2));
+        c.setAttribute('r', '3.2'); c.setAttribute('class', 'pip');
+        g.appendChild(c); pips.push(c);
       }
     }
-    // frac = s / TOTAL, uncapped. Lap 0 paints amber up to the bead. Past the
-    // contact target the bead keeps sweeping a second lap and ERASES the amber
-    // behind it (a growing grey bite = "you're over"); each further lap alternates
-    // paint/erase so it stays coherent for arbitrarily long brews. TIME Δ carries
-    // the exact over/under. The bead always marks "now".
-    function renderRing(frac){
-      const lap = Math.floor(frac), within = frac - lap;
-      const erasing = lap % 2 === 1;
-      const cov0 = erasing ? within : 0;   // amber-covered interval [cov0, cov1] this lap
-      const cov1 = erasing ? 1 : within;
-      for (const s of segAmber){
-        const a0 = Math.max(s.f0, cov0), a1 = Math.min(s.f1, cov1);
-        s.el.setAttribute('d', a1 > a0 ? ringArc(a0, a1) : '');
+    // Paint the dial for elapsed s: progress arc, pip states, sweep hand.
+    function renderDial(s){
+      document.getElementById('t-prog').setAttribute('d', progArc(TOTAL > 0 ? s / TOTAL : 0));
+      const n = pips.length;
+      const cyc = Math.floor(s / CYCLE_SECS);          // current interval index
+      const active = running || (!inCountdown && elapsed > 0.05);   // brewing or stopped-with-time
+      for (let i = 0; i < n; i++){
+        pips[i].setAttribute('class',
+          i < cyc ? 'pip done'
+          : (active && i === cyc && cyc < n) ? 'pip cur'
+          : 'pip');
       }
-      const dot = document.getElementById('t-dot');
-      if (frac > 0.001) { const [x,y] = ringPos(within); dot.setAttribute('cx', x.toFixed(2)); dot.setAttribute('cy', y.toFixed(2)); dot.style.display = ''; }
-      else dot.style.display = 'none';
+      const [hx, hy] = polarXY((s % CYCLE_SECS) / CYCLE_SECS, HAND_R);
+      const hand = document.getElementById('t-hand'), hd = document.getElementById('t-handdot');
+      hand.setAttribute('x2', hx.toFixed(2)); hand.setAttribute('y2', hy.toFixed(2));
+      hd.setAttribute('cx', hx.toFixed(2)); hd.setAttribute('cy', hy.toFixed(2));
+      const idle = !running && !inCountdown && elapsed <= 0.05;
+      hand.style.opacity = hd.style.opacity = idle ? '0.3' : '1';
     }
 
     function recalcSchedule() {
@@ -1794,7 +1795,7 @@
       }
       POUR_TARGETS[POUR_TARGETS.length - 1] = brewTarget; // exact final target
 
-      buildSegments();   // one ring segment per pour
+      buildPips();   // one journey pip per pour + first-interval sub-pips
     }
 
     function pourTarget(s) {
@@ -1813,66 +1814,46 @@
     let brewStartedAt = null;        // ISO time the timer started — stamped onto the brew (not save time)
     let inCountdown = false;
     let loadedFromHistory = false;   // true while editing a brew loaded from History
-    let stepMsgKey = null, stepShownAt = 0, lastNum = null;  // current caption + when it appeared
-    const STEP_FADE_MS = 7500;       // pour captions fade this long after the interval starts
+    let lastNum = null;              // last big-number value (to trigger the bloom-in on change)
 
-    // The dial centre through a brew, matched to the real pour ritual. Within the
-    // first 30s: 0–7.5s pour the bloom ("Fast Bloom"), tare, 7.5–22.5s 1st pour
-    // ("1st Pour"), 22.5–30s "Agitate". Each later 30s cycle is one pour:
-    // "Pour k+1 (R%)" where R = taper^k. `num` = the weight to hit; `msg` = the
-    // caption; `fades` = whether the caption fades after 7.5s (pours) or persists
-    // until the phase changes (the bloom / 1st-pour / agitate sub-steps).
-    const BLOOM_END = 7.5, POUR1_END = 22.5, CYCLE0_END = 30;
+    // The rail readout through a brew, matched to the real pour ritual. `num` = the
+    // big cumulative weight to hit; `msg` = the flexible caption. First interval
+    // (0–30s): 0–10 bloom ("Fast Bloom", num = Bloom), 10–20 1st pour ("Pour Xml"),
+    // 20–30 "Agitate". Each later interval: "Pour Δml" (the marginal add) for the
+    // first 20s, then the live timer for the last 10s. Past contact → timer forever.
     function currentStep(s){
       const n = POUR_TARGETS.length;
-      if (n === 0)        return { num: 0, msg: '', fades: false };
-      if (s < BLOOM_END)  return { num: parseFloat(document.getElementById('bloom').value) || 0, msg: 'Fast Bloom', fades: false };
-      if (s < POUR1_END)  return { num: POUR_TARGETS[0], msg: '1st Pour', fades: false };
-      if (s < CYCLE0_END) return { num: POUR_TARGETS[0], msg: 'Agitate',  fades: false };
+      const bloom = parseFloat(document.getElementById('bloom').value) || 0;
+      if (n === 0)        return { num: bloom, msg: 'Ready' };
+      if (s < 10)         return { num: bloom, msg: 'Fast Bloom' };
+      if (s < 20)         return { num: POUR_TARGETS[0], msg: 'Pour ' + POUR_TARGETS[0] + 'ml' };
+      if (s < CYCLE_SECS) return { num: POUR_TARGETS[0], msg: 'Agitate' };
       const cyc = Math.floor(s / CYCLE_SECS);                 // 1, 2, …
-      const num = POUR_TARGETS[Math.min(cyc, n - 1)];
-      if (cyc >= n)       return { num, msg: '', fades: false };   // past the last pour → blank (no drawdown)
-      const add = POUR_TARGETS[cyc] - POUR_TARGETS[cyc - 1];       // marginal pour = this target − previous
-      return { num, msg: 'Pour ' + (cyc + 1) + ' (add ' + add + 'ml)', fades: true };
+      if (cyc >= n)       return { num: POUR_TARGETS[n - 1], msg: fmtTime(s) };   // past contact → timer
+      const within = s - cyc * CYCLE_SECS;
+      const num = POUR_TARGETS[cyc];
+      if (within < 20)    return { num, msg: 'Pour ' + (POUR_TARGETS[cyc] - POUR_TARGETS[cyc - 1]) + 'ml' };
+      return { num, msg: fmtTime(s) };                        // last 10s → live timer
     }
-    function clearStepLabel(){
-      stepMsgKey = null; lastNum = null;
-      const st = document.getElementById('t-step');
-      st.textContent = ''; st.classList.remove('show');
-    }
+    function clearStepLabel(){ lastNum = null; }
 
     function render(s) {
-      // Progress ring = % complete over the whole brew: completed pour segments go
-      // solid amber, the current one fills, t-dot marks the leading edge. Capped at
-      // a full ring past the contact target (TIME Δ carries any over/under).
-      renderRing(TOTAL > 0 ? s / TOTAL : 0);
-
-      const step = currentStep(s);
+      renderDial(s);
       const ml = document.getElementById('t-ml');
-      if (!inCountdown) {
-        const idle = !running && elapsed <= 0.05;         // reset, before the brew starts
-        ml.textContent = idle ? 'Ready' : step.num;
-        ml.classList.toggle('ready', idle);
-        if (running && step.num !== lastNum) {            // pop the number when it changes
-          lastNum = step.num;
-          ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
-        }
+      const cap = document.getElementById('t-step');
+      // Countdown owns the caption (3·2·1); the big number previews the bloom weight.
+      if (inCountdown) { ml.textContent = currentStep(0).num; updateButtonLabel(); return; }
+      const idle = !running && elapsed <= 0.05;          // reset, before the brew starts
+      const stopped = !running && elapsed > 0.05;
+      const step = currentStep(s);
+      ml.textContent = step.num;
+      if (running && step.num !== lastNum) {             // bloom the number in when it changes
+        lastNum = step.num;
+        ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
       }
-      // Digital timer is hidden during the brew (analog feel); revealed with the
-      // final time only once stopped.
-      const tEl = document.getElementById('t-timer');
-      tEl.textContent = fmtTime(s);
-      const stopped = !running && !inCountdown && elapsed > 0.05;
-      tEl.classList.toggle('show', stopped);
-      // Step caption: sub-step labels persist until the phase changes; pour labels
-      // fade after STEP_FADE_MS. Gone when not running.
-      const stepEl = document.getElementById('t-step');
-      if (step.msg !== stepMsgKey) { stepMsgKey = step.msg; stepEl.textContent = step.msg; stepShownAt = performance.now(); }
-      const stepVisible = running && step.msg !== '' &&
-        (!step.fades || performance.now() - stepShownAt < STEP_FADE_MS);
-      stepEl.classList.toggle('show', stepVisible);
-      // Reset hint (↺) shows once a stopped brew has a time to clear.
-      document.querySelector('.dial-reset').classList.toggle('show', stopped);
+      cap.textContent = idle ? 'Ready' : stopped ? fmtTime(elapsed) : step.msg;
+      // Reset ↺ (amber, dial south) shows once a stopped brew has a time to clear.
+      document.getElementById('t-reset').classList.toggle('show', stopped);
       updateButtonLabel();
     }
 
@@ -1886,7 +1867,11 @@
           if (cyc > Math.floor(prev / CYCLE_SECS) && cyc <= POUR_TARGETS.length) {
             playClip(pourAudio);
           }
-          // (Dial number + caption are derived from elapsed in render()/currentStep.)
+          // Softer sub-cues at the 1st-pour (10s) + agitate (20s) marks — first interval only
+          [10, 20].forEach(mark => {
+            if (prev < mark && elapsed >= mark && elapsed < CYCLE_SECS) playClip(subAudio);
+          });
+          // (Dial pips/hand + number + caption are derived from elapsed in render().)
         }
         lastTs = ts;
       } else {
@@ -1906,14 +1891,12 @@
       inCountdown = true;
       playClip(countdownAudio);
 
-      const ml = document.getElementById('t-ml');
-      const pop = () => { ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop'); };
+      const cap = document.getElementById('t-step');
+      document.getElementById('t-ml').textContent = currentStep(0).num;   // preview the bloom weight
       let count = 3;
-      const step = () => {
+      const step = () => {                       // caption counts 3·2·1 — no animation
         if (!inCountdown) return;
-        ml.classList.remove('ready');
-        ml.textContent = count;
-        pop();
+        cap.textContent = count;
         count--;
         if (count > 0) {
           setTimeout(step, 1000);
@@ -1924,9 +1907,8 @@
             elapsed = 0;
             running = true;
             lastTs = null;
-            clearStepLabel();
+            lastNum = null;
             brewStartedAt = new Date().toISOString();   // real brew time → record's savedAt
-            ml.classList.remove('go');
             render(0);   // straight into the bloom phase: bloom number + "Fast Bloom"
           }, 1000);
         }
@@ -1942,7 +1924,7 @@
       elapsed = 0;
       lastTs = null;
       brewStartedAt = null;
-      document.getElementById('t-ml').classList.remove('go', 'count-pop');
+      document.getElementById('t-ml').classList.remove('count-pop');
       clearStepLabel();
       cancelCountdownAudio();
       render(0);
