@@ -266,6 +266,28 @@ This is the first version TFD considers shippable; `main` at this point is tagge
   didn't reproduce it). `.tools-body` now has `overflow-x:hidden`; the sound %-readout
   is `4ch` (10%/40% fit) with a 4px row buffer so it isn't edge-flush.
 
+## v9.4 (June 2026) — fresh-launch seeding + quicker save (latest; overrides above)
+TFD fully closes/reopens the app before each session to recover lost sound (an iOS
+Web-Audio quirk), so a clean launch is now the common path — these tune for it.
+- **Clean launch seeds from the MOST RECENT brew.** `loadDraft()` still restores an
+  unsaved draft first; with no draft it now picks the brew with the max `savedAt` and
+  runs `brewFromBrew(recent)` — so the coffee + recipe are prefilled (coffee right
+  ~98% of the time, recipe ~80%) instead of the bare default recipe + no coffee. (No
+  brews yet → still the default.)
+- **−2s reaction-time fudge removed.** Stopping now writes `round(elapsed − TOTAL)` to
+  TIME Δ (was `… − 2`), so TIME Δ matches what the sweep hand shows; 2s of slop doesn't
+  matter to the brew.
+- **Save is now an instant TAP, not a 1s hold.** A tap on the round button when
+  stopped calls `saveBrew()` directly (false saves are easy to edit/delete from
+  History). The button's `onHold`/`holdWhen` + the "hold to save" hint (`flashHint`)
+  are gone; the dial's hold-2s-to-reset is unchanged.
+- **Bean note prefilled-from-the-bean reads muted grey** (`.notes-input.prefilled` =
+  `--secondary`), turning full white once edited — like the Brew note's always-white,
+  so an unchanged verdict doesn't shout. `updateBeanNoteColor()` (called from
+  `growNotes()`) toggles the class by comparing the field to `currentBean.tastingNote`.
+- **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
+  default still 10%. (`SOUND_VOL` already scales per-voice gain.)
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)

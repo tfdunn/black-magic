@@ -483,6 +483,9 @@
       text-align: left;
     }
     .notes-input::placeholder { color: var(--tertiary); }
+    /* Bean note prefilled from the bean (unchanged this cup) reads muted grey so
+       it doesn't shout; it turns full white once edited. (Brew note is always white.) */
+    .notes-input.prefilled { color: var(--secondary); }
 
     /* ── Header history button ── */
     .header { position: relative; }
@@ -1251,7 +1254,7 @@
       <!-- Sound — Soft Tine; on/off + volume (for testing), persisted in localStorage -->
       <div class="tools-sound">
         <button class="tools-sound-toggle" id="snd-toggle" type="button" role="switch" aria-checked="true">Sound on</button>
-        <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="40" step="1" value="10" aria-label="Sound volume">
+        <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="100" step="1" value="10" aria-label="Sound volume">
         <span class="tools-sound-val" id="snd-vol-val">10%</span>
       </div>
 
@@ -1381,6 +1384,15 @@
       const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
       brew.style.height = (NOTES_BREW_LINES * lh) + 'px';
       bean.style.height = (NOTES_BEAN_LINES * lh) + 'px';
+      updateBeanNoteColor();
+    }
+    // Bean note is grey while it still matches the bean's stored tasting note
+    // (just prefilled, not touched this cup); white once it diverges.
+    function updateBeanNoteColor() {
+      const el = document.getElementById('notes-bean');
+      const cur = el.value.trim();
+      const stored = ((currentBean && currentBean.tastingNote) || '').trim();
+      el.classList.toggle('prefilled', !!cur && cur === stored);
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
@@ -1617,7 +1629,16 @@
     function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
     function loadDraft(){
       let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
-      applyDraftObject(d);
+      if (d) { applyDraftObject(d); return; }
+      // No unsaved draft (e.g. a clean app launch — TFD fully closes/reopens to
+      // recover sound). Rather than sit on the bare default recipe with no coffee,
+      // seed a fresh cup from the MOST RECENT brew: its coffee is right ~98% of the
+      // time and its recipe ~80%, so this is the best starting guess.
+      const brews = getBrews();
+      if (brews.length) {
+        const recent = brews.reduce((a, b) => ((b.savedAt || '') >= (a.savedAt || '') ? b : a));
+        brewFromBrew(recent);
+      }
     }
 
     // ── Audio (Soft Sine Tick, synthesised live via Web Audio) ────────────
@@ -2158,12 +2179,6 @@
       labelLocked = true; lab.textContent = 'saved ✓'; btn.classList.add('saved');
       setTimeout(() => { labelLocked = false; btn.classList.remove('saved'); }, 1200);
     }
-    function flashHint(msg) {
-      if (labelLocked) return;
-      const lab = $('btn-label');
-      labelLocked = true; lab.textContent = msg;
-      setTimeout(() => { labelLocked = false; }, 900);
-    }
     function saveBrew() {
       const brews = getBrews();
       if (editingBrewId) {
@@ -2196,23 +2211,20 @@
       clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
     }
 
-    // Bottom button — tap: start / stop (start countdown cancellable);
-    //                 HOLD 2s (only when stopped): save the brew.
+    // Bottom button — tap: start / stop / save (a tap when stopped saves the brew
+    // instantly; false saves are easy enough to edit/delete from History).
     bindPressable($('btn-save'), {
       onTap: () => {
         if (inCountdown) { inCountdown = false; cancelCountdownAudio(); render(0); }
         else if (running) {
           running = false; lastTs = null;
-          timeDisplay.value = Math.round(elapsed - TOTAL) - 2;   // −2 reaction-time
+          timeDisplay.value = Math.round(elapsed - TOTAL);   // raw over/under — matches the sweep hand
           renderField('time-val'); saveDraft();
           render(elapsed);
         }
-        else if (elapsed > 0) { flashHint('hold to save'); }     // stopped: tap hints
-        else { startCountdown(); }                                // idle
-      },
-      onHold: saveBrew,
-      holdMs: 1000,                                               // save hold — half the 2s reset hold
-      holdWhen: () => (elapsed > 0 && !running && !inCountdown)    // stopped only
+        else if (elapsed > 0) { saveBrew(); }                 // stopped: tap saves
+        else { startCountdown(); }                            // idle
+      }
     });
 
     // ── Brew edit mode (edit a past brew in place; identity + verdict locked) ──
