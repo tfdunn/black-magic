@@ -247,6 +247,25 @@ whole-brew journey. The centered dial-with-text is gone.
   elements + their specs.) `audio-demo.html` is a standalone tap-to-hear audition
   page for the candidate timbres (not part of the app).
 
+## v9.3 (June 2026) — ★ FIRST SHIPPED MILESTONE (tag `v9-ship`) — final dial/reset/Tools polish (latest)
+This is the first version TFD considers shippable; `main` at this point is tagged
+**`v9-ship`**. Changes since v9.2:
+- **Journey pips are COMPLETION markers.** Each pip sits at its pour's END,
+  `(i+1)/n` (not the start `i/n`), so it lights amber exactly when the progress arc
+  reaches it (= that pour done), and **the last pour lands AT 12 o'clock — grey until
+  4:30, then solid** (it shows the hollow "current" ring during the final 30s). The
+  ring now marks the pour you're *filling toward* (just ahead of the arc edge). Fill
+  logic is unchanged; overtime erase keys off each pip's completion frac. (Resolves
+  the "amber = completed step" ambiguity — top dot = the finish line.)
+- **Reset ↺ is light grey** (`--secondary`, not amber) and **aligned with the round
+  save button** — both centres sit 53px above the dial's bottom edge (`.dial-reset`
+  `bottom:53px; translateY(50%)` = rail padding-bottom 6 + button half 47), so the two
+  "clear the timer" controls line up across the dial/rail.
+- **Tools horizontal-scroll fix (iOS):** the `-webkit-overflow-scrolling:touch`
+  Tools container went sideways-scrollable when content was a hair too wide (Chromium
+  didn't reproduce it). `.tools-body` now has `overflow-x:hidden`; the sound %-readout
+  is `4ch` (10%/40% fit) with a 4px row buffer so it isn't edge-flush.
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
