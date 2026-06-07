@@ -223,7 +223,8 @@ whole-brew journey. The centered dial-with-text is gone.
   `renderDial` does the lap math (odd laps erase).
 - **Dial details:** bigger journey pips (r 3.2 → 4.5); the 1st-pour/agitate sub-pips
   were dropped (captions + soft beeps carry them); reset is **glyph only** (no
-  "RESET" label) and sits **half-way from centre to the south edge** (stopped only).
+  "RESET" label), **light grey** (`--secondary`, not amber), sitting **half-way
+  from centre to the south edge** (stopped only).
 - **Round button:** "save brew" stacks on two lines (save / brew); **save hold
   halved to 1s** (`btn-save` holdMs + the ring-fill transition) — the dial reset
   hold stays 2s.

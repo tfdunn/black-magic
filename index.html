@@ -227,7 +227,7 @@
     .dial-reset {
       position: absolute; left: 0; right: 0; top: 75%; transform: translateY(-50%);
       display: flex; flex-direction: column; align-items: center; gap: 3px;
-      color: var(--accent); opacity: 0; transition: opacity .3s ease;
+      color: var(--secondary); opacity: 0; transition: opacity .3s ease;   /* light grey, not amber */
       pointer-events: none;
     }
     .dial-reset.show { opacity: 1; }
@@ -771,12 +771,12 @@
       font-family: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase;
       letter-spacing: 0.09em; cursor: pointer; }
     .tools-data-btn:active { color: var(--accent); }
-    .tools-sound { display: flex; align-items: center; gap: 14px; margin: 8px 0 2px; }
+    .tools-sound { display: flex; align-items: center; gap: 12px; margin: 8px 0 2px; }
     .tools-sound-toggle { background: none; border: none; font-family: inherit; font-size: 13px;
       font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
       white-space: nowrap; padding: 9px 0; cursor: pointer; }
     .tools-sound-toggle.off { color: var(--tertiary); }
-    .tools-sound-vol { flex: 1; accent-color: var(--accent); height: 24px; }
+    .tools-sound-vol { flex: 1; min-width: 0; margin: 0 4px; accent-color: var(--accent); height: 24px; }
     .tools-sound-vol:disabled { opacity: 0.3; }
     .tools-sound-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
       color: var(--secondary); width: 3.2ch; text-align: right; }
