@@ -288,6 +288,31 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
+## v9.5 (June 2026) — bean brew-note + coffee-bar recipe load + History tweaks (latest)
+- **The bean now carries an evolving BREW note (`bean.brewNote`)**, parallel to the
+  existing tasting note. On a fresh save the brew note is written to the brew record
+  (`brewNote`, unchanged) AND **overwrites `bean.brewNote`** (`persistBeanBrewNote()`,
+  alongside `persistBeanNote`, same `loadedFromHistory` guard) — so over many cups it
+  evolves from noisy per-cup observations into a memorialised insight ("lower temp
+  better for naturals") and doubles as a next-cup plan. Every new brew **prefills
+  `#notes-brew` from `bean.brewNote`** (set in `setBeanBar`, mirroring the bean note;
+  `startBrewWith` no longer blanks it; `clearForNextBrew` carries it forward so
+  back-to-back cups keep it). It reads **muted grey until edited** (the `.prefilled`
+  treatment now covers BOTH notes — `updateBeanNoteColor`→`updateNoteColors`, keyed off
+  `currentBean.brewNote`). Not in the CSV export yet (the per-brew note already exports;
+  `bean.brewNote` rides JSON BACKUP/RESTORE) — add a `Brew_Notes` BeanLog column + macro
+  map if it's wanted in Excel.
+- **Coffee-bar swap loads the bean's best recipe.** `selectBean` (the top-center
+  "Select a coffee ⌄" → `'attach'` path) now also loads the chosen bean's best recipe
+  (`beanToRecipe`) + recalcs + re-flags highlights, not just the coffee/Bean★/notes.
+  (Time/TDS/Brew★ are left alone — still a lighter swap than `brewFromBean`.)
+- **History stats line:** for **4★/5★** brews (which usually have no recipe delta to
+  show) the line appends **Bloom + Time Δ** in amber (e.g. `25g · TDS 1.40 · ★4 · Bloom
+  120 · Time -3`) — to eye whether contact time is drifting as a bag ages. 3★ test
+  brews still show the changed-variable deltas (`recipeDeltas`).
+- **1st-pour/agitate sub-beeps now full volume** (`playSub` gain 0.32 → 0.5, matching
+  `playPour`); still lower-pitched (440 Hz) to stay distinct from the 30s pour cue.
+
 ## File structure
 ```
 index.html              — the entire app (HTML + CSS + JS)
@@ -578,7 +603,7 @@ Brew: `id, savedAt, brewName, beanId, beanName, beanRoaster, roastDate, dose, gr
 agitate(+Text), contact(+Text), water, bloom, decay, brewTarget, timeAdj, tds,
 brewRating, beanRating, brewNote, beanNote, locked, exportedAt, updatedAt`.
 Bean: `id, savedAt, name, roaster, country, region, process, varietal, roastDate,
-bagSize, bagCount, roasterNotes, myNotes, rating, tastingNote,
+bagSize, bagCount, roasterNotes, myNotes, rating, tastingNote, brewNote,
 bestDose/bestGrind/bestAgitate/bestContact/bestWater/bestBloom/bestDecay/bestTarget,
 bestRecipeRating, locked, exportedAt, updatedAt`.
 

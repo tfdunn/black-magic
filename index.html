@@ -1384,15 +1384,18 @@
       const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
       brew.style.height = (NOTES_BREW_LINES * lh) + 'px';
       bean.style.height = (NOTES_BEAN_LINES * lh) + 'px';
-      updateBeanNoteColor();
+      updateNoteColors();
     }
-    // Bean note is grey while it still matches the bean's stored tasting note
-    // (just prefilled, not touched this cup); white once it diverges.
-    function updateBeanNoteColor() {
-      const el = document.getElementById('notes-bean');
-      const cur = el.value.trim();
-      const stored = ((currentBean && currentBean.tastingNote) || '').trim();
-      el.classList.toggle('prefilled', !!cur && cur === stored);
+    // Each note is grey while it still matches the value carried forward from the
+    // bean (just prefilled, not touched this cup); white once it diverges. Bean
+    // note ↔ bean.tastingNote; Brew note ↔ bean.brewNote (the evolving insight).
+    function updateNoteColors() {
+      const setColor = (id, stored) => {
+        const el = document.getElementById(id), cur = el.value.trim();
+        el.classList.toggle('prefilled', !!cur && cur === (stored || '').trim());
+      };
+      setColor('notes-bean', currentBean && currentBean.tastingNote);
+      setColor('notes-brew', currentBean && currentBean.brewNote);
     }
 
     // ── Field word maps + tap-to-edit config ────────────────────
@@ -1474,6 +1477,15 @@
       const beans = getBeans();
       const b = beans.find(x => x.id === currentBean.id);
       if (b && !b.locked) { b.tastingNote = document.getElementById('notes-bean').value.trim(); setBeans(beans); currentBean.tastingNote = b.tastingNote; }
+    }
+    // Brew note ALSO overwrites the bean's evolving brew note (the carried-forward
+    // insight / next-cup plan) on a fresh save — the per-cup brewNote on the brew
+    // record is unaffected. New brews prefill notes-brew from this (see setBeanBar).
+    function persistBeanBrewNote(){
+      if (!(currentBean && currentBean.id)) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === currentBean.id);
+      if (b && !b.locked) { b.brewNote = document.getElementById('notes-brew').value.trim(); setBeans(beans); currentBean.brewNote = b.brewNote; }
     }
     // Best recipe (tier-protected): a fresh brew rated 4–5★ writes its recipe onto the
     // bean, but only if it ties or beats the recipe's stored tier — so a later 4★ never
@@ -1695,7 +1707,7 @@
     // lower 1st-pour/agitate nudge (10s & 20s); countdown = 3·2·1 pips + a GO rise,
     // scheduled 1s apart to track the visual 3-2-1.
     function playPour() { const c = audioCtx(); if (SOUND_ON && c) tone(c.currentTime + 0.01, 520, 0.14, 0.5); }
-    function playSub()  { const c = audioCtx(); if (SOUND_ON && c) tone(c.currentTime + 0.01, 440, 0.12, 0.32); }
+    function playSub()  { const c = audioCtx(); if (SOUND_ON && c) tone(c.currentTime + 0.01, 440, 0.12, 0.5); }   // 1st-pour/agitate cue now at full (pour) volume; kept lower in pitch
     let countdownNodes = [];
     function playCountdown() {
       const c = audioCtx(); if (!SOUND_ON || !c) return;
@@ -2111,7 +2123,19 @@
         const brewR = r.brewRating || r.rating || '';
         const rating = brewR ? '★' + brewR : '★—';
         const deltas = recipeDeltas(r);
-        const deltaHtml = deltas.map(d => ' · <span class="bc-delta">' + d + '</span>').join('');
+        let deltaHtml = deltas.map(d => ' · <span class="bc-delta">' + d + '</span>').join('');
+        // A 4/5★ brew has (usually) no recipe change to report, so instead surface
+        // Bloom + Time Δ — lets you eye whether contact time is drifting as the bag
+        // ages and the bloom needs a nudge.
+        if (parseInt(brewR) >= 4) {
+          const ex = [];
+          if (r.bloom) ex.push('Bloom ' + r.bloom);
+          if (r.timeAdj !== '' && r.timeAdj != null) {
+            const t = parseFloat(r.timeAdj);
+            ex.push('Time ' + (t > 0 ? '+' + r.timeAdj : r.timeAdj));
+          }
+          deltaHtml += ex.map(d => ' · <span class="bc-delta">' + d + '</span>').join('');
+        }
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
@@ -2167,7 +2191,9 @@
       timeDisplay.value = '';
       $('tds').value = '';
       $('brew-rating').value = '';   // Brew★ resets each save/reset; Bean★ stays on the bean
-      $('notes-brew').value = '';    // Brew note is per-cup; Bean note persists
+      // Brew note carries the bean's evolving brew note forward (just saved, if this
+      // followed a save) so back-to-back cups keep the insight / next-cup plan.
+      $('notes-brew').value = (currentBean && currentBean.brewNote) || '';
       growNotes();
       renderAllFields();
       loadedFromHistory = false;
@@ -2206,7 +2232,7 @@
       setBrews(brews);
       // Only a freshly-brewed cup updates the bean's evolving note/rating;
       // editing a loaded past brew must not clobber the bean's current verdict.
-      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); persistBestRecipe(); }
+      if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); persistBeanBrewNote(); persistBestRecipe(); }
       flashSaved();
       clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
     }
@@ -2284,7 +2310,8 @@
         document.getElementById(f).value = recipe[k] ?? '';
       });
       $('time-val').value = ''; $('tds').value = ''; $('brew-rating').value = '';
-      $('notes-brew').value = '';               // fresh cup — clear brew-only fields
+      // Brew note is NOT cleared: setBeanBar() above prefilled it from the bean's
+      // carried-forward brew note (insight / next-cup plan).
       resetTimer();
       recalcSchedule();
       renderAllFields();
@@ -2804,6 +2831,15 @@
         currentBean.tastingNote = bn;
       }
       $('notes-bean').value = bn;
+      // Brew note: prefill the bean's evolving brew note (carried-forward insight /
+      // next-cup plan). Overwrites on a fresh save, like the bean note.
+      let bw = '';
+      if (currentBean && currentBean.id) {
+        const stored = getBeans().find(b => b.id === currentBean.id);
+        bw = (stored && stored.brewNote) || '';
+        currentBean.brewNote = bw;
+      }
+      $('notes-brew').value = bw;
       growNotes();
       if (currentBean) {
         $('bb-name').textContent = composeName(currentBean);
@@ -2825,7 +2861,20 @@
       updateRecipeHighlights();   // baseline changed → re-flag deviating recipe values
     }
     function selectBean(bean) {
-      setBeanBar(bean);                 // swaps coffee + Bean★ + bean note; leaves the recipe alone
+      setBeanBar(bean);                 // swaps coffee + Bean★ + bean note + carried brew note
+      // Also pull in this bean's best (dialed-in) recipe, so the coffee-bar swap
+      // lands you ready to brew it — not on the previous coffee's recipe.
+      if (bean && bean.id) {
+        const recipe = beanToRecipe(liveBean(bean.id) || bean);
+        RECIPE_FIELDS.forEach(f => {
+          const k = f === 'brew-target' ? 'brewTarget' : f;
+          document.getElementById(f).value = recipe[k] ?? '';
+        });
+        resetTimer();
+        recalcSchedule();
+        renderAllFields();
+        updateRecipeHighlights();
+      }
       saveDraft();
       closeHistory();
       showScreen('brew');
