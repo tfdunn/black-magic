@@ -1374,16 +1374,35 @@
       else                        lab.textContent = 'start';
     }
 
-    // Notes have FIXED footprints so the brew screen always presents with the same
-    // spacing: Brew = 2 lines, Bean = 4 lines. Each scrolls within itself past that.
-    // (The freed space from moving the start/stop button into the dial rail pays for
-    // the always-reserved lines.)
+    // Notes have fixed BASE footprints (Brew 2 / Bean 4 — the v9 layout that is known
+    // to fit), then expand toward Brew 4 / Bean 5 with whatever vertical slack the
+    // screen actually has, measured at render time — so "use the full page" holds
+    // across device safe-areas / text sizes, and if slack runs short the lines are
+    // granted in priority order: 1st extra → Brew, 2nd → Brew, 3rd → Bean.
+    // Each field scrolls within itself past its footprint.
     const NOTES_BREW_LINES = 2, NOTES_BEAN_LINES = 4;
+    const NOTES_BREW_MAX = 4, NOTES_BEAN_MAX = 5;
     function growNotes() {
       const brew = document.getElementById('notes-brew'), bean = document.getElementById('notes-bean');
       const lh = parseFloat(getComputedStyle(brew).lineHeight) || 22;
-      brew.style.height = (NOTES_BREW_LINES * lh) + 'px';
-      bean.style.height = (NOTES_BEAN_LINES * lh) + 'px';
+      let bl = NOTES_BREW_LINES, nl = NOTES_BEAN_LINES;
+      brew.style.height = (bl * lh) + 'px';
+      bean.style.height = (nl * lh) + 'px';
+      const screen = document.getElementById('screen-brew');
+      if (!screen.hidden && screen.clientHeight) {
+        // Space the blocks would leave as flex gaps at base size (12px kept back
+        // so space-between still breathes a little).
+        const used = [...screen.children].reduce((s, k) => {
+          const cs = getComputedStyle(k);
+          return s + k.getBoundingClientRect().height + parseFloat(cs.marginTop) + parseFloat(cs.marginBottom);
+        }, 0);
+        let extra = Math.floor((screen.clientHeight - used - 12) / lh);
+        while (extra-- > 0 && (bl < NOTES_BREW_MAX || nl < NOTES_BEAN_MAX)) {
+          if (bl < NOTES_BREW_MAX) bl++; else nl++;
+        }
+        brew.style.height = (bl * lh) + 'px';
+        bean.style.height = (nl * lh) + 'px';
+      }
       updateNoteColors();
     }
     // Each note is grey while it still matches the value carried forward from the
@@ -2106,7 +2125,31 @@
 
     function renderHistory() {
       const list = $('history-list');
-      const brews = getBrews().sort((a, b) => b.id - a.id);
+      // Sort for dial-in reading, not chronology: BEAN (most recently brewed bag
+      // first) → Brew★ (best first) → changed-variable signature (so same-recipe
+      // brews sit together — recipeDeltas only, Bloom/Time are per-cup data) →
+      // newest first. Same-recipe runs can then be eyeballed for averages and
+      // for bloom/contact drift as the bag ages.
+      const brews = getBrews();
+      const beanKey = r => String(r.beanId || 'x' + (r.beanName || ''));
+      const recency = {};
+      brews.forEach(r => {
+        const k = beanKey(r);
+        if (!recency[k] || (r.savedAt || '') > recency[k]) recency[k] = r.savedAt || '';
+      });
+      const meta = new Map(brews.map(r => [r, {
+        bean: beanKey(r),
+        rating: parseInt(r.brewRating || r.rating) || 0,
+        delta: recipeDeltas(r).join(' · ')
+      }]));
+      brews.sort((a, b) => {
+        const ma = meta.get(a), mb = meta.get(b);
+        if (ma.bean !== mb.bean)
+          return recency[mb.bean].localeCompare(recency[ma.bean]) || ma.bean.localeCompare(mb.bean);
+        if (ma.rating !== mb.rating) return mb.rating - ma.rating;
+        if (ma.delta !== mb.delta) return ma.delta < mb.delta ? -1 : 1;
+        return b.id - a.id;
+      });
       list.innerHTML = '';
 
       if (!brews.length) {
