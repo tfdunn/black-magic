@@ -288,7 +288,27 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v9.5 (June 2026) — bean brew-note + coffee-bar recipe load + History tweaks (latest)
+## v9.6 (July 2026) — History dial-in sort + adaptive full-page notes (latest)
+- **Brew History is no longer chronological — it's sorted for dial-in reading**
+  (`renderHistory`): **BEAN** (groups; the most recently brewed bag first) → **Brew★
+  descending** (unrated last) → **changed-variable signature** (`recipeDeltas().join()`,
+  so brews that tested the same variable sit together; the 4/5★ Bloom/Time appendix is
+  per-cup data and deliberately NOT part of the key) → **newest first**. Rationale: TFD
+  reads same-recipe runs as a group — averaging over input noise (TDS SD ≈ ±0.015,
+  contact SD ≈ 5s) and eyeballing bloom/contact drift as a bag ages (beans slow over
+  time → bloom must rise to hold contact). A planned future step is a table of marginal
+  sensitivities to compute a per-brew "surprise" for TDS/Bloom even across recipe
+  changes.
+- **Notes use the full page, adaptively** (`growNotes` rewritten): base footprints stay
+  Brew 2 / Bean 4 (the v9 layout known to fit), then the function measures the brew
+  screen's real leftover flex slack (children heights + margins vs `clientHeight`,
+  12px held back for space-between breathing) and grants up to 3 extra lines toward
+  **Brew 4 / Bean 5**, in priority order Brew → Brew → Bean. Degrades gracefully on
+  smaller safe-area-adjusted heights / larger Dynamic Type (verified 4/5 → 3/4 → 2/4
+  with no overflow). Constants: `NOTES_BREW_LINES/NOTES_BEAN_LINES` (base),
+  `NOTES_BREW_MAX/NOTES_BEAN_MAX`.
+
+## v9.5 (June 2026) — bean brew-note + coffee-bar recipe load + History tweaks
 - **The bean now carries an evolving BREW note (`bean.brewNote`)**, parallel to the
   existing tasting note. On a fresh save the brew note is written to the brew record
   (`brewNote`, unchanged) AND **overwrites `bean.brewNote`** (`persistBeanBrewNote()`,
