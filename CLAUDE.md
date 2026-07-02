@@ -288,7 +288,54 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v9.6 (July 2026) — History dial-in sort + adaptive full-page notes (latest)
+## v10 (July 2026) — ★ CLOSED-LOOP DIAL-IN: marginal sensitivities + cohort-averaged best recipe (latest)
+The app graduates from logbook to advisor. Core reframing (from TFD's paper-logbook
+header): **Grind/Temp/Contact/Agitate are the FLAVOR choices; Dose & Bloom are
+dependent CONTROLS** solved to hold the two targets constant (dose ↔ TDS 1.72,
+bloom ↔ contact time). Noise floor: TDS σ ≈ ±0.015, contact σ ≈ 5s — single brews
+are noisy; averages converge. **Brew★ is a dial-in state machine** (now load-bearing
+logic, not just labels): 1 = noisy first datapoint from population priors, 2 =
+converging, 3 = deliberate off-recipe test of one flavor variable, 4 = locked on the
+standard recipe (sampling), 5 = improved recipe adopted (sampling resumes there).
+- **Tools gains "Marginal sensitivities"** (`SENS_DEFAULT` seeded from the paper
+  logbook; `localStorage['blackmagic.sens']`; `buildSensTables()` renders 3 dynamic
+  6-col grids — Grind 7–9×.5, Temp 196–212×4, Contact 3:00–5:00×:30 — each level an
+  editable Δdose/Δbloom tap-to-edit cell, plus a **TDS target** field, default 1.72).
+  Each Δ is relative to an arbitrary anchor row; **all math uses differences
+  f(new)−f(old), so the anchor cancels** (logbook base 204° vs app 208° is moot).
+  `sensAt()` linearly interpolates between levels, clamps past the ends. Only the Δ
+  cells persist (levels fixed) so future level edits can't corrupt stored data.
+- **Loop 2 — cross-recipe prediction (`autoSuggestDoseBloom`):** editing
+  grind/temp/contact on the brew screen recomputes **dose & bloom = bean best +
+  Σ sensitivity differences** (`recipeCorrection`), written straight into the
+  fields. **Dose & Bloom now flag amber** when off the bean's best (added to
+  `HILITE_FIELDS` — the v2 "Dose & Bloom never flag" rule is retired: off-best now
+  means a correction or override is riding). A manual dose/bloom edit sets
+  `doseTouched`/`bloomTouched` and wins — never recomputed over (flags reset on
+  `startBrewWith`/`selectBean`/post-save; carried through the edit side-trip
+  snapshot; guard: no-op while `editingBrewId`). Reverting the flavor variable
+  restores best and clears the amber.
+- **Loop 1 — within-recipe estimation (`persistBestRecipe` rewritten):** a fresh
+  4★/5★ save adopts the brew's flavor variables as the best recipe (tier protection
+  unchanged), then sets **bestDose/bestBloom = equal-weight mean over the cohort**
+  (same bean + same Brew★ tier + same flavor signature `recipeSig` over
+  grind/water/contact/agitate/decay/target) of each brew's **outcome-corrected**
+  values: `impliedDose = dose × (TDS target / measured TDS)` (dose ∝ TDS, 1st
+  order); `impliedBloom = bloom + (lastPour/30s) × TimeΔ` (end-flow-rate rule;
+  `lastPourOf()` recomputes the geometric schedule's final pour per brew). After the
+  save the live dose/bloom fields are seeded with the refreshed estimate — the next
+  cup starts at the new best. No recency weighting (TFD's choice) — bag-aging drift
+  is handled by manual bloom override, which the cohort mean then absorbs.
+- **New-bean priors:** `DEFAULT_RECIPE` dose 24→**23.8g**, bloom 85→**90ml** (means
+  across ~200 past beans for TDS 1.72 / 4:30; true per-bean values range 21–25g /
+  60–130ml, so the 1★ first brew is expected to miss and Loops 1–2 converge from
+  there).
+- **BACKUP/RESTORE now carries settings** (JSON `version:2`: `settings.defaultRecipe/
+  sens/sound`); restore writes them back and **reloads the app** to re-seed. Old v1
+  backups still restore (beans+brews only). Sensitivities are NOT in the CSV export
+  (device settings, not data).
+
+## v9.6 (July 2026) — History dial-in sort + adaptive full-page notes
 - **Brew History is no longer chronological — it's sorted for dial-in reading**
   (`renderHistory`): **BEAN** (groups; the most recently brewed bag first) → **Brew★
   descending** (unrated last) → **changed-variable signature** (`recipeDeltas().join()`,
