@@ -288,7 +288,42 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10 (July 2026) — ★ CLOSED-LOOP DIAL-IN: marginal sensitivities + cohort-averaged best recipe (latest)
+## v10.1 (July 2026) — per-bean TDS aim + Brew History as a dial-in table (latest)
+- **TDS Aim is the 9th recipe field** (id `tds-aim`, bean-form id `best-tds-aim`,
+  record/bean key `tdsAim`; `recKey()` maps the two irregular ids). TFD brews
+  different beans at different strengths, so the target is no longer a global
+  constant: it lives on the **brew results row** (replacing Time Δ, which moved to
+  the **dial rail** above the round button, `.rail-time` — same `time-val` id, stop
+  still writes it), on the **bean form** under Bean★ (`.vr-aim`), and on every brew
+  record. In `RECIPE_FIELDS`/`BEST_KEYS`/`HILITE_FIELDS`/`DRAFT_FIELDS`/`SIG_KEYS` —
+  so it highlights amber when off the bean's aim, rides drafts, and **splits Loop 1
+  cohorts** (a 1.60 run never averages with a 1.72 run; pre-v10.1 brews with no
+  `tdsAim` are treated as the Tools TDS target, which doubles as the default aim
+  for new beans via `getDefaultRecipe()`).
+- **Loop 2 with strength scaling:** suggested dose = (bestDose + sensitivity
+  corrections) × (aim / bean's aim) — dose ∝ TDS to 1st order (aim 1.60 on a bean
+  dialed at 1.72 → dose × 0.930). Bloom is not scaled by aim (no marginal yet). A
+  4★/5★ save adopts the brew's aim onto the bean like the other recipe fields, so
+  "preferred the weaker cup → rate 5" re-anchors the bean at the new strength.
+  Loop 1's `impliedDose` corrects each cohort brew toward **its own** recorded aim.
+- **Brew History overlay redesigned** (the bean LIST is unchanged): a **bean-name
+  section header per bag** (beans are drunk sequentially — no name repetition),
+  then **one monospace line per brew** (`ui-monospace`/SF Mono, columns align):
+  `★r dose blm tds Δdose Δblm deviations · date`. **Only the two error columns are
+  amber**: `Δdose = (1 − TDS/aim)·dose` (dose short/over for the aim, 1st-order) and
+  `Δblm = lastPour/30 · TimeΔ` (bloom short/over for contact). Deviations vs the
+  bean's best are compact tokens: `G9 T204 3.5' A2 P85 V1050 @1.60` (grind, temp,
+  contact-minutes, agitate, pour Δ, target, TDS aim). A `.bh-legend` header row
+  decodes the columns; dim `M/D` date right-aligned; tap → same Brew/Edit/Delete
+  sheet. v9.6's sort (bean → ★ desc → deviation signature → newest) is unchanged.
+  `recipeDeltas`→`compactDeltas` (also the sort's signature); the old card markup +
+  the v9.5 "4/5★ Bloom/TimeΔ appendix" are superseded by the error columns;
+  `fmtSavedAt` removed.
+- **CSV:** brews gain `TDS_Aim` (after `TDS`), beans gain `TDS_Aim` (after the
+  `Best_*` block). The Excel macro maps columns by name, so the new columns are
+  inert until mapped. sw.js CACHE v46.
+
+## v10 (July 2026) — ★ CLOSED-LOOP DIAL-IN: marginal sensitivities + cohort-averaged best recipe
 The app graduates from logbook to advisor. Core reframing (from TFD's paper-logbook
 header): **Grind/Temp/Contact/Agitate are the FLAVOR choices; Dose & Bloom are
 dependent CONTROLS** solved to hold the two targets constant (dose ↔ TDS 1.72,
