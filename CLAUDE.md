@@ -289,6 +289,9 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
 ## v10.1 (July 2026) — per-bean TDS aim + Brew History as a dial-in table (latest)
+- **Labels (v10.1.1):** the brew screen shows **"TDS Aim\*"** — the \* marks the
+  *working* per-brew value — while the bean form's stabilized target is plain
+  **"TDS Aim"** (`FX['best-tds-aim'].label` overridden after the RECIPE_MAP clone).
 - **TDS Aim is the 9th recipe field** (id `tds-aim`, bean-form id `best-tds-aim`,
   record/bean key `tdsAim`; `recKey()` maps the two irregular ids). TFD brews
   different beans at different strengths, so the target is no longer a global
