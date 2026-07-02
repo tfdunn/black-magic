@@ -769,6 +769,21 @@
 
     /* ── Tools screen ── */
     .bean-list-top { display: flex; justify-content: flex-end; padding: 2px 0 0; }
+    /* ── Marginal sensitivities table (Tools) — Δdose/Δbloom per flavor-variable level ── */
+    .sens-label { margin-top: 26px; }
+    .sens-tds { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+    .sens-tds > .label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary); white-space: nowrap; }
+    .sens-tds .field { width: auto; }
+    .sens-tds .field .fnum, .sens-tds .field .dash { color: var(--accent); font-size: 17px; }
+    .sens-grid { display: grid; grid-template-columns: 64px repeat(5, 1fr); gap: 0.5px;
+      background: var(--hairline); border-bottom: 0.5px solid var(--hairline); margin-top: 14px; }
+    .sens-cell { background: #fff; min-height: 32px; display: flex; align-items: center; justify-content: center; }
+    .sens-var { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--secondary); }
+    .sens-name { font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tertiary); }
+    .sens-lvl { font-size: 12px; font-weight: 600; color: var(--secondary); }
+    .sens-grid .field { min-height: 32px; width: 100%; }
+    .sens-grid .field .fnum, .sens-grid .field .dash { color: var(--accent); font-size: 14px; }
+
     .tools-body { padding-top: 6px; overflow-y: auto; overflow-x: hidden;
       max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
     .tools-body .stats-grid { margin-bottom: 2px; }
@@ -904,7 +919,7 @@
       .app { background: #0B0B0C; }
       /* Hairline-gap grid cells were #fff — match the app bg so the 0.5px gaps
          read as dividers (like an iOS grouped list on black). */
-      .stats-grid .stat-cell, .bottom-stat { background: #0B0B0C; }
+      .stats-grid .stat-cell, .bottom-stat, .sens-cell { background: #0B0B0C; }
 
       /* Surfaces that were #fff → elevated dark */
       .ed-sheet, .history-panel, .ac-list, .act-btn, .ed-big button,
@@ -1298,6 +1313,17 @@
           <button type="button" class="field" data-f="def-target"></button>
           <input type="hidden" id="def-target"></div>
       </div>
+
+      <!-- Marginal sensitivities — Δdose/Δbloom that hold TDS + contact constant when
+           a flavor variable (grind/temp/contact) moves; applied as DIFFERENCES from
+           the bean's best recipe, so the base row's anchor cancels out. -->
+      <div class="bean-section-label sens-label">Marginal sensitivities</div>
+      <div class="sens-tds">
+        <span class="label">TDS target</span>
+        <button type="button" class="field" data-f="sens-tds"></button>
+        <input type="hidden" id="sens-tds">
+      </div>
+      <div id="sens-tables"></div>
     </div>
    </section>
 
@@ -1447,7 +1473,10 @@
       ['decay','def-decay'],['brew-target','def-target']];
     DEF_MAP.forEach(([base, dk]) => FX[dk] = Object.assign({}, FX[base]));
     // Seed values for a brand-new install (before the user edits the default in Tools).
-    const DEFAULT_RECIPE = { dose:'24', grind:'8', agitate:'1', contact:'270', water:'208', bloom:'85', decay:'90', brewTarget:'350' };
+    // Dose/bloom = population priors: across ~200 past beans, mean dose for TDS 1.72
+    // ≈ 23.8 g and mean bloom for 4:30 contact ≈ 90 ml (true values range 21–25 g /
+    // 60–130 ml — the 1★ first brew is expected to miss; Loop 1 converges from there).
+    const DEFAULT_RECIPE = { dose:'23.8', grind:'8', agitate:'1', contact:'270', water:'208', bloom:'90', decay:'90', brewTarget:'350' };
 
     // ── Editable default recipe (Tools) — seeds every new bean; evolves over time ──
     const DEF_KEYS = { 'def-dose':'dose','def-grind':'grind','def-agitate':'agitate','def-contact':'contact',
@@ -1482,6 +1511,107 @@
     }
     function renderAllFields(){ Object.keys(FX).forEach(renderField); }
 
+    // ── Marginal sensitivities (Tools) — the cross-recipe solver ─────────────
+    // Grind/Temp/Contact are the FLAVOR choices; Dose & Bloom are the dependent
+    // controls solved to hold TDS (dose) and contact time (bloom) constant. Each
+    // table row = Δdose/Δbloom at that level relative to an arbitrary anchor; the
+    // math only ever uses f(new) − f(old), so the anchor cancels. Values seeded
+    // from TFD's paper logbook header; linear interpolation between rows, clamped
+    // past the ends. Stored in localStorage['blackmagic.sens'] (levels are fixed —
+    // only the Δ cells persist, so future level changes can't corrupt old data).
+    const SENS_KEY = 'blackmagic.sens';
+    const SENS_DEFAULT = {
+      tdsTarget: 1.72,
+      grind:   { levels: [7, 7.5, 8, 8.5, 9],       dose: [-0.4, -0.2, 0, -0.2, 0.4], bloom: [7, 4, 0, 0, 5] },
+      water:   { levels: [196, 200, 204, 208, 212], dose: [0.3, 0.1, 0, -0.1, -0.3],  bloom: [9, 4, 0, -4, -9] },
+      contact: { levels: [180, 210, 240, 270, 300], dose: [0.2, 0.2, 0.1, 0, -0.1],   bloom: [20, 20, 10, 0, -10] }
+    };
+    function getSens(){
+      const out = JSON.parse(JSON.stringify(SENS_DEFAULT));
+      let s; try { s = JSON.parse(localStorage.getItem(SENS_KEY)); } catch (e) {}
+      if (!s || typeof s !== 'object') return out;
+      if (typeof s.tdsTarget === 'number') out.tdsTarget = s.tdsTarget;
+      ['grind','water','contact'].forEach(k => {
+        if (s[k] && Array.isArray(s[k].dose)  && s[k].dose.length  === out[k].levels.length) out[k].dose  = s[k].dose;
+        if (s[k] && Array.isArray(s[k].bloom) && s[k].bloom.length === out[k].levels.length) out[k].bloom = s[k].bloom;
+      });
+      return out;
+    }
+    function sensAt(tbl, level){
+      const L = tbl.levels, n = L.length;
+      if (level <= L[0])     return { dose: tbl.dose[0],     bloom: tbl.bloom[0] };
+      if (level >= L[n - 1]) return { dose: tbl.dose[n - 1], bloom: tbl.bloom[n - 1] };
+      let i = 1; while (L[i] < level) i++;
+      const t = (level - L[i - 1]) / (L[i] - L[i - 1]);
+      return { dose:  tbl.dose[i - 1]  + t * (tbl.dose[i]  - tbl.dose[i - 1]),
+               bloom: tbl.bloom[i - 1] + t * (tbl.bloom[i] - tbl.bloom[i - 1]) };
+    }
+    // Σ over grind/water/contact of f(current) − f(best): the dose/bloom correction
+    // that keeps TDS + contact pinned while the flavor variables move off best.
+    function recipeCorrection(best){
+      const s = getSens();
+      let d = 0, bl = 0;
+      ['grind','water','contact'].forEach(k => {
+        const nv = parseFloat(document.getElementById(k).value), ov = parseFloat(best[k]);
+        if (isNaN(nv) || isNaN(ov) || nv === ov) return;
+        const fn = sensAt(s[k], nv), fo = sensAt(s[k], ov);
+        d += fn.dose - fo.dose; bl += fn.bloom - fo.bloom;
+      });
+      return { dose: d, bloom: bl };
+    }
+    // Tools table UI — built dynamically (3 vars × 5 levels × Δdose/Δbloom cells),
+    // each cell a normal tap-to-edit field wired into FX.
+    const SENS_VARS = [
+      { key: 'grind',   name: 'Grind',   fmt: v => String(v) },
+      { key: 'water',   name: 'Temp',    fmt: v => v + '°' },
+      { key: 'contact', name: 'Contact', fmt: v => fmtMS(v) }
+    ];
+    const SENS_FX = {
+      d: { label: 'Δ dose',  step: 0.1, dec: 1, trim: 1, min: -9,  max: 9,  unit: 'g',  presets: [-0.4, -0.2, 0.2, 0.4], type: 'num' },
+      b: { label: 'Δ bloom', step: 1,               min: -60, max: 60, unit: 'ml', presets: [-10, -4, 4, 10],       type: 'num' }
+    };
+    function persistSens(){
+      const s = getSens();
+      s.tdsTarget = parseFloat(document.getElementById('sens-tds').value) || 1.72;
+      SENS_VARS.forEach(v => s[v.key].levels.forEach((l, i) => {
+        s[v.key].dose[i]  = parseFloat(document.getElementById('sens-' + v.key + '-' + i + '-d').value) || 0;
+        s[v.key].bloom[i] = parseFloat(document.getElementById('sens-' + v.key + '-' + i + '-b').value) || 0;
+      }));
+      localStorage.setItem(SENS_KEY, JSON.stringify(s));
+    }
+    function buildSensTables(){
+      const wrap = document.getElementById('sens-tables');
+      const s = getSens();
+      FX['sens-tds'] = { label: 'TDS target', step: 0.01, dec: 2, min: 1, max: 3, presets: [1.70, 1.71, 1.72, 1.73, 1.74], type: 'num' };
+      document.getElementById('sens-tds').value = String(s.tdsTarget);
+      SENS_VARS.forEach(v => {
+        const g = document.createElement('div'); g.className = 'sens-grid';
+        let html = '<div class="sens-cell sens-var">' + v.name + '</div>' +
+          s[v.key].levels.map(l => '<div class="sens-cell sens-lvl">' + v.fmt(l) + '</div>').join('');
+        [['d', 'Δ dose'], ['b', 'Δ bloom']].forEach(([suf, nm]) => {
+          html += '<div class="sens-cell sens-name">' + nm + '</div>' +
+            s[v.key].levels.map((l, i) => {
+              const id = 'sens-' + v.key + '-' + i + '-' + suf;
+              return '<div class="sens-cell"><button type="button" class="field" data-f="' + id + '"></button><input type="hidden" id="' + id + '"></div>';
+            }).join('');
+        });
+        g.innerHTML = html;
+        wrap.append(g);
+        s[v.key].levels.forEach((l, i) => {
+          const di = 'sens-' + v.key + '-' + i + '-d', bi = 'sens-' + v.key + '-' + i + '-b';
+          FX[di] = SENS_FX.d; FX[bi] = SENS_FX.b;
+          document.getElementById(di).value = String(s[v.key].dose[i]);
+          document.getElementById(bi).value = String(s[v.key].bloom[i]);
+          document.getElementById(di).addEventListener('change', persistSens);
+          document.getElementById(bi).addEventListener('change', persistSens);
+          renderField(di); renderField(bi);
+        });
+      });
+      document.getElementById('sens-tds').addEventListener('change', persistSens);
+      renderField('sens-tds');
+    }
+    buildSensTables();
+
     // Write Bean★ back onto the selected bean, overwriting its previous rating
     function persistBeanRating(){
       if (!(currentBean && currentBean.id)) return;
@@ -1506,12 +1636,40 @@
       const b = beans.find(x => x.id === currentBean.id);
       if (b && !b.locked) { b.brewNote = document.getElementById('notes-brew').value.trim(); setBeans(beans); currentBean.brewNote = b.brewNote; }
     }
-    // Best recipe (tier-protected): a fresh brew rated 4–5★ writes its recipe onto the
-    // bean, but only if it ties or beats the recipe's stored tier — so a later 4★ never
-    // clobbers a 5★. Manual edits on the Bean screen set the tier to 5 (see saveBean).
+    // ── Loop 1: best recipe = tier-protected, cohort-averaged, outcome-corrected ──
+    // A fresh 4★/5★ brew adopts its FLAVOR variables (grind/temp/contact/agitate/
+    // pourΔ/target) as the bean's best recipe, then re-estimates the TRUE dose &
+    // bloom as the mean over the cohort — every brew of this bean at the same tier
+    // with the same flavor signature (equal weight, per TFD). Each cohort brew
+    // contributes its outcome-corrected values, so measured misses pull the
+    // estimate toward truth instead of averaging raw inputs:
+    //   implied dose  = dose × (TDS target / measured TDS)    (dose ∝ TDS, 1st order)
+    //   implied bloom = bloom + (last pour / 30s) × Time Δ    (end-flow-rate rule)
+    // Tier protection unchanged: a later 4★ never clobbers a 5★. Manual edits on
+    // the Bean screen still set the tier to 5 (see saveBean).
     const RECIPE_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target'];
     const BEST_KEYS = { dose:'bestDose', grind:'bestGrind', agitate:'bestAgitate', contact:'bestContact',
       water:'bestWater', bloom:'bestBloom', decay:'bestDecay', 'brew-target':'bestTarget' };
+    const SIG_KEYS = ['grind','water','contact','agitate','decay','brewTarget'];
+    const recipeSig = r => SIG_KEYS.map(k => { const v = parseFloat(r[k]); return isNaN(v) ? '' : v; }).join('|');
+    function lastPourOf(r){                       // final pour (ml) of a brew's geometric schedule
+      const rr = (parseFloat(r.decay) || 90) / 100;
+      const n  = Math.max(1, Math.round((parseInt(r.contact) || 270) / 30));
+      const T  = Math.round(parseFloat(r.brewTarget) || 350);
+      const x  = Math.abs(rr - 1) < 0.001 ? T / n : T * (1 - rr) / (1 - Math.pow(rr, n));
+      return x * Math.pow(rr, n - 1);
+    }
+    function impliedDose(r, tgt){
+      const d = parseFloat(r.dose), t = parseFloat(r.tds);
+      if (!(d > 0)) return null;
+      return t > 0 ? d * tgt / t : d;             // no TDS recorded → dose stands as-is
+    }
+    function impliedBloom(r){
+      const bl = parseFloat(r.bloom);
+      if (isNaN(bl)) return null;
+      const ta = parseFloat(r.timeAdj);
+      return isNaN(ta) ? bl : bl + (lastPourOf(r) / 30) * ta;   // ran over → wanted more bloom
+    }
     function persistBestRecipe(){
       if (!(currentBean && currentBean.id)) return;
       const br = parseInt(document.getElementById('brew-rating').value);
@@ -1522,12 +1680,32 @@
       if (br < (b.bestRecipeRating || 0)) return;               // tier protection
       RECIPE_FIELDS.forEach(f => b[BEST_KEYS[f]] = document.getElementById(f).value);
       b.bestRecipeRating = br;
+      // Cohort average (the just-saved brew is already in getBrews()):
+      const cur = {};
+      SIG_KEYS.forEach(k => cur[k] = document.getElementById(k === 'brewTarget' ? 'brew-target' : k).value);
+      const sig = recipeSig(cur);
+      const tgt = getSens().tdsTarget || 1.72;
+      const cohort = getBrews().filter(r => r.beanId === b.id &&
+        parseInt(r.brewRating || r.rating) === br && recipeSig(r) === sig);
+      const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+      const md = mean(cohort.map(r => impliedDose(r, tgt)).filter(v => v != null));
+      const mb = mean(cohort.map(impliedBloom).filter(v => v != null));
+      if (md != null) b.bestDose  = String(Math.round(md * 10) / 10);
+      if (mb != null) b.bestBloom = String(Math.round(mb));
       setBeans(beans);
       Object.assign(currentBean, b);
+      // Loop 1 payoff: the next cup starts at the refreshed estimate — write it into
+      // the live fields (clearForNextBrew keeps the recipe) and re-arm suggestions.
+      document.getElementById('dose').value  = b.bestDose  ?? document.getElementById('dose').value;
+      document.getElementById('bloom').value = b.bestBloom ?? document.getElementById('bloom').value;
+      renderField('dose'); renderField('bloom');
+      doseTouched = bloomTouched = false;
+      updateRecipeHighlights();
     }
     // ── Brew-screen recipe highlighting: light up only the deviations ──
-    // Eligible knobs (technique + batch Target); Dose & Bloom are never flagged.
-    const HILITE_FIELDS = ['grind','water','contact','agitate','decay','brew-target'];
+    // All 8 knobs flag now (v10): Dose & Bloom light up when off the bean's best —
+    // which is exactly when a sensitivity correction (or manual override) is riding.
+    const HILITE_FIELDS = ['dose','grind','water','contact','agitate','bloom','decay','brew-target'];
     function recipeBaseline(){
       const b = (currentBean && currentBean.id) ? liveBean(currentBean.id) : null;
       return b ? beanToRecipe(b) : getDefaultRecipe();   // bean's best recipe, else Tools default
@@ -1544,6 +1722,37 @@
     }
     ['dose','grind','agitate','contact','water','bloom','decay','brew-target']
       .forEach(f => document.getElementById(f).addEventListener('change', updateRecipeHighlights));
+
+    // ── Loop 2: dose & bloom auto-suggest on flavor-variable edits ────────────
+    // Editing grind/temp/contact recomputes dose & bloom = bean best + sensitivity
+    // correction, written straight into the fields (deviations glow amber via the
+    // highlight pass). A manual dose/bloom edit this cup sets a "touched" flag and
+    // wins — the app never recomputes over an override. Flags reset when a new brew
+    // context loads (startBrewWith / selectBean / after a 4★+ save). The 'change'
+    // event only fires from the editor (programmatic loads write .value directly),
+    // so a change on dose/bloom is always a human touch.
+    let doseTouched = false, bloomTouched = false;
+    document.getElementById('dose').addEventListener('change', () => { doseTouched = true; });
+    document.getElementById('bloom').addEventListener('change', () => { bloomTouched = true; });
+    function autoSuggestDoseBloom(){
+      if (editingBrewId) return;                       // fixing a past record — leave it be
+      if (!(currentBean && currentBean.id)) return;    // no bean → no best to anchor on
+      const b = liveBean(currentBean.id);
+      if (!b) return;
+      const best = beanToRecipe(b);
+      const corr = recipeCorrection(best);
+      if (!doseTouched && best.dose !== '' && best.dose != null) {
+        document.getElementById('dose').value = String(Math.round((parseFloat(best.dose) + corr.dose) * 10) / 10);
+        renderField('dose');
+      }
+      if (!bloomTouched && best.bloom !== '' && best.bloom != null) {
+        document.getElementById('bloom').value = String(Math.round(parseFloat(best.bloom) + corr.bloom));
+        renderField('bloom');
+      }
+      updateRecipeHighlights();
+      saveDraft();
+    }
+    ['grind','water','contact'].forEach(f => document.getElementById(f).addEventListener('change', autoSuggestDoseBloom));
 
     // bean.best* → brew-style recipe object (falls back to defaults per field)
     function beanToRecipe(b){
@@ -2304,7 +2513,8 @@
     // Editing a brew from History is a side trip — snapshot the live cup on the way
     // in, restore it on the way out (Cancel or Save) so the current brew is untouched.
     function captureBrewState(){
-      return { draft: currentDraftObject(), elapsed, running, inCountdown, loadedFromHistory };
+      return { draft: currentDraftObject(), elapsed, running, inCountdown, loadedFromHistory,
+               doseTouched, bloomTouched };
     }
     function restoreBrewState(s){
       applyDraftObject(s.draft);
@@ -2312,6 +2522,7 @@
       recalcSchedule();
       updateRecipeHighlights();
       loadedFromHistory = s.loadedFromHistory;
+      doseTouched = !!s.doseTouched; bloomTouched = !!s.bloomTouched;
       inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
       cancelCountdownAudio();
       render(elapsed);                // the rAF loop keeps the button label correct from here
@@ -2347,6 +2558,7 @@
       if (editingBrewId) { exitBrewEdit(); preEditState = null; }
       editingBrewId = null;
       loadedFromHistory = false;
+      doseTouched = bloomTouched = false;   // fresh context → suggestions re-armed
       setBeanBar(bean || null);                 // sets currentBean + Bean★ + Bean note from the bean
       RECIPE_FIELDS.forEach(f => {
         const k = f === 'brew-target' ? 'brewTarget' : f;
@@ -2509,7 +2721,10 @@
 
     // ── Full JSON backup / restore (survives a browser change or PWA reinstall) ──
     function exportJSON() {
-      const data = { app: 'black-magic', version: 1, exportedAt: new Date().toISOString(), beans: getBeans(), brews: getBrews() };
+      let sound = null; try { sound = JSON.parse(localStorage.getItem(SOUND_KEY)); } catch (e) {}
+      const data = { app: 'black-magic', version: 2, exportedAt: new Date().toISOString(),
+        beans: getBeans(), brews: getBrews(),
+        settings: { defaultRecipe: getDefaultRecipe(), sens: getSens(), sound } };
       downloadCSV('black-magic-backup.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8;');
     }
     function importJSON(text) {
@@ -2520,8 +2735,13 @@
       }
       if (!confirm('Restore ' + data.beans.length + ' beans and ' + data.brews.length + ' brews? This REPLACES all current data on this device.')) return;
       setBeans(data.beans); setBrews(data.brews);
-      if (shownData === 'beans') renderBeanHistory(); else renderHistory();
+      if (data.settings) {   // v2 backups carry Tools settings too
+        if (data.settings.defaultRecipe) localStorage.setItem(DEFAULT_RECIPE_KEY, JSON.stringify(data.settings.defaultRecipe));
+        if (data.settings.sens)  localStorage.setItem(SENS_KEY,  JSON.stringify(data.settings.sens));
+        if (data.settings.sound) localStorage.setItem(SOUND_KEY, JSON.stringify(data.settings.sound));
+      }
       alert('Restored ' + data.beans.length + ' beans and ' + data.brews.length + ' brews.');
+      location.reload();   // re-seed everything (fields, Tools, sound) from the restored data
     }
     function downloadCSV(filename, text, mime) {
       const blob = new Blob([text], { type: mime || 'text/csv;charset=utf-8;' });
@@ -2913,6 +3133,7 @@
           const k = f === 'brew-target' ? 'brewTarget' : f;
           document.getElementById(f).value = recipe[k] ?? '';
         });
+        doseTouched = bloomTouched = false;   // new bean context → suggestions re-armed
         resetTimer();
         recalcSchedule();
         renderAllFields();
