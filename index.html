@@ -1122,7 +1122,7 @@
 
     <!-- Bottom Stats — Time Δ lives in the dial rail (above the round button) -->
     <div class="bottom-stats">
-      <div class="bottom-stat"><span class="label">TDS Aim</span>
+      <div class="bottom-stat"><span class="label">TDS Aim*</span>
         <button type="button" class="field amber" data-f="tds-aim"></button>
         <input type="hidden" id="tds-aim" value=""></div>
       <div class="bottom-stat"><span class="label">TDS</span>
@@ -1503,7 +1503,9 @@
       'brew-target': {label:'Target', step:10, min:0, max:9999, unit:'ml', presets:[350,1050], type:'num'},
       'time-val':    {label:'Time Δ', step:1, min:-999, max:999, signed:1, presets:[-25,-5,5,25], type:'num'},
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
-      'tds-aim':     {label:'TDS Aim', step:0.01, dec:2, min:0, max:9.99, presets:[1.60,1.66,1.72,1.74], type:'num'},
+      // * = the working per-brew value; the bean's un-starred TDS Aim is the
+      // stabilized one it evolves toward (adopted on 4/5★ saves, like the best-*)
+      'tds-aim':     {label:'TDS Aim*', step:0.01, dec:2, min:0, max:9.99, presets:[1.60,1.66,1.72,1.74], type:'num'},
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
       'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
     };
@@ -1512,6 +1514,7 @@
       ['contact','best-contact'],['water','best-water'],['bloom','best-bloom'],
       ['decay','best-decay'],['brew-target','best-target'],['tds-aim','best-tds-aim']];
     RECIPE_MAP.forEach(([base, bk]) => FX[bk] = Object.assign({}, FX[base]));
+    FX['best-tds-aim'].label = 'TDS Aim';   // bean form = the stabilized aim, no star
     FX['bf-rating'] = Object.assign({}, FX['bean-rating']);   // Bean★ editor on the bean form
     FX['bean-bagcount'] = {label:'# Bags', step:1, min:1, max:6, presets:[1,2,3,4,5,6], type:'num'};
     // The Tools "default recipe" reuses the same 8 input editors, keyed def-*.
