@@ -288,7 +288,31 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.1 (July 2026) — per-bean TDS aim + Brew History as a dial-in table (latest)
+## v10.2 (July 2026) — Time Δ slot takeover + history/tools/bean polish (latest)
+- **Time Δ has no field on the brew screen anymore.** On stop, the big pour-number
+  slot (`#t-ml`) shows it instead — e.g. **"+5 sec"**, amber, 21px (`.pour-number
+  .tdelta`) — until save/reset blanks it; the caption below still shows the final
+  m:ss. **Tap the slot to adjust** (opens the shared editor; the hidden `#time-val`
+  store remains, `renderField('time-val')` safely no-ops with no button). Display is
+  keyed off the **value**, not timer state, so a stopped-unsaved cup restored on
+  relaunch (draft has no `elapsed`) still shows its Δ. The results row is `TDS Aim*
+  · TDS · Brew★ · Bean★`.
+- **Brew History lines use the normal system font** (the v10.1 monospace was hard
+  to read): a shared **CSS grid** (`.bl-grid`, fixed column template + `tabular-nums`)
+  keeps ★/dose/blm/tds/Δdose/Δblm/deviations/date aligned. Rows padded 12px (reliable
+  taps), **Brew★ amber** (`.bl-r`), and a **heavier border closes each rating group**
+  within a bean (`.tier-end`, applied to the last line before the rating changes).
+- **Tools: TDS target sits under the Default-recipe section** (it's the default aim
+  seeded into new beans + the fallback aim for pre-v10.1 brews — recipe, not a
+  sensitivity). Sensitivities table unchanged below it.
+- **Bean form: TDS Aim above Bean★** in the verdict block (closer to the recipe grid).
+- **Ops note:** GitHub Pages deploys can fail transiently (v10.1's deploy `49a66ee`
+  failed; the next push carried it through — the phone showing a stale version was
+  exactly this). After pushing, **verify the latest `pages-build-deployment` run
+  conclusion** (`gh run list --workflow pages-build-deployment`), don't assume.
+  sw.js CACHE v48.
+
+## v10.1 (July 2026) — per-bean TDS aim + Brew History as a dial-in table
 - **Labels (v10.1.1):** the brew screen shows **"TDS Aim\*"** — the \* marks the
   *working* per-brew value — while the bean form's stabilized target is plain
   **"TDS Aim"** (`FX['best-tds-aim'].label` overridden after the RECIPE_MAP clone).
