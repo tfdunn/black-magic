@@ -543,22 +543,22 @@
       padding: 48px 20px;
     }
     /* ── Brew History: bean section headers + one line per brew ──
-       ★r dose blm tds Δdose Δblm deviations date — a shared CSS grid keeps the
-       columns aligned in the normal system font (tabular numerals do the rest).
-       Rating + error columns amber (Δdose = (1 − TDS/aim)·dose, Δblm =
-       lastPour/30 · TimeΔ). */
+       ★r · date · dose · blm · tds · dose* · blm* · deviations. The raw inputs read
+       small/dim; the IDEAL dose* and blm* (dose* = dose·aim/TDS, blm* = bloom +
+       lastPour/30·TimeΔ — the same outcome-corrected values the bean's best-recipe
+       cohort mean uses) carry the weight. Date sits right after the rating — it
+       shows the within-group sort of the 4/5★ runs. */
     .bl-grid {
-      /* Column widths sized to the real data (★r · 24.4 · 104 · 1.71 · +0.1 · +11),
-         even 10px gutters; deviations (≤2 tokens, else "Many") + date share the right. */
       display: grid;
-      grid-template-columns: 28px 34px 26px 34px 36px 28px 1fr 30px;
+      grid-template-columns: 28px 26px 24px 20px 24px 32px 26px 1fr;
       column-gap: 10px;
       align-items: baseline;
     }
     .bl-grid > span { text-align: right; }          /* numeric columns right-align */
     .bl-grid > .bl-dev { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bh-legend {
-      padding: 10px 20px 0;
+      /* repeated under every bean header */
+      padding: 0 20px 2px;
       font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
       color: var(--tertiary);
     }
@@ -577,10 +577,14 @@
     }
     .brew-line:active { background: #1C1C1E; }
     .brew-line.tier-end { border-bottom: 1px solid rgba(235,235,245,0.28); }  /* rating-group break */
-    .brew-line .bl-r { color: var(--accent); }
-    /* Error columns light amber only past the noise floor (|TDS−aim| > .02 for Δdose,
-       |Δblm| > 5 ml) — an in-noise error is data, not a signal demanding action. */
-    .brew-line .bl-err.hot { color: var(--accent); }
+    /* Only proven-good cups light the rating amber */
+    .brew-line .bl-r.hot { color: var(--accent); }
+    /* Raw inputs + deviation tokens: small + dim, same voice as the date */
+    .brew-line .bl-sm { font-size: 10px; color: var(--tertiary); }
+    /* Ideal dose* and blm*: the heavier values; amber only past the noise floor
+       (|TDS−aim| > .02 for dose*, |blm*−bloom| > 5 ml) */
+    .brew-line .bl-star { font-weight: 600; }
+    .brew-line .bl-star.hot { color: var(--accent); }
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
@@ -736,7 +740,7 @@
        tappable like any field. */
     .def-title .field { display: inline-flex; width: auto; padding: 0 1px; vertical-align: baseline; }
     .def-title .field .fnum, .def-title .field .dash {
-      font-size: 12px; font-weight: 600; letter-spacing: normal; color: var(--ink); }
+      font-size: 14px; font-weight: 600; letter-spacing: normal; color: var(--ink); }
     /* ── Marginal sensitivities table (Tools) — Δdose/Δbloom per flavor-variable level ── */
     .sens-label { margin-top: 26px; }
     .sens-grid { display: grid; grid-template-columns: 64px repeat(5, 1fr); gap: 0.5px;
@@ -1403,7 +1407,7 @@
       'tds':         {label:'TDS', step:0.01, dec:2, min:0, max:9.99, presets:[1.70,1.71,1.72,1.73,1.74], type:'num'},
       // * = the working per-brew value; the bean's un-starred TDS Aim is the
       // stabilized one it evolves toward (adopted on 4/5★ saves, like the best-*)
-      'tds-aim':     {label:'TDS Aim*', step:0.01, dec:2, min:0, max:9.99, presets:[1.60,1.66,1.72,1.74], type:'num'},
+      'tds-aim':     {label:'TDS Aim*', step:0.01, dec:2, min:0, max:9.99, presets:[1.68,1.70,1.72,1.74,1.76], type:'num'},
       'brew-rating': {label:'Brew★', step:1, min:1, max:5, presets:[1,2,3,4,5], type:'choice', words:BREW_RATINGS},
       'bean-rating': {label:'Bean★', step:1, min:0, max:100, presets:[85,90,92,95,98], type:'num'}
     };
@@ -1475,10 +1479,13 @@
       tdsTarget: 1.72,
       // Grind in whole steps (was 7–9 by .5): 7/8/9 keep the logbook values; 10/11
       // extend the 8→9 slope (stored tables from the old layout are re-sampled below).
+      // Zero anchors sit at the standard recipe — grind 8, temp 208, contact 4:30 —
+      // and getSens() re-zeros every row there (safe: only differences are ever used).
       grind:   { levels: [7, 8, 9, 10, 11],         dose: [-0.4, 0, 0.4, 0.8, 1.2],  bloom: [7, 0, 5, 10, 15] },
-      water:   { levels: [196, 200, 204, 208, 212], dose: [0.3, 0.1, 0, -0.1, -0.3],  bloom: [9, 4, 0, -4, -9] },
+      water:   { levels: [196, 200, 204, 208, 212], dose: [0.4, 0.2, 0.1, 0, -0.2],  bloom: [13, 8, 4, 0, -5] },
       contact: { levels: [180, 210, 240, 270, 300], dose: [0.2, 0.2, 0.1, 0, -0.1],   bloom: [20, 20, 10, 0, -10] }
     };
+    const SENS_ANCHOR = { grind: 8, water: 208, contact: 270 };
     function getSens(){
       const out = JSON.parse(JSON.stringify(SENS_DEFAULT));
       let s; try { s = JSON.parse(localStorage.getItem(SENS_KEY)); } catch (e) {}
@@ -1513,6 +1520,16 @@
           out[k].bloom = r.bloom.map(v => Math.round(v));
         }
       });
+      // Re-zero every row at its anchor level (grind 8 / temp 208 / contact 4:30) so
+      // the standard-recipe column always reads 0. Lossless: the math only ever uses
+      // differences, so shifting a whole row by a constant changes nothing.
+      ['grind','water','contact'].forEach(k => {
+        const ai = out[k].levels.indexOf(SENS_ANCHOR[k]);
+        if (ai < 0) return;
+        const ad = out[k].dose[ai], ab = out[k].bloom[ai];
+        if (ad) out[k].dose  = out[k].dose.map(v => Math.round((v - ad) * 10) / 10);
+        if (ab) out[k].bloom = out[k].bloom.map(v => Math.round(v - ab));
+      });
       return out;
     }
     function sensAt(tbl, level){
@@ -1539,10 +1556,12 @@
     }
     // Tools table UI — built dynamically (3 vars × 5 levels × Δdose/Δbloom cells),
     // each cell a normal tap-to-edit field wired into FX.
+    // Temp + contact display REVERSED (hot→cold, long→short) so every table's zero
+    // anchor lands in the 2nd column: 8 | 208° | 4:30 line up down the screen.
     const SENS_VARS = [
       { key: 'grind',   name: 'Grind',   fmt: v => String(v) },
-      { key: 'water',   name: 'Temp',    fmt: v => v + '°' },
-      { key: 'contact', name: 'Contact', fmt: v => fmtMS(v) }
+      { key: 'water',   name: 'Temp',    fmt: v => v + '°', rev: true },
+      { key: 'contact', name: 'Contact', fmt: v => fmtMS(v), rev: true }
     ];
     const SENS_FX = {
       d: { label: 'Δ dose',  step: 0.1, dec: 1, trim: 1, min: -9,  max: 9,  unit: 'g',  presets: [-0.4, -0.2, 0.2, 0.4], type: 'num' },
@@ -1570,12 +1589,14 @@
       FX['sens-tds'] = { label: 'TDS aim', step: 0.01, dec: 2, min: 1, max: 3, presets: [1.70, 1.71, 1.72, 1.73, 1.74], type: 'num' };
       document.getElementById('sens-tds').value = String(s.tdsTarget);
       SENS_VARS.forEach(v => {
+        const idx = s[v.key].levels.map((_, i) => i);
+        if (v.rev) idx.reverse();          // display order only — storage stays ascending
         const g = document.createElement('div'); g.className = 'sens-grid';
         let html = '<div class="sens-cell sens-var">' + v.name + '</div>' +
-          s[v.key].levels.map(l => '<div class="sens-cell sens-lvl">' + v.fmt(l) + '</div>').join('');
+          idx.map(i => '<div class="sens-cell sens-lvl">' + v.fmt(s[v.key].levels[i]) + '</div>').join('');
         [['d', 'Δ dose'], ['b', 'Δ bloom']].forEach(([suf, nm]) => {
           html += '<div class="sens-cell sens-name">' + nm + '</div>' +
-            s[v.key].levels.map((l, i) => {
+            idx.map(i => {
               const id = 'sens-' + v.key + '-' + i + '-' + suf;
               return '<div class="sens-cell"><button type="button" class="field" data-f="' + id + '"></button><input type="hidden" id="' + id + '"></div>';
             }).join('');
@@ -1587,12 +1608,14 @@
           FX[di] = SENS_FX.d; FX[bi] = SENS_FX.b;
           document.getElementById(di).value = String(s[v.key].dose[i]);
           document.getElementById(bi).value = String(s[v.key].bloom[i]);
-          document.getElementById(di).addEventListener('change', () => { persistSens(); renderSensField(di); });
-          document.getElementById(bi).addEventListener('change', () => { persistSens(); renderSensField(bi); });
+          // Editing a marginal re-suggests the live cup's dose/bloom immediately —
+          // the brew screen's ideal numbers track the table in real time.
+          document.getElementById(di).addEventListener('change', () => { persistSens(); renderSensField(di); autoSuggestDoseBloom(); });
+          document.getElementById(bi).addEventListener('change', () => { persistSens(); renderSensField(bi); autoSuggestDoseBloom(); });
           renderSensField(di); renderSensField(bi);
         });
       });
-      document.getElementById('sens-tds').addEventListener('change', persistSens);
+      document.getElementById('sens-tds').addEventListener('change', () => { persistSens(); autoSuggestDoseBloom(); });
       renderField('sens-tds');
     }
     buildSensTables();
@@ -1884,7 +1907,14 @@
     function clearDraft(){ try { localStorage.removeItem(DRAFT_KEY); } catch (e) {} }
     function loadDraft(){
       let d; try { d = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch (e) {}
-      if (d) { applyDraftObject(d); return; }
+      if (d) {
+        applyDraftObject(d);
+        // A stopped-but-unsaved cup can't be saved after a relaunch (the draft has
+        // no elapsed, so the button reads "start") — don't present its phantom
+        // Time Δ: the timer opens in the reset "Ready" state.
+        timeDisplay.value = '';
+        return;
+      }
       // No unsaved draft (e.g. a clean app launch — TFD fully closes/reopens to
       // recover sound). Rather than sit on the bare default recipe with no coffee,
       // seed a fresh cup from the MOST RECENT brew: its coffee is right ~98% of the
@@ -2391,7 +2421,7 @@
         if (ma.bean !== mb.bean)
           return recency[mb.bean].localeCompare(recency[ma.bean]) || ma.bean.localeCompare(mb.bean);
         if (ma.rating !== mb.rating) return mb.rating - ma.rating;
-        if (ma.delta !== mb.delta) return ma.delta < mb.delta ? -1 : 1;
+        if (ma.delta !== mb.delta) return ma.delta.localeCompare(mb.delta, undefined, { numeric: true });  // G7 before G10
         return b.id - a.id;
       });
       list.innerHTML = '';
@@ -2401,19 +2431,15 @@
         return;
       }
 
-      // One bean-name section header per group, then one grid line per brew:
-      //   ★r dose blm tds Δdose Δblm deviations date
-      // Δdose = (1 − TDS/aim)·dose (dose needed to hit the aim), Δblm =
-      // lastPour/30 · TimeΔ (bloom needed to hit contact) — errors + rating amber.
-      // A heavier bottom border closes each rating group within a bean.
-      const sgn = (v, dec) => (v > 0 ? '+' : '') + v.toFixed(dec);
+      // One bean-name section header (+ column legend) per group, then one grid
+      // line per brew: ★r date dose blm tds dose* blm* deviations.
+      // dose*/blm* = the IDEAL values (impliedDose/impliedBloom — outcome-corrected,
+      // exactly what the bean's best-recipe cohort mean averages, so a cohort's
+      // dose* column averages to the bean's bestDose). Hot (amber) only past the
+      // noise floor. A heavier bottom border closes each rating group within a bean.
       const esc = s => String(s).replace(/</g, '&lt;');
       const stdAim = getSens().tdsTarget;
-
-      const legend = document.createElement('div');
-      legend.className = 'bh-legend bl-grid';
-      legend.innerHTML = '<span>★</span><span>dose</span><span>blm</span><span>tds</span><span>Δdose</span><span>Δblm</span><span class="bl-dev"></span><span></span>';
-      list.appendChild(legend);
+      const LEGEND = '<span>★</span><span></span><span>dose</span><span>blm</span><span>tds</span><span>dose*</span><span>blm*</span><span class="bl-dev"></span>';
 
       let lastBean = null, lastRating = null, lastLine = null;
       brews.forEach(r => {
@@ -2424,6 +2450,10 @@
           h.className = 'bh-sec';
           h.textContent = brewIdentity(r).brewName || 'Untitled brew';
           list.appendChild(h);
+          const legend = document.createElement('div');
+          legend.className = 'bh-legend bl-grid';
+          legend.innerHTML = LEGEND;
+          list.appendChild(legend);
         }
         if (lastLine && lastRating !== m.rating) lastLine.classList.add('tier-end');
         lastRating = m.rating;
@@ -2431,26 +2461,24 @@
         const doseN = parseFloat(r.dose), bloomN = parseFloat(r.bloom);
         const tdsN = parseFloat(r.tds), taN = parseFloat(r.timeAdj);
         const aim = parseFloat(r.tdsAim) > 0 ? parseFloat(r.tdsAim) : stdAim;
-        // Errors go amber ("hot") only past the noise floor: |TDS−aim| > .02 for
-        // Δdose, |Δblm| > 5 ml — in-noise misses stay quiet grey.
-        const dRaw = (!isNaN(tdsN) && tdsN > 0 && !isNaN(doseN)) ? (1 - tdsN / aim) * doseN : null;
-        const bRaw = (!isNaN(taN) && !isNaN(bloomN)) ? lastPourOf(r) / 30 * taN : null;
-        const dErr = dRaw == null ? '' : sgn(dRaw, 1);
-        const bErr = bRaw == null ? '' : sgn(bRaw, 0);
-        const dHot = dRaw != null && Math.abs(tdsN - aim) > 0.02;
-        const bHot = bRaw != null && Math.abs(bRaw) > 5;
+        // Ideal values; hot (amber) only past the noise floor: |TDS−aim| > .02 for
+        // dose*, |blm*−bloom| > 5 ml — in-noise misses stay quiet.
+        const dStar = impliedDose(r);
+        const bStar = impliedBloom(r);
+        const dHot = dStar != null && !isNaN(tdsN) && tdsN > 0 && Math.abs(tdsN - aim) > 0.02;
+        const bHot = bStar != null && !isNaN(bloomN) && Math.abs(bStar - bloomN) > 5;
         const d = new Date(r.savedAt);
         const line = document.createElement('div');
         line.className = 'brew-line bl-grid' + (r.locked ? ' locked' : '');
         line.innerHTML =
-          '<span class="bl-r">' + esc(brewR ? '★' + brewR : '★–') + '</span>' +
-          '<span>' + (isNaN(doseN) ? '–' : esc(doseN.toFixed(1))) + '</span>' +
-          '<span>' + (isNaN(bloomN) ? '–' : esc(Math.round(bloomN))) + '</span>' +
-          '<span>' + (isNaN(tdsN) ? '–' : esc(tdsN.toFixed(2))) + '</span>' +
-          '<span class="bl-err' + (dHot ? ' hot' : '') + '">' + esc(dErr) + '</span>' +
-          '<span class="bl-err' + (bHot ? ' hot' : '') + '">' + esc(bErr) + '</span>' +
-          '<span class="bl-dev">' + esc(m.many ? 'Many' : m.delta) + '</span>' +
-          '<span class="bl-date">' + (isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate()) + '</span>';
+          '<span class="bl-r' + (m.rating >= 4 ? ' hot' : '') + '">' + esc(brewR ? '★' + brewR : '★–') + '</span>' +
+          '<span class="bl-date">' + (isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate()) + '</span>' +
+          '<span class="bl-sm">' + (isNaN(doseN) ? '–' : esc(doseN.toFixed(1))) + '</span>' +
+          '<span class="bl-sm">' + (isNaN(bloomN) ? '–' : esc(Math.round(bloomN))) + '</span>' +
+          '<span class="bl-sm">' + (isNaN(tdsN) ? '–' : esc(tdsN.toFixed(2))) + '</span>' +
+          '<span class="bl-star' + (dHot ? ' hot' : '') + '">' + (dStar == null ? '–' : esc(dStar.toFixed(1))) + '</span>' +
+          '<span class="bl-star' + (bHot ? ' hot' : '') + '">' + (bStar == null ? '–' : esc(String(Math.round(bStar)))) + '</span>' +
+          '<span class="bl-dev bl-sm">' + esc(m.many ? 'Many' : m.delta) + '</span>';
         // Tap → Brew / Edit / Delete sheet (details live on Edit)
         line.addEventListener('click', () => openBrewActions(r));
         list.appendChild(line);
@@ -2606,6 +2634,13 @@
       recalcSchedule();
       renderAllFields();
       updateRecipeHighlights();   // recipe just loaded (direct .value =, no change events) → re-flag
+      // Dose & bloom are BEAN characteristics, not recipe choices: every fresh cup
+      // takes its flavor variables from the source (bean best / past brew) but its
+      // dose & bloom from the bean's EMPIRICAL best (Loop-1 cohort mean) + the
+      // Loop-2 sensitivity corrections for any flavor deltas — a past brew's raw
+      // dose/bloom never overrides the bean's current estimate. (No live bean →
+      // no-op, the snapshot values stand.)
+      autoSuggestDoseBloom();
 
       saveDraft();
       closeBrewActions(); closeBeanActions(); closeHistory();

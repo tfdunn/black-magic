@@ -288,7 +288,50 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.4 (July 2026) — ★ AESTHETIC-CONSISTENCY PASS: amber = signal, everywhere (latest)
+## v10.5 (July 2026) — dose/bloom are BEAN characteristics + history shows ideals (latest)
+Conceptual anchor from TFD: **grind/temp/contact/agitate/TDS-aim are the recipe;
+dose & bloom are bean characteristics** — two beans can share a recipe with very
+different doses/blooms. The app now behaves that way end-to-end:
+- **Every fresh cup seeds dose & bloom EMPIRICALLY**: `startBrewWith` ends with
+  `autoSuggestDoseBloom()`, so clean launches, Brew-from-history, and
+  Brew-from-bean all take flavor variables from the source but dose/bloom = the
+  bean's best (Loop-1 cohort mean) + Loop-2 sensitivity corrections. (Previously a
+  clean launch copied the recent brew's RAW dose/bloom, bypassing the cohort
+  average.) No live bean → snapshot values stand. Manual touched-flags still win.
+- **Marginals are live:** editing any sensitivity Δ cell (or the TDS aim) in Tools
+  re-runs `autoSuggestDoseBloom()` — the brew screen's suggested dose/bloom track
+  the table in real time.
+- **Brew History shows IDEAL values, not errors:** the Δdose/Δblm columns became
+  **dose\* / blm\*** = `impliedDose`/`impliedBloom` (dose·aim/TDS; bloom +
+  lastPour/30·TimeΔ) — the same outcome-corrected numbers the cohort mean
+  averages, so a cohort's dose\* column averages to the bean's bestDose. Layout:
+  `★r · date · dose · blm · tds · dose* · blm* · deviations` — **date sits right
+  after the rating** (shows the within-group sort of 4/5★ runs); raw inputs +
+  deviation tokens render small/dim (10px tertiary, `.bl-sm`); dose\*/blm\* are
+  the heavy values (13px/600, `.bl-star`), amber only past the noise floor
+  (|TDS−aim| > .02, |blm\*−bloom| > 5 ml); **rating amber only for ★4/★5**
+  (`.bl-r.hot`); the column legend repeats under every bean header; the
+  deviation-signature sort is numeric-aware (G7 before G10).
+- **Sens tables re-anchored & mirrored:** zero anchors = the standard recipe
+  (grind 8 / **temp 208** / contact 4:30); `getSens()` re-zeros every row at its
+  anchor (lossless — only differences are used, so a stored 204-anchored temp
+  row shifts to 208=0 automatically; `SENS_ANCHOR`). **Temp + contact display
+  REVERSED** (212→196, 5:00→3:00; `SENS_VARS[].rev`, display order only — storage
+  stays ascending, `sensAt` unchanged) so every table's zero column is the 2nd:
+  8 | 208° | 4:30 align down the screen. Interpolation reminder: `sensAt` is
+  piecewise-linear between levels, clamped at the ends (grind 8.5 = midpoint of
+  Δ(8),Δ(9); temp 203 = Δ(200) + ¾·(Δ(204)−Δ(200))).
+- **Relaunch = reset:** a stopped-but-unsaved cup can't be saved after relaunch
+  (draft has no `elapsed`), so `loadDraft` now clears `time-val` — the timer opens
+  in the "Ready" state instead of showing a phantom Time Δ (TDS/Brew★ still
+  restore). In-session edit side-trips (`restoreBrewState`) are unaffected.
+- **Small:** TDS Aim editor presets → 1.68/1.70/1.72/1.74/1.76 (brew + bean form);
+  the def-title TDS aim value enlarged to 14px (reads editable).
+- **Gotcha fixed while building: never write `dose*` immediately followed by `/`
+  inside a CSS comment** — the `*/` terminates the comment early and silently
+  kills every rule to the next `}` (write "dose\* and blm\*"). sw.js CACHE v51.
+
+## v10.4 (July 2026) — ★ AESTHETIC-CONSISTENCY PASS: amber = signal, everywhere
 The brew screen's grey-until-changed rule now governs the whole app; "amber =
 merely editable" is retired (everything is tap-to-edit — the affordance carries
 nothing). Solid amber **fill** stays the deliberate exception: it means "commits a
