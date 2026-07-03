@@ -288,7 +288,54 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.3 (July 2026) — TDS Aim* grey-until-changed + edit-mode fit (latest)
+## v10.4 (July 2026) — ★ AESTHETIC-CONSISTENCY PASS: amber = signal, everywhere (latest)
+The brew screen's grey-until-changed rule now governs the whole app; "amber =
+merely editable" is retired (everything is tap-to-edit — the affordance carries
+nothing). Solid amber **fill** stays the deliberate exception: it means "commits a
+form" (save/update bean, edit-save, Done, selected chips) — the round start button
+stays grey by design.
+- **Amber diet:** the Tools default recipe renders quiet grey (it IS the baseline —
+  nothing to deviate from); sensitivity Δ cells are grey at 0, amber only when a
+  non-zero correction rides (`renderSensField` toggles `.nz`); the bean form's Best
+  recipe lights amber only where it DEVIATES from the Tools default
+  (`updateBestHighlights`, called from `setBeanRecipeFields` + best-* changes) — so
+  "what makes this bean special" pops. Verdicts (TDS Aim / Bean★ / Bean notes) stay amber.
+- **Brew History noise floor:** Δdose/Δblm go amber (`.bl-err.hot`) only past
+  **|TDS − aim| > 0.02** (dose) / **|Δblm| > 5 ml** (bloom); in-noise errors read grey.
+  (Formulae unchanged: Δdose = (1 − TDS/aim)·dose, Δblm = lastPour/30 · TimeΔ.)
+  **>2 deviation tokens display as "Many"** (the full signature still drives the sort).
+  Columns re-spaced to the real data widths with even 10px gutters; the panel now
+  matches the screen surface (**#0B0B0C**, header border gone — it presents as a
+  sibling screen, not a sheet); legend tracking 0.07em.
+- **Grind sensitivities in whole steps 7–11** (was 7–9 by .5). Defaults keep 7/8/9
+  from the logbook and extend the 8→9 slope (dose 0.8/1.2 g, bloom 10/15 ml at
+  10/11). `getSens()` **re-samples stored tables from an older level layout**:
+  user-edited Δs survive via interpolation inside the old range; levels outside it
+  take the new defaults (no extrapolation off a noisy end cell). Same-levels stores
+  load as before; a level change can no longer corrupt saved Δs.
+- **Tools layout:** EXPORT/BACKUP/RESTORE are compact dark **pills** (`.tools-data-btn`);
+  the TDS aim rides inside the section title — **"DEFAULT RECIPE (TDS AIM = 1.72)"**,
+  value tappable (`.def-title .field`, same `sens-tds` store, editor label "TDS aim");
+  the Sound row moved to the **bottom** (below the sensitivities). Sens rows now share
+  a true **baseline** (a zero-width-space `::before` strut at the 14 px value size in
+  every cell — labels and values no longer sit on different centers); header sizes
+  unified (var 11/700, levels 11/600, row labels 10/600 at 0.07em).
+- **Bug fixes:** editing a past brew rendered the locked Bean★ cell as a *lighter
+  box* — `.locked-field`'s opacity made the opaque cell bg translucent over the
+  hairline grid backdrop; `.bottom-stat.locked-field` now stays opaque and dims only
+  its children. Edit mode's caption shows the **record's final time** (contact + Δ,
+  e.g. "4:40") instead of the live-timer word "Ready". Removed a dead
+  `visibilitychange` → `updateClock()` handler (v3 deleted the clock; the handler
+  threw a silent ReferenceError on every app foregrounding).
+- **Type unification:** bean-form / text-field / section labels now use the 10 px /
+  600 / 0.07em token (were 9 px / 0.4px absolute); roast-date input 16 px (matched
+  its 16 px siblings); best/def grid values 18 px 0.88-white (match the brew grid).
+- **Prune:** the unreachable 'browse' mode of the bean list (`renderBeanHistory` →
+  `renderBeanList`) + all `.bc-detail/.bc-actions/.bc-delete-link` CSS, `.time-cell`
+  family, `.brew-name`, `.history-export/.hh-actions`, `.save-row.two`, `.header
+  .date`, and their dark-theme references. sw.js CACHE v50.
+
+## v10.3 (July 2026) — TDS Aim* grey-until-changed + edit-mode fit
 - **TDS Aim\* is light grey while it equals the bean's stabilized aim, amber once
   moved off it** — its results-row button dropped the always-amber class; the
   existing `.diff` pass (`updateRecipeHighlights`, tds-aim already in
