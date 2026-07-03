@@ -288,7 +288,35 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.5 (July 2026) — dose/bloom are BEAN characteristics + history shows ideals (latest)
+## v10.6 (July 2026) — deviation baseline = the DEFAULT recipe + calmer Tools/bean form (latest)
+- **History deviation tokens now compare to the TOOLS DEFAULT recipe, not the
+  bean's best** (`compactDeltas(r, def)`). The token describes the cup's recipe vs
+  the standard, so it never rewrites itself when the bean's best evolves: a bean
+  dialed in at T212 shows T212 on every such cup forever (and 212 renders amber on
+  its Bean form) — the 6×5★-at-212 scenario reads exactly as intended. **A
+  non-standard TDS aim is now also a token**, plain number format ("1.68"); a
+  missing tdsAim = the Tools target → no token (pre-v10.1 brews need no backfill).
+- **Bean form:** best-recipe **dose & bloom NEVER flag amber** (bean
+  characteristics — differing from the default is expected); the recipe choices
+  still flag vs the default. **TDS aim is grey while it equals the Tools target,
+  amber otherwise** (`.vr-aim-field` lost the always-amber class; handled in
+  `updateBestHighlights`), and matched to recipe-value size (18px).
+- **Tools:** ALL amber removed from the marginal-sensitivity cells (the v10.5
+  grey-at-0/amber-non-zero `.nz` rule retired — sensitivities are slow-moving
+  calibration data, not signals) and from the volume slider (`accent-color`
+  grey); "Sound on" is the row's only amber.
+- **Brew History spacing:** gutters 10→12px, slightly wider numeric columns, 8px
+  extra padding before the deviation column; the legend now labels **date** and
+  **recipe**.
+- **Bug fixed — brew-from-bean collapsed the notes to base size (Brew 2 / Bean 4
+  instead of 4/5):** the `.screen` transition animated `display` with
+  allow-discrete, so for 260ms after a bean→brew switch BOTH screens stayed laid
+  out; `growNotes()` measured during that window, saw zero slack, and granted no
+  extra lines. The leaving screen now hides instantly (`display` dropped from the
+  transition; the entry fade via @starting-style is unchanged). Brew-from-history
+  never hid the brew screen, which is why that path worked. sw.js CACHE v52.
+
+## v10.5 (July 2026) — dose/bloom are BEAN characteristics + history shows ideals
 Conceptual anchor from TFD: **grind/temp/contact/agitate/TDS-aim are the recipe;
 dose & bloom are bean characteristics** — two beans can share a recipe with very
 different doses/blooms. The app now behaves that way end-to-end:

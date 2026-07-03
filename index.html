@@ -550,12 +550,13 @@
        shows the within-group sort of the 4/5★ runs. */
     .bl-grid {
       display: grid;
-      grid-template-columns: 28px 26px 24px 20px 24px 32px 26px 1fr;
-      column-gap: 10px;
+      grid-template-columns: 28px 28px 26px 22px 26px 34px 28px 1fr;
+      column-gap: 12px;
       align-items: baseline;
     }
     .bl-grid > span { text-align: right; }          /* numeric columns right-align */
-    .bl-grid > .bl-dev { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .bl-grid > .bl-dev { text-align: left; padding-left: 8px;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bh-legend {
       /* repeated under every bean header */
       padding: 0 20px 2px;
@@ -627,10 +628,13 @@
 
     /* ── Screens ── */
     .screen[hidden] { display: none; }
-    /* Gentle cross-fade when a screen first renders (brew<->bean swap, launch).
-       Opacity only — transform would make this a containing block for the
-       fixed bottom sheets. */
-    .screen { opacity: 1; transition: opacity .26s ease, display .26s allow-discrete; }
+    /* Gentle fade-in when a screen first renders (brew<->bean swap, launch).
+       Opacity only — transform would make this a containing block for the fixed
+       bottom sheets. The LEAVING screen must hide INSTANTLY (no `display` in the
+       transition): animating display with allow-discrete kept both screens laid
+       out for the whole fade, which broke growNotes()' slack measurement right
+       after a bean→brew switch (it saw no free height → no extra note lines). */
+    .screen { opacity: 1; transition: opacity .26s ease; }
     @starting-style { .screen:not([hidden]) { opacity: 0; } }
 
     /* The brew screen fills the app height and spreads its blocks down the full page
@@ -704,7 +708,11 @@
     .verdict-rating .field { background: none; border: none; min-width: 44px; padding: 2px 0; }
     .verdict-rating .field .fnum, .verdict-rating .field .dash { font-size: 28px; }
     .verdict-rating .vr-sub { display: block; margin-top: 10px; }
-    .verdict-rating .vr-aim-field .fnum, .verdict-rating .vr-aim-field .dash { font-size: 17px; }
+    /* TDS aim: recipe-value size, grey while it matches the Tools target — amber
+       only when this bean runs at a non-standard strength */
+    .verdict-rating .vr-aim-field .fnum, .verdict-rating .vr-aim-field .dash {
+      font-size: 18px; color: rgba(235,235,245,0.88); }
+    .verdict-rating .vr-aim-field.diff .fnum, .verdict-rating .vr-aim-field.diff .dash { color: var(--accent); }
     .verdict-note-wrap { flex: 1; text-align: left; }
     .verdict-note-wrap .label { text-align: left; }
     .verdict-note { width: 100%; font-size: 15px; font-weight: 500; color: var(--accent);
@@ -754,9 +762,9 @@
     .sens-name { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tertiary); }
     .sens-lvl { font-size: 11px; font-weight: 600; color: var(--secondary); }
     .sens-grid .field { width: 100%; }
-    /* Δ cells: grey at 0, amber when a real correction rides (non-zero) */
+    /* Δ cells: quiet grey, no amber — sensitivities are slow-moving calibration
+       data (refined rarely, then stable for months), not per-cup signals. */
     .sens-grid .field .fnum, .sens-grid .field .dash { color: rgba(235,235,245,0.88); font-size: 14px; }
-    .sens-grid .field.nz .fnum { color: var(--accent); }
 
     .tools-body { padding-top: 6px; overflow-y: auto; overflow-x: hidden;
       max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
@@ -771,7 +779,8 @@
       font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
       white-space: nowrap; padding: 9px 0; cursor: pointer; }
     .tools-sound-toggle.off { color: var(--tertiary); }
-    .tools-sound-vol { flex: 1; min-width: 0; margin: 0 4px; accent-color: var(--accent); height: 24px; }
+    /* Grey slider — the amber state signal is the "Sound on" toggle alone */
+    .tools-sound-vol { flex: 1; min-width: 0; margin: 0 4px; accent-color: rgba(235,235,245,0.45); height: 24px; }
     .tools-sound-vol:disabled { opacity: 0.3; }
     .tools-sound-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
       color: var(--secondary); width: 4ch; text-align: right; flex: none; }
@@ -1189,7 +1198,7 @@
     <div class="verdict-row">
       <div class="verdict-rating">
         <span class="label">TDS Aim</span>
-        <button type="button" class="field amber vr-aim-field" data-f="best-tds-aim"></button>
+        <button type="button" class="field vr-aim-field" data-f="best-tds-aim"></button>
         <input type="hidden" id="best-tds-aim">
         <span class="label vr-sub">Bean ★</span>
         <button type="button" class="field amber" data-f="bf-rating"></button>
@@ -1576,13 +1585,6 @@
       }));
       localStorage.setItem(SENS_KEY, JSON.stringify(s));
     }
-    // Sens Δ cells are grey at 0, amber when a real correction rides (non-zero)
-    function renderSensField(id){
-      renderField(id);
-      const btn = document.querySelector('.field[data-f="' + id + '"]');
-      const v = parseFloat(document.getElementById(id).value);
-      if (btn) btn.classList.toggle('nz', !isNaN(v) && v !== 0);
-    }
     function buildSensTables(){
       const wrap = document.getElementById('sens-tables');
       const s = getSens();
@@ -1610,9 +1612,9 @@
           document.getElementById(bi).value = String(s[v.key].bloom[i]);
           // Editing a marginal re-suggests the live cup's dose/bloom immediately —
           // the brew screen's ideal numbers track the table in real time.
-          document.getElementById(di).addEventListener('change', () => { persistSens(); renderSensField(di); autoSuggestDoseBloom(); });
-          document.getElementById(bi).addEventListener('change', () => { persistSens(); renderSensField(bi); autoSuggestDoseBloom(); });
-          renderSensField(di); renderSensField(bi);
+          document.getElementById(di).addEventListener('change', () => { persistSens(); autoSuggestDoseBloom(); });
+          document.getElementById(bi).addEventListener('change', () => { persistSens(); autoSuggestDoseBloom(); });
+          renderField(di); renderField(bi);
         });
       });
       document.getElementById('sens-tds').addEventListener('change', () => { persistSens(); autoSuggestDoseBloom(); });
@@ -1795,22 +1797,30 @@
       });
       updateBestHighlights();
     }
-    // Bean form: best-recipe values light amber only where they deviate from the
-    // Tools default — "what makes this bean special" at a glance (same grey-until-
-    // changed rule as the brew grid; the default recipe is the baseline).
+    // Bean form: best-recipe RECIPE CHOICES (grind/agitate/contact/water/pourΔ/
+    // target) light amber only where they deviate from the Tools default — "what
+    // makes this bean special". Dose & bloom NEVER flag: they're bean
+    // characteristics, so differing from the default is expected, not a signal.
+    // TDS aim (verdict block) follows the same rule vs the Tools target.
     const BEST_GRID_FIELDS = ['best-dose','best-grind','best-agitate','best-contact',
       'best-water','best-bloom','best-decay','best-target'];
     function updateBestHighlights(){
       const def = getDefaultRecipe();
       BEST_GRID_FIELDS.forEach(bk => {
+        const btn = document.querySelector('.best-grid .field[data-f="' + bk + '"]');
+        if (!btn) return;
+        if (bk === 'best-dose' || bk === 'best-bloom') { btn.classList.remove('diff'); return; }
         const f = bk === 'best-target' ? 'brew-target' : bk.slice(5);
         const cur = document.getElementById(bk).value, dv = def[recKey(f)];
         const differs = cur !== '' && cur != null && dv != null && dv !== '' && parseFloat(cur) !== parseFloat(dv);
-        const btn = document.querySelector('.best-grid .field[data-f="' + bk + '"]');
-        if (btn) btn.classList.toggle('diff', differs);
+        btn.classList.toggle('diff', differs);
       });
+      const aimBtn = document.querySelector('.field[data-f="best-tds-aim"]');
+      const av = document.getElementById('best-tds-aim').value;
+      if (aimBtn) aimBtn.classList.toggle('diff', av !== '' && parseFloat(av) !== getSens().tdsTarget);
     }
     BEST_GRID_FIELDS.forEach(bk => document.getElementById(bk).addEventListener('change', updateBestHighlights));
+    document.getElementById('best-tds-aim').addEventListener('change', updateBestHighlights);
 
     // ── Tap-to-edit sheet ────────────────────────────────────────
     function repeatHold(btn, fn){
@@ -2374,22 +2384,26 @@
       render(0);
     }
 
-    // Compact deviation tokens vs the brew's bean's best recipe — the "what was
-    // changed" tail of a history line: G9 (grind) T204 (temp) 3.5' (contact, min)
-    // A2 (agitate) P85 (pour Δ) V1050 (target) @1.60 (TDS aim).
-    function compactDeltas(r) {
-      const b = liveBean(r.beanId);
-      if (!b) return [];
+    // Compact deviation tokens vs the TOOLS DEFAULT recipe (the standard) — the
+    // "which recipe was this cup" tail of a history line: G9 (grind) T204 (temp)
+    // 3.5' (contact, min) A2 (agitate) P85 (pour Δ) V1050 (target) 1.68 (TDS aim).
+    // Baseline is deliberately the DEFAULT, not the bean's best: a bean dialed in
+    // at T212 keeps showing T212 on every cup (and 212 renders amber on its Bean
+    // form) — the token describes the cup's recipe, which never rewrites itself
+    // when the bean's best evolves. Missing tdsAim = the Tools target (no token).
+    function compactDeltas(r, def) {
+      def = def || getDefaultRecipe();
       const diff = (a, c) => a != null && a !== '' && c != null && c !== '' && parseFloat(a) !== parseFloat(c);
       const mins = s => (+(parseInt(s) / 60).toFixed(1)).toString().replace(/\.0$/, '') + "'";
       const out = [];
-      if (diff(r.grind, b.bestGrind))       out.push('G' + r.grind);
-      if (diff(r.water, b.bestWater))       out.push('T' + r.water);
-      if (diff(r.contact, b.bestContact))   out.push(mins(r.contact));
-      if (diff(r.agitate, b.bestAgitate))   out.push('A' + r.agitate);
-      if (diff(r.decay, b.bestDecay))       out.push('P' + r.decay);
-      if (diff(r.brewTarget, b.bestTarget)) out.push('V' + r.brewTarget);
-      if (diff(r.tdsAim, b.tdsAim))         out.push('@' + r.tdsAim);
+      if (diff(r.grind, def.grind))           out.push('G' + r.grind);
+      if (diff(r.water, def.water))           out.push('T' + r.water);
+      if (diff(r.contact, def.contact))       out.push(mins(r.contact));
+      if (diff(r.agitate, def.agitate))       out.push('A' + r.agitate);
+      if (diff(r.decay, def.decay))           out.push('P' + r.decay);
+      if (diff(r.brewTarget, def.brewTarget)) out.push('V' + r.brewTarget);
+      const aim = parseFloat(r.tdsAim), std = parseFloat(def.tdsAim);
+      if (aim > 0 && aim !== std)             out.push(aim.toFixed(2));
       return out;
     }
 
@@ -2407,8 +2421,9 @@
         const k = beanKey(r);
         if (!recency[k] || (r.savedAt || '') > recency[k]) recency[k] = r.savedAt || '';
       });
+      const defRec = getDefaultRecipe();     // deviation baseline, computed once
       const meta = new Map(brews.map(r => {
-        const deltas = compactDeltas(r);
+        const deltas = compactDeltas(r, defRec);
         return [r, {
           bean: beanKey(r),
           rating: parseInt(r.brewRating || r.rating) || 0,
@@ -2439,7 +2454,7 @@
       // noise floor. A heavier bottom border closes each rating group within a bean.
       const esc = s => String(s).replace(/</g, '&lt;');
       const stdAim = getSens().tdsTarget;
-      const LEGEND = '<span>★</span><span></span><span>dose</span><span>blm</span><span>tds</span><span>dose*</span><span>blm*</span><span class="bl-dev"></span>';
+      const LEGEND = '<span>★</span><span>date</span><span>dose</span><span>blm</span><span>tds</span><span>dose*</span><span>blm*</span><span class="bl-dev">recipe</span>';
 
       let lastBean = null, lastRating = null, lastLine = null;
       brews.forEach(r => {
