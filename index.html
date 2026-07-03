@@ -73,22 +73,6 @@
       line-height: 1.1;
     }
 
-    .header .date {
-      font-size: 12.5px;
-      color: var(--secondary);
-      margin-top: 4px;
-      letter-spacing: 0.1px;
-    }
-
-    .brew-name {
-      font-size: 15px;
-      font-weight: 500;
-      color: #000;
-      text-align: center;
-      padding: 10px 0 8px;
-      border-bottom: 1px solid var(--hairline);
-    }
-
     /* ── Stats Grid ── */
     .stats-grid {
       display: grid;
@@ -223,7 +207,7 @@
     #timer-svg #t-hand       { stroke: var(--accent); stroke-width: 3; stroke-linecap: round; }
     #timer-svg #t-handdot    { fill: var(--accent); }
 
-    /* Reset (label + ↺) — amber, half-way from centre to the south edge, stopped only */
+    /* Reset ↺ — light grey, aligned with the round save button, stopped only */
     .dial-reset {
       /* Centre sits 53px above the dial's bottom edge — the same offset as the
          round save button's centre (rail padding-bottom 6px + button half 47px),
@@ -423,39 +407,6 @@
     .ed-done { display: block; width: 100%; padding: 14px; border-radius: 999px; background: var(--ink);
       color: #fff; border: none; font-family: inherit; font-size: 16px; font-weight: 600; }
 
-    /* Time cell with +/- */
-    .time-cell {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-    }
-
-    .time-controls {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-top: 1px;
-    }
-
-    .time-controls .value {
-      font-size: 16px;
-      font-weight: 700;
-      color: #000;
-      min-width: 18px;
-      text-align: center;
-    }
-
-    .btn-adj {
-      background: none;
-      border: none;
-      font-size: 17px;
-      color: #000;
-      cursor: pointer;
-      line-height: 1;
-      padding: 0 2px;
-      font-family: inherit;
-    }
-
     /* ── Notes — two soft-labeled rows reading as one block ──
        Brew note (transient, per-brew) + Bean note (persists to the bean). */
     .notes-section {
@@ -520,17 +471,6 @@
     }
     .history-btn:active { opacity: 0.45; }
 
-    /* ── Editable brew name ── */
-    input.brew-name {
-      width: 100%;
-      background: transparent;
-      font-family: inherit;
-      outline: none;
-      border: none;
-      border-bottom: 1px solid #e8e8e8;
-    }
-    input.brew-name:focus { border-bottom-color: #bbb; }
-
     /* ── Save button ── */
     .save-row {
       display: flex;
@@ -581,8 +521,7 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 20px 20px 12px;
-      border-bottom: 1px solid #e8e8e8;
+      padding: 20px 20px 12px;   /* no border — matches the per-screen headers */
     }
     .history-head h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.3px; flex: 1; text-align: center; color: rgba(235,235,245,0.7); }
     /* Amber nav buttons in the Brew-History head (left "Brew" closes, right "Tools"). */
@@ -609,16 +548,18 @@
        Rating + error columns amber (Δdose = (1 − TDS/aim)·dose, Δblm =
        lastPour/30 · TimeΔ). */
     .bl-grid {
+      /* Column widths sized to the real data (★r · 24.4 · 104 · 1.71 · +0.1 · +11),
+         even 10px gutters; deviations (≤2 tokens, else "Many") + date share the right. */
       display: grid;
-      grid-template-columns: 26px 37px 28px 37px 42px 34px 1fr 30px;
-      column-gap: 6px;
+      grid-template-columns: 28px 34px 26px 34px 36px 28px 1fr 30px;
+      column-gap: 10px;
       align-items: baseline;
     }
     .bl-grid > span { text-align: right; }          /* numeric columns right-align */
     .bl-grid > .bl-dev { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bh-legend {
       padding: 10px 20px 0;
-      font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
       color: var(--tertiary);
     }
     .bh-sec {
@@ -636,7 +577,10 @@
     }
     .brew-line:active { background: #1C1C1E; }
     .brew-line.tier-end { border-bottom: 1px solid rgba(235,235,245,0.28); }  /* rating-group break */
-    .brew-line .bl-r, .brew-line .bl-err { color: var(--accent); }
+    .brew-line .bl-r { color: var(--accent); }
+    /* Error columns light amber only past the noise floor (|TDS−aim| > .02 for Δdose,
+       |Δblm| > 5 ml) — an in-noise error is data, not a signal demanding action. */
+    .brew-line .bl-err.hot { color: var(--accent); }
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
@@ -665,46 +609,6 @@
       margin-top: 4px;
       font-variant-numeric: tabular-nums;
     }
-    .brew-card .bc-stats .bc-delta { color: var(--accent); font-weight: 600; }
-    .brew-card .bc-detail { display: none; margin-top: 12px; }
-    .brew-card.expanded .bc-detail { display: block; }
-    .bc-detail .bc-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 5px 18px;
-    }
-    .bc-detail .bc-grid .row {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: #000;
-      font-variant-numeric: tabular-nums;
-    }
-    .bc-detail .bc-grid .row .k { color: #999; }
-    .bc-detail .bc-notes {
-      font-size: 12px;
-      color: #555;
-      margin-top: 10px;
-      font-style: italic;
-    }
-    .bc-detail .bc-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 14px;
-    }
-    .bc-actions button {
-      flex: 1;
-      font-size: 11px;
-      padding: 6px 0;
-      border: 1px solid #000;
-      border-radius: 16px;
-      background: none;
-      cursor: pointer;
-      font-family: inherit;
-      letter-spacing: 0.3px;
-    }
-    .bc-actions .bc-delete { border-color: #c00; color: #c00; }
-
     /* ── Screen nav toggle (top-left, mirrors history) ── */
     .nav-btn {
       position: absolute;
@@ -767,13 +671,13 @@
     .bean-grid .bean-cell:nth-child(2n) { border-right: none; }
     .bean-grid.one-col .bean-cell { border-right: none; border-top: none; }
     .bean-cell .label {
-      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
-      letter-spacing: 0.4px; display: block; margin-bottom: 4px;
+      font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.07em; display: block; margin-bottom: 4px;
     }
     .value-input::placeholder { color: #ccc; font-weight: 500; }
     /* Bean cells hold free text (e.g. "Anaerobic Natural") — size to fit the cell */
     .bean-cell .value-input { font-size: 16px; font-weight: 600; width: 100%; }
-    .bean-date { font-size: 14px; width: 100%; min-height: 20px; line-height: 20px; padding: 0; }
+    .bean-date { font-size: 16px; width: 100%; min-height: 20px; line-height: 20px; padding: 0; }
     .bean-cell .chips { display: flex; gap: 5px; justify-content: center; margin-top: 7px; }
     .bean-cell .chips button {
       font-family: inherit; font-size: 11px; font-weight: 600; color: #888;
@@ -790,8 +694,8 @@
     /* Bean★ + tasting note (the bean's current verdict) */
     .verdict-row { display: flex; align-items: flex-start; gap: 14px;
       padding: 9px 6px 10px; border-bottom: 1px solid #e8e8e8; }
-    .verdict-row .label { font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
-      letter-spacing: 0.4px; display: block; margin-bottom: 4px; }
+    .verdict-row .label { font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.07em; display: block; margin-bottom: 4px; }
     .verdict-rating { flex: 0 0 auto; text-align: center; }
     .verdict-rating .field { background: none; border: none; min-width: 44px; padding: 2px 0; }
     .verdict-rating .field .fnum, .verdict-rating .field .dash { font-size: 28px; }
@@ -815,39 +719,50 @@
       max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     /* Section header — matches the centered ROASTER NOTES label */
-    .bean-section-label { font-size: 9px; font-weight: 600; letter-spacing: 0.4px; text-transform: uppercase;
+    .bean-section-label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
       color: #888; text-align: center; margin: 12px 0 2px; }
     #bean-form-view .stats-grid { margin-bottom: 4px; }
-    /* Best-recipe values render amber (signals editable) + slightly smaller than Bean★ */
+    /* Quiet reference values, same rule as the brew grid: bright grey, amber only on
+       a real signal. The bean's best grid lights amber where it DEVIATES from the
+       Tools default ("what makes this bean special"); the Tools default IS the
+       baseline, so it never lights. */
     .best-grid .field .fnum, .best-grid .field .dash,
-    .def-grid  .field .fnum, .def-grid  .field .dash { color: var(--accent); font-size: 17px; }
+    .def-grid  .field .fnum, .def-grid  .field .dash { color: rgba(235,235,245,0.88); font-size: 18px; }
+    .best-grid .field.diff .fnum, .best-grid .field.diff .dash { color: var(--accent); }
 
     /* ── Tools screen ── */
     .bean-list-top { display: flex; justify-content: flex-end; padding: 2px 0 0; }
+    /* The TDS aim (the Tools target) rides inside the DEFAULT RECIPE section title,
+       tappable like any field. */
+    .def-title .field { display: inline-flex; width: auto; padding: 0 1px; vertical-align: baseline; }
+    .def-title .field .fnum, .def-title .field .dash {
+      font-size: 12px; font-weight: 600; letter-spacing: normal; color: var(--ink); }
     /* ── Marginal sensitivities table (Tools) — Δdose/Δbloom per flavor-variable level ── */
     .sens-label { margin-top: 26px; }
-    .sens-tds { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; }
-    .sens-tds > .label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary); white-space: nowrap; }
-    .sens-tds .field { width: auto; }
-    .sens-tds .field .fnum, .sens-tds .field .dash { color: var(--accent); font-size: 17px; }
     .sens-grid { display: grid; grid-template-columns: 64px repeat(5, 1fr); gap: 0.5px;
       background: var(--hairline); border-bottom: 0.5px solid var(--hairline); margin-top: 14px; }
-    .sens-cell { background: #fff; min-height: 32px; display: flex; align-items: center; justify-content: center; }
-    .sens-var { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--secondary); }
-    .sens-name { font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--tertiary); }
-    .sens-lvl { font-size: 12px; font-weight: 600; color: var(--secondary); }
-    .sens-grid .field { min-height: 32px; width: 100%; }
-    .sens-grid .field .fnum, .sens-grid .field .dash { color: var(--accent); font-size: 14px; }
+    /* Cells flex-align on a shared BASELINE: the ::before strut (zero-width space at
+       the value font size) gives every cell the same line metrics, so the small row
+       labels sit on the same baseline as the 14px values (they didn't when centered). */
+    .sens-cell { background: #fff; min-height: 32px; display: flex; align-items: baseline; justify-content: center; }
+    .sens-cell::before { content: '\200B'; font-size: 14px; line-height: 32px; }
+    .sens-var { font-size: 11px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary); }
+    .sens-name { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tertiary); }
+    .sens-lvl { font-size: 11px; font-weight: 600; color: var(--secondary); }
+    .sens-grid .field { width: 100%; }
+    /* Δ cells: grey at 0, amber when a real correction rides (non-zero) */
+    .sens-grid .field .fnum, .sens-grid .field .dash { color: rgba(235,235,245,0.88); font-size: 14px; }
+    .sens-grid .field.nz .fnum { color: var(--accent); }
 
     .tools-body { padding-top: 6px; overflow-y: auto; overflow-x: hidden;
       max-height: calc(100dvh - 64px); -webkit-overflow-scrolling: touch; }
     .tools-body .stats-grid { margin-bottom: 2px; }
-    .tools-data { display: flex; gap: 8px; margin: 4px 0 10px; }
-    .tools-data-btn { flex: 1; padding: 9px 4px; background: none; border: none; color: var(--ink);
-      font-family: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase;
-      letter-spacing: 0.09em; cursor: pointer; }
-    .tools-data-btn:active { color: var(--accent); }
-    .tools-sound { display: flex; align-items: center; gap: 12px; margin: 8px 0 2px; padding-right: 4px; }
+    .tools-data { display: flex; gap: 10px; margin: 6px 0 4px; }
+    .tools-data-btn { flex: 1; padding: 11px 4px; background: #1C1C1E; color: var(--ink);
+      border: 1px solid var(--hairline); border-radius: 999px; font-family: inherit;
+      font-size: 15px; font-weight: 600; letter-spacing: -0.2px; cursor: pointer; }
+    .tools-data-btn:active { background: rgba(235,235,245,0.09); }
+    .tools-sound { display: flex; align-items: center; gap: 12px; margin: 22px 0 8px; padding-right: 4px; }
     .tools-sound-toggle { background: none; border: none; font-family: inherit; font-size: 13px;
       font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase; color: var(--accent);
       white-space: nowrap; padding: 9px 0; cursor: pointer; }
@@ -878,8 +793,8 @@
 
     .text-field { padding: 11px 0 9px; border-bottom: 1px solid #e8e8e8; }
     .text-field .label {
-      font-size: 9px; font-weight: 600; color: #888; text-transform: uppercase;
-      letter-spacing: 0.4px; display: block; margin-bottom: 5px; text-align: center;
+      font-size: 10px; font-weight: 600; color: #888; text-transform: uppercase;
+      letter-spacing: 0.07em; display: block; margin-bottom: 5px; text-align: center;
     }
     .text-field input, .text-field textarea {
       width: 100%; border: none; outline: none; background: transparent;
@@ -908,8 +823,6 @@
     .bean-bar-chev { color: var(--tertiary); flex: none; }
     .bean-bar-roast { font-size: 11px; color: var(--tertiary); letter-spacing: 0.2px; }
 
-    /* ── Two-button save row (BEAN input) ── */
-    .save-row.two { gap: 10px; }
     .btn-save.secondary { background: #fff; color: #000; border: 1.5px solid var(--ink); }
     .btn-save.secondary:active { background: #f0f0f0; }
 
@@ -918,16 +831,11 @@
     .edit-actions[hidden] { display: none; }
     .edit-actions .btn-save { flex: 1; width: auto; min-width: 0; }
     .locked-field { opacity: 0.4; pointer-events: none; }
-
-    /* ── Bean-card actions: prominent "brew this", demoted delete ── */
-    .bc-actions .bc-brew { flex: 1; background: #000; color: #fff; border-color: #000; }
-    .bc-delete-link {
-      display: block; margin: 12px auto 0;
-      background: none; border: none;
-      font-size: 10px; color: #caa; cursor: pointer;
-      font-family: inherit; letter-spacing: 0.3px; text-decoration: underline;
-    }
-    .bc-delete-link:active { color: #c00; }
+    /* Grid cells have opaque backgrounds over the hairline backdrop — dimming the
+       whole cell turns its bg translucent (reads as a lighter box). Keep the cell
+       opaque; dim only its contents. */
+    .bottom-stat.locked-field { opacity: 1; }
+    .bottom-stat.locked-field > * { opacity: 0.4; }
 
     /* ── Custom autocomplete dropdown (replaces native <datalist>) ── */
     .ac { position: relative; width: 100%; }
@@ -944,15 +852,6 @@
       cursor: pointer; white-space: nowrap;
     }
     .ac-item.active, .ac-item:hover { background: #f0f0f0; }
-
-    /* ── History panel export action ── */
-    .hh-actions { display: flex; align-items: center; gap: 14px; }
-    .history-export {
-      background: none; border: none; font-family: inherit;
-      font-size: 12px; font-weight: 600; letter-spacing: 0.6px;
-      color: #888; cursor: pointer; text-transform: uppercase;
-    }
-    .history-export:active { color: #000; }
 
     /* ───────────────────────── Dark theme (default) ─────────────────────────
        "Black Magic" is a true-black app — dark is the only theme (applies
@@ -976,27 +875,29 @@
          read as dividers (like an iOS grouped list on black). */
       .stats-grid .stat-cell, .bottom-stat, .sens-cell { background: #0B0B0C; }
 
-      /* Surfaces that were #fff → elevated dark */
-      .ed-sheet, .history-panel, .ac-list, .act-btn, .ed-big button,
+      /* Surfaces that were #fff → elevated dark. The Brew History panel matches the
+         screen background (it presents as a sibling screen since v3, not a sheet). */
+      .ed-sheet, .ac-list, .act-btn, .ed-big button,
       .ed-chips .chip, .btn-save.saved, .btn-save.secondary { background: #1C1C1E; }
+      .history-panel { background: #0B0B0C; }
       /* Overlays sit outside .app, so they don't inherit its light text colour —
          set it on the containers (covers the big sheet value, history heading). */
       .ed-sheet, .history-panel { color: var(--ink); }
       .bean-new, .act-btn:disabled { background: #161617; }
 
       /* Emphasis fills that were the black --ink pill → amber accent */
-      .btn-save, .ed-chips .chip.sel, .ed-done, .bc-actions .bc-brew {
+      .btn-save, .ed-chips .chip.sel, .ed-done {
         background: var(--accent); border-color: var(--accent); color: #100A06; }
       .ed-big button:active, .bean-cell .chips button:active, .act-btn:active {
         background: var(--accent); border-color: var(--accent); color: #100A06; }
       .btn-save.saved, .btn-save.secondary { color: var(--ink); border-color: var(--hairline); }
 
       /* Borders that were #e8e8e8 / #f0f0f0 / #ddd */
-      .brew-name, input.brew-name, input.bean-name, input.roaster,
+      input.bean-name, input.roaster,
       .bean-grid, .bean-cell, .verdict-row, .text-field,
-      .history-head, .brew-card, .ac-list { border-color: var(--hairline); }
+      .brew-card, .ac-list { border-color: var(--hairline); }
       .bean-grid .bean-cell { border-right-color: var(--hairline); border-top-color: var(--hairline); }
-      input.brew-name:focus, input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
+      input.bean-name:focus, input.roaster:focus { border-bottom-color: var(--secondary); }
       /* Bean form name/roaster were dark text (#000/#555) → invisible on dark */
       input.bean-name { color: var(--ink); }
       input.roaster { color: var(--secondary); }
@@ -1009,12 +910,10 @@
       .bean-bar:active { background: rgba(235,235,245,0.05); }
 
       /* Text greys → tokens */
-      .history-close, .brew-card .bc-name, .bc-detail .bc-grid .row,
-      .time-controls .value, .btn-adj, .ac-item, .history-export:active { color: var(--ink); }
+      .brew-card .bc-name, .ac-item { color: var(--ink); }
       .text-field input, .text-field textarea { color: var(--ink); }
       .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
-      .brew-card .bc-stats, .history-export, .bc-detail .bc-grid .row .k,
-      .bc-detail .bc-notes { color: var(--secondary); }
+      .brew-card .bc-stats { color: var(--secondary); }
       .brew-card .bc-date, .history-empty { color: var(--tertiary); }
 
       /* Placeholders */
@@ -1026,9 +925,6 @@
       /* Danger (delete) — readable red on dark */
       .act-btn.danger { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
       .act-btn.danger:active { background: #C0392B; border-color: #C0392B; color: #fff; }
-      .bc-actions .bc-delete { border-color: rgba(255,107,94,0.5); color: #FF7B6E; }
-      .bc-delete-link { color: rgba(255,123,110,0.55); }
-      .bc-delete-link:active { color: #FF7B6E; }
 
       /* Timer dial */
       .dial-hold { background: rgba(16,16,18,0.86); }
@@ -1319,23 +1215,17 @@
     </div>
 
     <div class="tools-body">
-      <!-- Data — compact row at the top -->
+      <!-- Data — pill row at the top -->
       <div class="tools-data">
-        <button class="tools-data-btn" id="btn-export" type="button">Export</button>
-        <button class="tools-data-btn" id="btn-backup" type="button">Backup</button>
-        <button class="tools-data-btn" id="btn-restore" type="button">Restore</button>
+        <button class="tools-data-btn" id="btn-export" type="button">export</button>
+        <button class="tools-data-btn" id="btn-backup" type="button">backup</button>
+        <button class="tools-data-btn" id="btn-restore" type="button">restore</button>
         <input type="file" id="restore-file" accept="application/json,.json" hidden>
       </div>
 
-      <!-- Sound — Soft Tine; on/off + volume (for testing), persisted in localStorage -->
-      <div class="tools-sound">
-        <button class="tools-sound-toggle" id="snd-toggle" type="button" role="switch" aria-checked="true">Sound on</button>
-        <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="100" step="1" value="10" aria-label="Sound volume">
-        <span class="tools-sound-val" id="snd-vol-val">10%</span>
-      </div>
-
-      <!-- Default recipe — seeds every new bean (amber = editable) -->
-      <div class="bean-section-label">Default recipe for new beans</div>
+      <!-- Default recipe — seeds every new bean. The TDS aim (Tools target) rides in
+           the title, tappable like any field. -->
+      <div class="bean-section-label def-title">Default recipe (TDS aim = <button type="button" class="field" data-f="sens-tds"></button>)<input type="hidden" id="sens-tds"></div>
       <div class="stats-grid def-grid">
         <div class="stat-cell"><span class="label">Dose</span>
           <button type="button" class="field" data-f="def-dose"></button>
@@ -1374,19 +1264,18 @@
           <button type="button" class="field" data-f="def-target"></button>
           <input type="hidden" id="def-target"></div>
       </div>
-      <!-- TDS target belongs with the recipe (it's the default aim seeded into new
-           beans + the fallback aim for pre-v10.1 brews), not with the sensitivities -->
-      <div class="sens-tds">
-        <span class="label">TDS target</span>
-        <button type="button" class="field" data-f="sens-tds"></button>
-        <input type="hidden" id="sens-tds">
-      </div>
-
       <!-- Marginal sensitivities — Δdose/Δbloom that hold TDS + contact constant when
            a flavor variable (grind/temp/contact) moves; applied as DIFFERENCES from
            the bean's best recipe, so the base row's anchor cancels out. -->
       <div class="bean-section-label sens-label">Marginal sensitivities</div>
       <div id="sens-tables"></div>
+
+      <!-- Sound — Soft Sine Tick; on/off + volume, persisted in localStorage -->
+      <div class="tools-sound">
+        <button class="tools-sound-toggle" id="snd-toggle" type="button" role="switch" aria-checked="true">Sound on</button>
+        <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="100" step="1" value="10" aria-label="Sound volume">
+        <span class="tools-sound-val" id="snd-vol-val">10%</span>
+      </div>
     </div>
    </section>
 
@@ -1440,14 +1329,6 @@
   </div></div>
 
   <script>
-    // ── Date display (live — updates while open and on re-focus) ──
-    const dateOpts = { day: 'numeric', month: 'long', year: 'numeric' };
-    // (Date/time readout removed from the brew header — superfluous.)
-    document.addEventListener('visibilitychange', () => {
-      if (document.hidden) return;
-      updateClock();
-    });
-
     // ── TIME +/- display ─────────────────────────────────────────
     const timeDisplay = document.getElementById('time-val');
 
@@ -1592,7 +1473,9 @@
     const SENS_KEY = 'blackmagic.sens';
     const SENS_DEFAULT = {
       tdsTarget: 1.72,
-      grind:   { levels: [7, 7.5, 8, 8.5, 9],       dose: [-0.4, -0.2, 0, -0.2, 0.4], bloom: [7, 4, 0, 0, 5] },
+      // Grind in whole steps (was 7–9 by .5): 7/8/9 keep the logbook values; 10/11
+      // extend the 8→9 slope (stored tables from the old layout are re-sampled below).
+      grind:   { levels: [7, 8, 9, 10, 11],         dose: [-0.4, 0, 0.4, 0.8, 1.2],  bloom: [7, 0, 5, 10, 15] },
       water:   { levels: [196, 200, 204, 208, 212], dose: [0.3, 0.1, 0, -0.1, -0.3],  bloom: [9, 4, 0, -4, -9] },
       contact: { levels: [180, 210, 240, 270, 300], dose: [0.2, 0.2, 0.1, 0, -0.1],   bloom: [20, 20, 10, 0, -10] }
     };
@@ -1601,9 +1484,34 @@
       let s; try { s = JSON.parse(localStorage.getItem(SENS_KEY)); } catch (e) {}
       if (!s || typeof s !== 'object') return out;
       if (typeof s.tdsTarget === 'number') out.tdsTarget = s.tdsTarget;
+      // A stored table saved under an older level layout (e.g. grind 7–9 by .5) is
+      // re-sampled onto the current levels: user-edited Δs survive via interpolation
+      // INSIDE the old range; levels outside it keep the (deliberate) new defaults —
+      // extrapolating off one noisy end cell would be worse than the prior.
+      const resample = (oldT, newLevels, defT) => {
+        const at = (arr, defArr) => (lv, i) => {
+          const L = oldT.levels, n = L.length;
+          if (lv < L[0] || lv > L[n - 1]) return defArr[i];
+          let j = 1; while (j < n - 1 && L[j] < lv) j++;
+          const t = (lv - L[j - 1]) / (L[j] - L[j - 1]);
+          return arr[j - 1] + t * (arr[j] - arr[j - 1]);
+        };
+        return { dose: newLevels.map(at(oldT.dose, defT.dose)), bloom: newLevels.map(at(oldT.bloom, defT.bloom)) };
+      };
       ['grind','water','contact'].forEach(k => {
-        if (s[k] && Array.isArray(s[k].dose)  && s[k].dose.length  === out[k].levels.length) out[k].dose  = s[k].dose;
-        if (s[k] && Array.isArray(s[k].bloom) && s[k].bloom.length === out[k].levels.length) out[k].bloom = s[k].bloom;
+        if (!s[k] || !Array.isArray(s[k].dose) || !Array.isArray(s[k].bloom)) return;
+        const sameLevels = Array.isArray(s[k].levels)
+          ? s[k].levels.join() === out[k].levels.join()
+          : s[k].dose.length === out[k].levels.length;   // legacy store without levels
+        if (sameLevels) {
+          if (s[k].dose.length  === out[k].levels.length) out[k].dose  = s[k].dose;
+          if (s[k].bloom.length === out[k].levels.length) out[k].bloom = s[k].bloom;
+        } else if (Array.isArray(s[k].levels) && s[k].levels.length >= 2 &&
+                   s[k].levels.length === s[k].dose.length && s[k].levels.length === s[k].bloom.length) {
+          const r = resample(s[k], out[k].levels, SENS_DEFAULT[k]);
+          out[k].dose  = r.dose.map(v => Math.round(v * 10) / 10);
+          out[k].bloom = r.bloom.map(v => Math.round(v));
+        }
       });
       return out;
     }
@@ -1649,10 +1557,17 @@
       }));
       localStorage.setItem(SENS_KEY, JSON.stringify(s));
     }
+    // Sens Δ cells are grey at 0, amber when a real correction rides (non-zero)
+    function renderSensField(id){
+      renderField(id);
+      const btn = document.querySelector('.field[data-f="' + id + '"]');
+      const v = parseFloat(document.getElementById(id).value);
+      if (btn) btn.classList.toggle('nz', !isNaN(v) && v !== 0);
+    }
     function buildSensTables(){
       const wrap = document.getElementById('sens-tables');
       const s = getSens();
-      FX['sens-tds'] = { label: 'TDS target', step: 0.01, dec: 2, min: 1, max: 3, presets: [1.70, 1.71, 1.72, 1.73, 1.74], type: 'num' };
+      FX['sens-tds'] = { label: 'TDS aim', step: 0.01, dec: 2, min: 1, max: 3, presets: [1.70, 1.71, 1.72, 1.73, 1.74], type: 'num' };
       document.getElementById('sens-tds').value = String(s.tdsTarget);
       SENS_VARS.forEach(v => {
         const g = document.createElement('div'); g.className = 'sens-grid';
@@ -1672,9 +1587,9 @@
           FX[di] = SENS_FX.d; FX[bi] = SENS_FX.b;
           document.getElementById(di).value = String(s[v.key].dose[i]);
           document.getElementById(bi).value = String(s[v.key].bloom[i]);
-          document.getElementById(di).addEventListener('change', persistSens);
-          document.getElementById(bi).addEventListener('change', persistSens);
-          renderField(di); renderField(bi);
+          document.getElementById(di).addEventListener('change', () => { persistSens(); renderSensField(di); });
+          document.getElementById(bi).addEventListener('change', () => { persistSens(); renderSensField(bi); });
+          renderSensField(di); renderSensField(bi);
         });
       });
       document.getElementById('sens-tds').addEventListener('change', persistSens);
@@ -1855,7 +1770,24 @@
         document.getElementById(bk).value = rec[k] ?? '';
         renderField(bk);
       });
+      updateBestHighlights();
     }
+    // Bean form: best-recipe values light amber only where they deviate from the
+    // Tools default — "what makes this bean special" at a glance (same grey-until-
+    // changed rule as the brew grid; the default recipe is the baseline).
+    const BEST_GRID_FIELDS = ['best-dose','best-grind','best-agitate','best-contact',
+      'best-water','best-bloom','best-decay','best-target'];
+    function updateBestHighlights(){
+      const def = getDefaultRecipe();
+      BEST_GRID_FIELDS.forEach(bk => {
+        const f = bk === 'best-target' ? 'brew-target' : bk.slice(5);
+        const cur = document.getElementById(bk).value, dv = def[recKey(f)];
+        const differs = cur !== '' && cur != null && dv != null && dv !== '' && parseFloat(cur) !== parseFloat(dv);
+        const btn = document.querySelector('.best-grid .field[data-f="' + bk + '"]');
+        if (btn) btn.classList.toggle('diff', differs);
+      });
+    }
+    BEST_GRID_FIELDS.forEach(bk => document.getElementById(bk).addEventListener('change', updateBestHighlights));
 
     // ── Tap-to-edit sheet ────────────────────────────────────────
     function repeatHold(btn, fn){
@@ -2201,7 +2133,10 @@
         lastNum = step.num;
         ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
       }
-      cap.textContent = idle ? 'Ready' : stopped ? fmtTime(elapsed) : step.msg;
+      // Editing a past record: the caption shows ITS final time (contact + Δ) —
+      // "Ready" is live-timer language and a record fix isn't a live cup.
+      cap.textContent = (editingBrewId && idle) ? fmtTime(TOTAL + (isNaN(ta) ? 0 : ta))
+                      : idle ? 'Ready' : stopped ? fmtTime(elapsed) : step.msg;
       // Reset ↺ (amber, dial south) shows once a stopped brew has a time to clear.
       document.getElementById('t-reset').classList.toggle('show', stopped);
       updateButtonLabel();
@@ -2442,11 +2377,15 @@
         const k = beanKey(r);
         if (!recency[k] || (r.savedAt || '') > recency[k]) recency[k] = r.savedAt || '';
       });
-      const meta = new Map(brews.map(r => [r, {
-        bean: beanKey(r),
-        rating: parseInt(r.brewRating || r.rating) || 0,
-        delta: compactDeltas(r).join(' ')
-      }]));
+      const meta = new Map(brews.map(r => {
+        const deltas = compactDeltas(r);
+        return [r, {
+          bean: beanKey(r),
+          rating: parseInt(r.brewRating || r.rating) || 0,
+          delta: deltas.join(' '),        // full signature for the sort …
+          many: deltas.length > 2         // … but >2 changed variables displays as "Many"
+        }];
+      }));
       brews.sort((a, b) => {
         const ma = meta.get(a), mb = meta.get(b);
         if (ma.bean !== mb.bean)
@@ -2492,8 +2431,14 @@
         const doseN = parseFloat(r.dose), bloomN = parseFloat(r.bloom);
         const tdsN = parseFloat(r.tds), taN = parseFloat(r.timeAdj);
         const aim = parseFloat(r.tdsAim) > 0 ? parseFloat(r.tdsAim) : stdAim;
-        const dErr = (!isNaN(tdsN) && tdsN > 0 && !isNaN(doseN)) ? sgn((1 - tdsN / aim) * doseN, 1) : '';
-        const bErr = (!isNaN(taN) && !isNaN(bloomN)) ? sgn(lastPourOf(r) / 30 * taN, 0) : '';
+        // Errors go amber ("hot") only past the noise floor: |TDS−aim| > .02 for
+        // Δdose, |Δblm| > 5 ml — in-noise misses stay quiet grey.
+        const dRaw = (!isNaN(tdsN) && tdsN > 0 && !isNaN(doseN)) ? (1 - tdsN / aim) * doseN : null;
+        const bRaw = (!isNaN(taN) && !isNaN(bloomN)) ? lastPourOf(r) / 30 * taN : null;
+        const dErr = dRaw == null ? '' : sgn(dRaw, 1);
+        const bErr = bRaw == null ? '' : sgn(bRaw, 0);
+        const dHot = dRaw != null && Math.abs(tdsN - aim) > 0.02;
+        const bHot = bRaw != null && Math.abs(bRaw) > 5;
         const d = new Date(r.savedAt);
         const line = document.createElement('div');
         line.className = 'brew-line bl-grid' + (r.locked ? ' locked' : '');
@@ -2502,9 +2447,9 @@
           '<span>' + (isNaN(doseN) ? '–' : esc(doseN.toFixed(1))) + '</span>' +
           '<span>' + (isNaN(bloomN) ? '–' : esc(Math.round(bloomN))) + '</span>' +
           '<span>' + (isNaN(tdsN) ? '–' : esc(tdsN.toFixed(2))) + '</span>' +
-          '<span class="bl-err">' + esc(dErr) + '</span>' +
-          '<span class="bl-err">' + esc(bErr) + '</span>' +
-          '<span class="bl-dev">' + esc(m.delta) + '</span>' +
+          '<span class="bl-err' + (dHot ? ' hot' : '') + '">' + esc(dErr) + '</span>' +
+          '<span class="bl-err' + (bHot ? ' hot' : '') + '">' + esc(bErr) + '</span>' +
+          '<span class="bl-dev">' + esc(m.many ? 'Many' : m.delta) + '</span>' +
           '<span class="bl-date">' + (isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate()) + '</span>';
         // Tap → Brew / Edit / Delete sheet (details live on Edit)
         line.addEventListener('click', () => openBrewActions(r));
@@ -3122,7 +3067,6 @@
     $('btn-to-beanlist').addEventListener('click', () => {   // cancel → bean list
       editingBeanId = null; clearBeanForm(); showBeanList();
     });
-    function renderBeanList() { renderBeanHistory('manage', $('bean-list')); }
 
     // Bean action sheet (hold a bean in the list → Edit / Export)
     let actBean = null;
@@ -3282,10 +3226,10 @@
       });
     }
 
-    // mode: 'browse' (history overlay — expand, brew-this, delete) |
-    // 'manage' (bean tab list — tap selects the coffee, hold → Edit/Export/Delete)
-    function renderBeanHistory(mode = 'browse', listEl = $('history-list')) {
-      const list = listEl;
+    // Bean list (Bean tab) — a tap either swaps the coffee ('attach' entry, coffee
+    // bar) or opens the Brew / Edit / Delete sheet ('manage' entry, Bean button).
+    function renderBeanList() {
+      const list = $('bean-list');
       const beans = getBeans().sort((a, b) => b.id - a.id);
       list.innerHTML = '';
       if (!beans.length) {
@@ -3296,66 +3240,22 @@
         const card = document.createElement('div');
         card.className = 'brew-card' + (b.locked ? ' locked' : '');
         const roast = b.roastDate ? fmtDateShort(b.roastDate) : '—';
-        const bag = b.bagSize ? (b.bagSize + ' g' + (b.bagCount ? ' × ' + b.bagCount : '')) : '—';
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
             <span class="bc-date"></span>
           </div>
-          <div class="bc-stats"></div>
-          <div class="bc-detail">
-            <div class="bc-grid">
-              <div class="row"><span class="k">Roaster</span><span class="v v-roaster"></span></div>
-              <div class="row"><span class="k">Country</span><span class="v v-country"></span></div>
-              <div class="row"><span class="k">Region</span><span class="v v-region"></span></div>
-              <div class="row"><span class="k">Process</span><span class="v v-process"></span></div>
-              <div class="row"><span class="k">Varietal</span><span class="v v-varietal"></span></div>
-              <div class="row"><span class="k">Roast</span><span>${roast}</span></div>
-              <div class="row"><span class="k">Bag</span><span>${bag}</span></div>
-              <div class="row"><span class="k">Bean★</span><span>${b.rating || '—'}</span></div>
-            </div>
-            <div class="bc-notes" hidden></div>
-            <div class="bc-actions"><button class="bc-brew">brew this</button></div>
-            <button class="bc-delete-link">delete bean</button>
-          </div>`;
+          <div class="bc-stats"></div>`;
         card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
         card.querySelector('.bc-date').textContent = b.locked ? 'exported' : 'roast ' + roast;
         if (b.locked) card.querySelector('.bc-date').classList.add('bc-lock');
         card.querySelector('.bc-stats').textContent =
           [b.roaster, [b.country, b.process].filter(Boolean).join(' · ')]
             .filter(Boolean).join(' · ') || '—';
-        card.querySelector('.v-roaster').textContent = b.roaster || '—';
-        card.querySelector('.v-country').textContent = b.country || '—';
-        card.querySelector('.v-region').textContent = b.region || '—';
-        card.querySelector('.v-process').textContent = b.process || '—';
-        card.querySelector('.v-varietal').textContent = b.varietal || '—';
-        if (b.roasterNotes) {
-          const n = card.querySelector('.bc-notes');
-          n.textContent = b.roasterNotes;
-          n.hidden = false;
-        }
-
-        if (mode === 'manage') {
-          // 'attach' entry (coffee bar) → tap swaps the coffee, keeps the recipe.
-          // 'manage' entry (Bean button) → tap opens Brew / Edit / Delete.
-          card.querySelector('.bc-actions').remove();
-          card.querySelector('.bc-delete-link').remove();
-          card.addEventListener('click', () => {
-            if (beanPickMode === 'attach') selectBean(b);
-            else openBeanActions(b);
-          });
-        } else {  // browse
-          card.addEventListener('click', e => {
-            if (e.target.closest('.bc-actions') || e.target.closest('.bc-delete-link')) return;
-            card.classList.toggle('expanded');
-          });
-          card.querySelector('.bc-brew').addEventListener('click', () => selectBean(b));
-          card.querySelector('.bc-delete-link').addEventListener('click', () => {
-            if (!confirm('Delete this bean permanently? This is rarely needed and cannot be undone.')) return;
-            setBeans(getBeans().filter(x => x.id !== b.id));
-            renderBeanHistory('browse');
-          });
-        }
+        card.addEventListener('click', () => {
+          if (beanPickMode === 'attach') selectBean(b);
+          else openBeanActions(b);
+        });
         list.appendChild(card);
       });
     }
