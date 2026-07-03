@@ -243,14 +243,12 @@
       padding: 8px 0 6px;
     }
     .rail-readout { display: flex; flex-direction: column; align-items: center; }
-    /* Time Δ — auto-written on stop; sits in the rail above the start button */
-    .rail-time { display: flex; flex-direction: column; align-items: center; }
-    .rail-time > .label {
-      font-size: 10px; font-weight: 600; letter-spacing: 0.07em;
-      text-transform: uppercase; color: var(--secondary); margin-bottom: 2px;
+    /* Stopped: the big slot shows TIME Δ (e.g. "+5 sec") — amber, metric-value size,
+       tap to adjust — until save/reset clears the cup. */
+    .pour-number.tdelta {
+      font-size: 21px; font-weight: 600; color: var(--accent);
+      letter-spacing: normal; line-height: 1.2; cursor: pointer;
     }
-    .rail-time .field { width: auto; min-width: 44px; }
-    .rail-time .field .fnum, .rail-time .field .dash { font-size: 21px; }
     .pour-number {
       font-size: 50px; font-weight: 700; color: var(--ink);
       line-height: 0.9; letter-spacing: -2px; font-variant-numeric: tabular-nums;
@@ -594,32 +592,40 @@
       font-size: 13px;
       padding: 48px 20px;
     }
-    /* ── Brew History: bean section headers + one monospace line per brew ──
-       ★r dose blm tds Δdose Δblm deviations · date. Only the error columns are
-       amber (Δdose = (1 − TDS/aim)·dose, Δblm = lastPour/30 · TimeΔ). */
+    /* ── Brew History: bean section headers + one line per brew ──
+       ★r dose blm tds Δdose Δblm deviations date — a shared CSS grid keeps the
+       columns aligned in the normal system font (tabular numerals do the rest).
+       Rating + error columns amber (Δdose = (1 − TDS/aim)·dose, Δblm =
+       lastPour/30 · TimeΔ). */
+    .bl-grid {
+      display: grid;
+      grid-template-columns: 26px 37px 28px 37px 42px 34px 1fr 30px;
+      column-gap: 6px;
+      align-items: baseline;
+    }
+    .bl-grid > span { text-align: right; }          /* numeric columns right-align */
+    .bl-grid > .bl-dev { text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .bh-legend {
       padding: 10px 20px 0;
-      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
-      font-size: 11px; color: var(--tertiary); white-space: pre;
+      font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+      color: var(--tertiary);
     }
     .bh-sec {
-      padding: 16px 20px 5px;
+      padding: 18px 20px 5px;
       font-size: 15px; font-weight: 600; color: var(--ink);
       -webkit-user-select: none; user-select: none;
     }
     .brew-line {
-      display: flex; justify-content: space-between; align-items: baseline; gap: 8px;
-      padding: 8px 20px;
+      padding: 12px 20px;                           /* roomy rows = reliable taps */
       border-bottom: 0.5px solid var(--hairline);
       cursor: pointer;
       -webkit-user-select: none; user-select: none; -webkit-touch-callout: none;
-      font-family: ui-monospace, 'SF Mono', Menlo, monospace;
       font-size: 13px; color: rgba(235,235,245,0.8);
       font-variant-numeric: tabular-nums;
     }
     .brew-line:active { background: #1C1C1E; }
-    .brew-line .bl-main { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-    .brew-line .bl-err { color: var(--accent); }
+    .brew-line.tier-end { border-bottom: 1px solid rgba(235,235,245,0.28); }  /* rating-group break */
+    .brew-line .bl-r, .brew-line .bl-err { color: var(--accent); }
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
@@ -778,7 +784,7 @@
     .verdict-rating { flex: 0 0 auto; text-align: center; }
     .verdict-rating .field { background: none; border: none; min-width: 44px; padding: 2px 0; }
     .verdict-rating .field .fnum, .verdict-rating .field .dash { font-size: 28px; }
-    .verdict-rating .vr-aim { display: block; margin-top: 10px; }
+    .verdict-rating .vr-sub { display: block; margin-top: 10px; }
     .verdict-rating .vr-aim-field .fnum, .verdict-rating .vr-aim-field .dash { font-size: 17px; }
     .verdict-note-wrap { flex: 1; text-align: left; }
     .verdict-note-wrap .label { text-align: left; }
@@ -809,7 +815,7 @@
     .bean-list-top { display: flex; justify-content: flex-end; padding: 2px 0 0; }
     /* ── Marginal sensitivities table (Tools) — Δdose/Δbloom per flavor-variable level ── */
     .sens-label { margin-top: 26px; }
-    .sens-tds { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; }
+    .sens-tds { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 14px; }
     .sens-tds > .label { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--secondary); white-space: nowrap; }
     .sens-tds .field { width: auto; }
     .sens-tds .field .fnum, .sens-tds .field .dash { color: var(--accent); font-size: 17px; }
@@ -1108,11 +1114,9 @@
           <div class="pour-number" id="t-ml">0</div>
           <div class="rail-cap" id="t-step">Ready</div>
         </div>
-        <div class="rail-time">
-          <span class="label">Time Δ</span>
-          <button type="button" class="field amber" data-f="time-val"></button>
-          <input type="hidden" id="time-val" value="">
-        </div>
+        <!-- Time Δ has no field of its own: on stop it takes over the big pour-number
+             slot (amber, recipe-value size); tap it there to adjust. Store only: -->
+        <input type="hidden" id="time-val" value="">
         <button class="btn-round" id="btn-save" aria-label="start">
           <svg class="btn-ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="btn-ring-fill" cx="50" cy="50" r="46"/></svg>
           <span class="btn-label" id="btn-label">start</span>
@@ -1273,12 +1277,12 @@
     <!-- Your verdict: Bean★ + TDS aim + the evolving tasting note (all live on the bean) -->
     <div class="verdict-row">
       <div class="verdict-rating">
-        <span class="label">Bean ★</span>
-        <button type="button" class="field amber" data-f="bf-rating"></button>
-        <input type="hidden" id="bf-rating">
-        <span class="label vr-aim">TDS Aim</span>
+        <span class="label">TDS Aim</span>
         <button type="button" class="field amber vr-aim-field" data-f="best-tds-aim"></button>
         <input type="hidden" id="best-tds-aim">
+        <span class="label vr-sub">Bean ★</span>
+        <button type="button" class="field amber" data-f="bf-rating"></button>
+        <input type="hidden" id="bf-rating">
       </div>
       <div class="verdict-note-wrap">
         <span class="label">Bean Notes</span>
@@ -1359,16 +1363,18 @@
           <button type="button" class="field" data-f="def-target"></button>
           <input type="hidden" id="def-target"></div>
       </div>
-
-      <!-- Marginal sensitivities — Δdose/Δbloom that hold TDS + contact constant when
-           a flavor variable (grind/temp/contact) moves; applied as DIFFERENCES from
-           the bean's best recipe, so the base row's anchor cancels out. -->
-      <div class="bean-section-label sens-label">Marginal sensitivities</div>
+      <!-- TDS target belongs with the recipe (it's the default aim seeded into new
+           beans + the fallback aim for pre-v10.1 brews), not with the sensitivities -->
       <div class="sens-tds">
         <span class="label">TDS target</span>
         <button type="button" class="field" data-f="sens-tds"></button>
         <input type="hidden" id="sens-tds">
       </div>
+
+      <!-- Marginal sensitivities — Δdose/Δbloom that hold TDS + contact constant when
+           a flavor variable (grind/temp/contact) moves; applied as DIFFERENCES from
+           the bean's best recipe, so the base row's anchor cancels out. -->
+      <div class="bean-section-label sens-label">Marginal sensitivities</div>
       <div id="sens-tables"></div>
     </div>
    </section>
@@ -2169,7 +2175,17 @@
       const idle = !running && elapsed <= 0.05;          // reset, before the brew starts
       const stopped = !running && elapsed > 0.05;
       const step = currentStep(s);
-      ml.textContent = step.num;
+      // Stop writes TIME Δ; it then takes over the big slot (amber, recipe-value
+      // size, tap to adjust) until save/reset blanks it. Keyed off the VALUE, not
+      // the timer, so a stopped-unsaved cup restored on relaunch still shows it.
+      const ta = parseFloat(timeDisplay.value);
+      if (!running && !isNaN(ta)) {
+        ml.textContent = (ta > 0 ? '+' : '') + ta + ' sec';
+        ml.classList.add('tdelta');
+      } else {
+        ml.classList.remove('tdelta');
+        ml.textContent = step.num;
+      }
       if (running && step.num !== lastNum) {             // bloom the number in when it changes
         lastNum = step.num;
         ml.classList.remove('count-pop'); void ml.offsetWidth; ml.classList.add('count-pop');
@@ -2179,6 +2195,11 @@
       document.getElementById('t-reset').classList.toggle('show', stopped);
       updateButtonLabel();
     }
+    // Stopped Time Δ is tappable (the field button is gone — the big slot IS the field)
+    document.getElementById('t-ml').addEventListener('click', () => {
+      if (!running && !inCountdown && timeDisplay.value !== '') openEditor('time-val');
+    });
+    timeDisplay.addEventListener('change', () => render(elapsed));   // editor commit → refresh slot
 
     function tick(ts) {
       if (running) {
@@ -2430,30 +2451,32 @@
         return;
       }
 
-      // One bean-name section header per group, then one monospace line per brew:
-      //   ★r dose blm tds Δdose Δblm deviations            date
+      // One bean-name section header per group, then one grid line per brew:
+      //   ★r dose blm tds Δdose Δblm deviations date
       // Δdose = (1 − TDS/aim)·dose (dose needed to hit the aim), Δblm =
-      // lastPour/30 · TimeΔ (bloom needed to hit contact) — the errors, in amber.
-      const pad = (s, w) => String(s).padStart(w);
+      // lastPour/30 · TimeΔ (bloom needed to hit contact) — errors + rating amber.
+      // A heavier bottom border closes each rating group within a bean.
       const sgn = (v, dec) => (v > 0 ? '+' : '') + v.toFixed(dec);
       const esc = s => String(s).replace(/</g, '&lt;');
       const stdAim = getSens().tdsTarget;
 
       const legend = document.createElement('div');
-      legend.className = 'bh-legend';
-      legend.textContent = [pad('★', 2), pad('dose', 4), pad('blm', 3), pad('tds', 4), pad('Δdose', 5), pad('Δblm', 4)].join(' ');
+      legend.className = 'bh-legend bl-grid';
+      legend.innerHTML = '<span>★</span><span>dose</span><span>blm</span><span>tds</span><span>Δdose</span><span>Δblm</span><span class="bl-dev"></span><span></span>';
       list.appendChild(legend);
 
-      let lastBean = null;
+      let lastBean = null, lastRating = null, lastLine = null;
       brews.forEach(r => {
         const m = meta.get(r);
         if (m.bean !== lastBean) {          // beans are brewed sequentially — name once
-          lastBean = m.bean;
+          lastBean = m.bean; lastRating = null; lastLine = null;
           const h = document.createElement('div');
           h.className = 'bh-sec';
           h.textContent = brewIdentity(r).brewName || 'Untitled brew';
           list.appendChild(h);
         }
+        if (lastLine && lastRating !== m.rating) lastLine.classList.add('tier-end');
+        lastRating = m.rating;
         const brewR = r.brewRating || r.rating || '';
         const doseN = parseFloat(r.dose), bloomN = parseFloat(r.bloom);
         const tdsN = parseFloat(r.tds), taN = parseFloat(r.timeAdj);
@@ -2462,21 +2485,20 @@
         const bErr = (!isNaN(taN) && !isNaN(bloomN)) ? sgn(lastPourOf(r) / 30 * taN, 0) : '';
         const d = new Date(r.savedAt);
         const line = document.createElement('div');
-        line.className = 'brew-line' + (r.locked ? ' locked' : '');
+        line.className = 'brew-line bl-grid' + (r.locked ? ' locked' : '');
         line.innerHTML =
-          '<span class="bl-main">' +
-            esc(pad(brewR ? '★' + brewR : '★–', 2)) + ' ' +
-            esc(pad(isNaN(doseN) ? '–' : doseN.toFixed(1), 4)) + ' ' +
-            esc(pad(isNaN(bloomN) ? '–' : Math.round(bloomN), 3)) + ' ' +
-            esc(pad(isNaN(tdsN) ? '–' : tdsN.toFixed(2), 4)) + ' ' +
-            '<span class="bl-err">' + esc(pad(dErr, 5)) + '</span> ' +
-            '<span class="bl-err">' + esc(pad(bErr, 4)) + '</span>' +
-            (m.delta ? ' ' + esc(m.delta) : '') +
-          '</span>' +
+          '<span class="bl-r">' + esc(brewR ? '★' + brewR : '★–') + '</span>' +
+          '<span>' + (isNaN(doseN) ? '–' : esc(doseN.toFixed(1))) + '</span>' +
+          '<span>' + (isNaN(bloomN) ? '–' : esc(Math.round(bloomN))) + '</span>' +
+          '<span>' + (isNaN(tdsN) ? '–' : esc(tdsN.toFixed(2))) + '</span>' +
+          '<span class="bl-err">' + esc(dErr) + '</span>' +
+          '<span class="bl-err">' + esc(bErr) + '</span>' +
+          '<span class="bl-dev">' + esc(m.delta) + '</span>' +
           '<span class="bl-date">' + (isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate()) + '</span>';
         // Tap → Brew / Edit / Delete sheet (details live on Edit)
         line.addEventListener('click', () => openBrewActions(r));
         list.appendChild(line);
+        lastLine = line;
       });
     }
 
