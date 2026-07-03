@@ -243,6 +243,10 @@
       padding: 8px 0 6px;
     }
     .rail-readout { display: flex; flex-direction: column; align-items: center; }
+    /* Editing a past brew: the dial is meaningless (record fix, not a live cup) —
+       hide it so the cancel/save row + full notes fit on screen. The rail readout
+       (Time Δ + caption) stays, still tappable. */
+    #screen-brew.editing .timer-circle-wrap { display: none; }
     /* Stopped: the big slot shows TIME Δ (e.g. "+5 sec") — amber, metric-value size,
        tap to adjust — until save/reset clears the cup. */
     .pour-number.tdelta {
@@ -282,6 +286,7 @@
       cursor: pointer; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
       transition: transform .12s ease, opacity .15s;
     }
+    .btn-round[hidden] { display: none; }   /* edit mode — .btn-round's flex beats the UA [hidden] rule */
     .btn-round:active { transform: scale(0.96); opacity: 0.9; }
     .btn-round.saved { background: var(--accent); color: #100A06; border-color: var(--accent); }
     .btn-round .btn-label { position: relative; z-index: 1; text-align: center; line-height: 1.08; }
@@ -365,6 +370,12 @@
     .field .fw { margin-left: 4px; }
     /* TIME +/−, TDS, Brew★, Bean★ values are amber */
     .field.amber .fnum, .field.amber .dash { color: var(--accent); }
+    /* TDS Aim*: light grey while it matches the bean's stabilized aim, amber once
+       moved off it — updateRecipeHighlights toggles .diff, same rule as the grid. */
+    .bottom-stats .field[data-f="tds-aim"] .fnum,
+    .bottom-stats .field[data-f="tds-aim"] .dash { color: rgba(235,235,245,0.88); }
+    .bottom-stats .field[data-f="tds-aim"].diff .fnum,
+    .bottom-stats .field[data-f="tds-aim"].diff .dash { color: var(--accent); }
 
     /* Brew-screen recipe grid reads as a quiet reference: values are small + grey
        by default, and only the ones that DEVIATE from the baseline (the selected
@@ -1127,7 +1138,7 @@
     <!-- Bottom Stats — Time Δ lives in the dial rail (above the round button) -->
     <div class="bottom-stats">
       <div class="bottom-stat"><span class="label">TDS Aim*</span>
-        <button type="button" class="field amber" data-f="tds-aim"></button>
+        <button type="button" class="field" data-f="tds-aim"></button>
         <input type="hidden" id="tds-aim" value=""></div>
       <div class="bottom-stat"><span class="label">TDS</span>
         <button type="button" class="field amber" data-f="tds"></button>
@@ -2616,6 +2627,8 @@
       $('notes-bean').readOnly = true;
       $('btn-save').hidden = true;
       $('edit-actions').hidden = false;
+      $('screen-brew').classList.add('editing');   // hides the dial — record fix, not a live cup
+      growNotes();   // re-measure AFTER the dial hides + the cancel/save row appears
       clearTimeout(draftTimer); clearDraft();   // cancel any pending write + drop the saved draft
       closeHistory();
     }
@@ -2627,6 +2640,7 @@
       $('notes-bean').readOnly = false;
       $('btn-save').hidden = false;
       $('edit-actions').hidden = true;
+      $('screen-brew').classList.remove('editing');
     }
     // ── "Brew this" — start a FRESH cup (not an edit) from a recipe source ──
     // From a bean: recipe + Bean★ + bean note all come from the bean's best recipe.
