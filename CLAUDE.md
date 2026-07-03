@@ -288,7 +288,23 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.2 (July 2026) — Time Δ slot takeover + history/tools/bean polish (latest)
+## v10.3 (July 2026) — TDS Aim* grey-until-changed + edit-mode fit (latest)
+- **TDS Aim\* is light grey while it equals the bean's stabilized aim, amber once
+  moved off it** — its results-row button dropped the always-amber class; the
+  existing `.diff` pass (`updateRecipeHighlights`, tds-aim already in
+  `HILITE_FIELDS`) drives dedicated `.bottom-stats .field[data-f="tds-aim"]` rules.
+  (TDS / Brew★ / Bean★ stay always-amber.)
+- **Editing a past brew hides the dial** (`#screen-brew.editing .timer-circle-wrap
+  { display:none }`, class toggled in `enterBrewEdit`/`exitBrewEdit`) — a record
+  fix isn't a live cup, and the freed ~200px lets the cancel/save row fit WITH the
+  full v9.6 note footprint (`growNotes()` re-measures after the edit layout
+  settles). The rail readout (Time Δ + caption) stays visible/tappable.
+- **Bug fixed:** the round start button showed during edit — `.btn-round`'s
+  `display:flex` overrode the UA `[hidden]` rule (author styles always beat UA
+  styles); explicit `.btn-round[hidden] { display:none }`. This (plus the dial)
+  was why cancel/save hung off-screen on the phone. sw.js CACHE v49.
+
+## v10.2 (July 2026) — Time Δ slot takeover + history/tools/bean polish
 - **Time Δ has no field on the brew screen anymore.** On stop, the big pour-number
   slot (`#t-ml`) shows it instead — e.g. **"+5 sec"**, amber, 21px (`.pour-number
   .tdelta`) — until save/reset blanks it; the caption below still shows the final
