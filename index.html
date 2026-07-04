@@ -610,8 +610,14 @@
       justify-content: space-between;
       align-items: center;      /* rating spans both text lines, merged-cell style */
     }
-    .brew-card .bc-main { min-width: 0; }
-    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; line-height: 17px; }
+    /* bc-name MUST be display:block: as an inline span its line box was sized
+       by bc-main's STRUT (container's inherited font-size × normal leading) —
+       Dynamic Type inflates that inherited size, so the strut towered over the
+       pinned 17px and dumped phantom space above the name's caps on TFD's
+       phone. A block's line box uses its own pinned line-height. Belt-and-
+       braces: pin bc-main's line-height too. */
+    .brew-card .bc-main { min-width: 0; line-height: 17px; }
+    .brew-card .bc-name { display: block; font-size: 14px; font-weight: 600; color: #000; line-height: 17px; }
     /* Bean★ verdict at the right — vertically centered on the name + stats pair,
        same size as the coffee name (amber carries the emphasis) */
     .brew-card .bc-rating {
@@ -1311,7 +1317,7 @@
 
       <!-- Build stamp — the definitive "which version is this phone running?"
            answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
-      <div class="tools-version">v10.8.7 · cache v61</div>
+      <div class="tools-version">v10.8.8 · cache v62</div>
     </div>
    </section>
 

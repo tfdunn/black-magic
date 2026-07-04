@@ -326,11 +326,22 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   a larger text size; small sizes scale more than large — names +~30%) and
   **CSS cannot opt out** (`text-size-adjust` doesn't govern it — v10.8.5/v10.8.6
   changed nothing on-device, proven by identical screenshots at stamped
-  versions). Fix: the bean-card line-heights are **FIXED PIXELS** (name/rating
-  17px, stats 13px; padding 6px symmetric) so row geometry is text-scale-proof
-  — glyphs render larger around their baselines but spacing never moves. Card
-  = 6+17+3+13+6+1 = 46px on every device. **Pattern to reuse whenever a list's
-  spacing must survive TFD's text setting: pin line-height in px.** CACHE v61.
+  versions). First fix attempt: line-heights in **FIXED PIXELS** (name/rating
+  17px, stats 13px; padding 6px symmetric). CACHE v61 — still not enough (see
+  v10.8.8). v10.8.8: **the pinned line-height was being bypassed by the LINE-BOX
+  STRUT**: `bc-name` was an inline `<span>` inside `bc-main`, so its line box
+  height = max(span's pinned 17px, bc-main's strut = *inherited* font-size ×
+  normal leading) — and Dynamic Type inflates that inherited size, so the strut
+  towered over the pin and dumped phantom space **above the name only** (the
+  version-independent asymmetry in every screenshot; `bc-stats`, its own block
+  with pinned line-height, never suffered). Fix: `bc-name { display: block }` +
+  `bc-main { line-height: 17px }` — a block's line box uses its own pinned
+  line-height. **Reproduced + verified in desktop Chrome** by inflating
+  bc-main's font-size (strut source): old markup 55px card / 10px above name;
+  fixed markup 46px / 6px, immune to inflation. **Full pattern for TFD-proof
+  list rows: pin line-height in px ON THE BLOCK that owns each line (make
+  inline text display:block), never rely on a span's line-height alone.**
+  Card = 46px on every device. CACHE v62.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
