@@ -810,7 +810,7 @@
     .tools-body .bean-section-label { font-size: 12px; margin-top: 24px; }
     .tools-version { margin: 28px 0 8px; text-align: center; font-size: 10px;
       font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
-      color: var(--tertiary); }
+      color: var(--tertiary); white-space: pre-line; }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -1316,8 +1316,11 @@
       </div>
 
       <!-- Build stamp — the definitive "which version is this phone running?"
-           answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
-      <div class="tools-version">v10.8.8 · cache v62</div>
+           answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE.
+           TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
+           out and its real geometry (heights, computed font/line sizes, gaps)
+           replaces the stamp, so the device reports its own numbers. -->
+      <div class="tools-version" id="tools-version">v10.8.9 · cache v63</div>
     </div>
    </section>
 
@@ -2924,6 +2927,36 @@
     sndVol.addEventListener('input', () => { SOUND_VOL = (+sndVol.value) / 100; sndVolVal.textContent = sndVol.value + '%'; });
     sndVol.addEventListener('change', () => { saveSoundPrefs(); playPour(); });   // live gain — no re-render needed
     renderSoundUI();
+
+    // ── Layout diagnostic: tap the version stamp → the device measures a
+    // hidden probe bean-card and reports its own geometry (chasing the iOS
+    // text-scaling spacing bug — desktop previews can't see what the phone
+    // does). Tap again to toggle back to the plain stamp.
+    const VERSION_STAMP = document.getElementById('tools-version').textContent;
+    document.getElementById('tools-version').addEventListener('click', () => {
+      const el = document.getElementById('tools-version');
+      if (el.dataset.diag === '1') { el.dataset.diag = ''; el.textContent = VERSION_STAMP; return; }
+      const probe = document.createElement('div');
+      probe.style.cssText = 'position:fixed;left:0;top:0;width:360px;visibility:hidden;pointer-events:none';
+      probe.innerHTML = '<div class="brew-card"><div class="bc-top"><div class="bc-main">' +
+        '<span class="bc-name">Probe Bean</span><div class="bc-stats">Roaster · Peru · W · 5/22/26</div>' +
+        '</div><span class="bc-rating">92</span></div></div>';
+      document.body.appendChild(probe);
+      const q = s => probe.querySelector(s);
+      const card = q('.brew-card'), name = q('.bc-name'), stats = q('.bc-stats'),
+            main = q('.bc-main'), rate = q('.bc-rating');
+      const r = e => e.getBoundingClientRect();
+      const cr = r(card), nr = r(name), sr = r(stats), mr = r(main), rr = r(rate);
+      const cs = e => { const c = getComputedStyle(e); return c.fontSize + '/' + c.lineHeight; };
+      const f = n => Math.round(n * 10) / 10;
+      el.textContent =
+        'card ' + f(cr.height) + ' · main ' + f(mr.height) + ' · rate ' + f(rr.height) + ' (' + cs(rate) + ')\n' +
+        'name ' + f(nr.height) + ' (' + cs(name) + ') · stats ' + f(sr.height) + ' (' + cs(stats) + ')\n' +
+        'gap top ' + f(nr.top - cr.top) + ' · mid ' + f(sr.top - nr.bottom) + ' · bottom ' + f(cr.bottom - sr.bottom) + '\n' +
+        'mainLH ' + getComputedStyle(main).lineHeight + ' · cardFS ' + getComputedStyle(card).fontSize + ' · dpr ' + window.devicePixelRatio;
+      el.dataset.diag = '1';
+      probe.remove();
+    });
 
     // ── Screen navigation (BREW ⇄ BEAN) ──────────────────────────
     let currentScreen = 'brew';

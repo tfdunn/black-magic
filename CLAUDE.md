@@ -341,7 +341,14 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   fixed markup 46px / 6px, immune to inflation. **Full pattern for TFD-proof
   list rows: pin line-height in px ON THE BLOCK that owns each line (make
   inline text display:block), never rely on a span's line-height alone.**
-  Card = 46px on every device. CACHE v62.
+  Card = 46px on every device. CACHE v62 — on-device rows shrank (138→127
+  screenshot px) but extra space above the name STILL remained. v10.8.9:
+  **tap-the-version-stamp layout diagnostic** — tapping `#tools-version` lays
+  out a hidden probe bean-card and replaces the stamp with the device's OWN
+  measured geometry (card/main/name/stats/rating heights, computed
+  font-size/line-height pairs, top/mid/bottom gaps, dpr); tap again to restore.
+  Ends the screenshot-forensics loop: the phone reports its real numbers.
+  CACHE v63.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
