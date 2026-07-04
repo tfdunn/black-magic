@@ -790,6 +790,9 @@
     .tools-sound-val { font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums;
       color: var(--secondary); width: 4ch; text-align: right; flex: none; }
     .tools-body .bean-section-label { font-size: 12px; margin-top: 24px; }
+    .tools-version { margin: 28px 0 8px; text-align: center; font-size: 10px;
+      font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase;
+      color: var(--tertiary); }
     .bean-back {
       background: none; border: none; font-family: inherit; font-size: 14px; color: var(--secondary);
       padding: 6px 0 4px; cursor: pointer; align-self: flex-start;
@@ -1293,6 +1296,10 @@
         <input type="range" id="snd-vol" class="tools-sound-vol" min="0" max="100" step="1" value="10" aria-label="Sound volume">
         <span class="tools-sound-val" id="snd-vol-val">10%</span>
       </div>
+
+      <!-- Build stamp — the definitive "which version is this phone running?"
+           answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
+      <div class="tools-version">v10.8.3 · cache v57</div>
     </div>
    </section>
 

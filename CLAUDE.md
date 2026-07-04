@@ -313,7 +313,9 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   `.bc-date`/`.bc-lock` CSS pruned. sw.js CACHE v55 (v10.8.1: rating 21→18px,
   centered; `·` between country and process letter). v10.8.2: card padding
   12px → 7px top / 8px bottom (9px visual gap above name = below stats; card
-  61→52px so more beans fit one screen). CACHE v56.
+  61→52px so more beans fit one screen). CACHE v56. v10.8.3: **version build
+  stamp at the bottom of Tools** (`.tools-version`, tiny tertiary all-caps —
+  keep in sync with each release, see Deploy loop). CACHE v57.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
@@ -646,8 +648,18 @@ that way (never hard-code a leading `/` in asset/manifest/SW references).
 
 **Deploy loop:** branch → edit → verify → merge to `main` → Pages auto-rebuilds
 (~1–2 min). Bump the `CACHE` version in `sw.js` when changing cached assets so
-clients pick up the update. `gh` CLI lives at `~/.local/bin/gh` (logged in as
+clients pick up the update, **and keep the Tools `.tools-version` build stamp in
+sync** (e.g. "v10.8.3 · cache v57") — it's the definitive "which version is this
+phone running?" check. `gh` CLI lives at `~/.local/bin/gh` (logged in as
 `tfdunn`). `.claude/` is gitignored.
+
+**CDN staleness (v10.8.2 lesson):** GitHub Pages serves with
+`cache-control: max-age=600`, so a phone can get a copy up to **10 minutes older
+than a successful deploy** — the Fastly edge keeps serving what it cached until
+the TTL expires (the SW's `no-store` bypasses only the local HTTP cache, not the
+CDN). A "deploy succeeded but the phone shows the old version" report inside that
+window is normal; check the Tools version stamp, wait ~10 min, or switch networks
+(Wi-Fi ↔ cellular hits a different edge) before debugging anything else.
 
 **Auto-update:** the SW is network-first with `{cache:'no-store'}` (always fetches
 fresh when online; cache is offline fallback only) and `skipWaiting()` +
