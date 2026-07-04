@@ -288,7 +288,28 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.6 (July 2026) — deviation baseline = the DEFAULT recipe + calmer Tools/bean form (latest)
+## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair (latest)
+Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
+`bestRecipeRating` was silently stuck at 5 with no 5★ brew, so every 4★ save's
+cohort update was tier-blocked and `bestBloom` stayed a pre-Loop-1 raw copy.
+The lock came from `saveBean`'s hand-edit rule: it compared the form against the
+RAW stored fields, so the v10.1 TDS-aim auto-backfill (form shows 1.72 for a
+pre-v10.1 bean that stored nothing) counted as a hand edit on any "update bean".
+- **`saveBean` lock rule fixed:** `recipeChanged` now compares against the values
+  the form was SEEDED with (`beanToRecipe(bean)` — blanks filled from defaults),
+  so a no-op save / auto-backfill can never lock; and **dose & bloom are excluded**
+  — they're bean characteristics whose manual re-anchors the Loop-1 cohort mean is
+  supposed to absorb. Only FLAVOR-choice edits (grind/agitate/contact/water/
+  pourΔ/target/TDS-aim) still declare the deliberate tier-5 "this is best".
+- **One-time repair on launch** (`repairTierLocks`, flag
+  `localStorage['blackmagic.mig.tier5']`): any bean at tier 5 with NO actual 5★
+  brew drops to its highest brewed tier, and if that tier is ≥4 its
+  bestDose/bestBloom are immediately re-estimated from the tier's same-signature
+  cohort (mean implied dose/bloom) — so the next cup seeds correctly without
+  waiting for another 4★ save. Runs once; deliberate tier-5 locks made after this
+  build are never clawed back. sw.js CACHE v53.
+
+## v10.6 (July 2026) — deviation baseline = the DEFAULT recipe + calmer Tools/bean form
 - **History deviation tokens now compare to the TOOLS DEFAULT recipe, not the
   bean's best** (`compactDeltas(r, def)`). The token describes the cup's recipe vs
   the standard, so it never rewrites itself when the bean's best evolves: a bean
