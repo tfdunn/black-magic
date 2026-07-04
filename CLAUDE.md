@@ -288,7 +288,29 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair (latest)
+## v10.8 (July 2026) — quiet auto-suggestions + list polish (latest)
+- **Auto-suggested dose/bloom no longer flag amber.** `updateRecipeHighlights`
+  gates the dose/bloom `.diff` on `doseTouched`/`bloomTouched` — a Loop-2
+  sensitivity correction (e.g. grind 8→10 recomputing dose/bloom) is the app's
+  own default and reads quiet grey; the flavor knob that caused it carries the
+  amber. Only a MANUAL dose/bloom edit turns them amber. (Listener-order gotcha:
+  the generic highlight listener registers before the touched-flag listeners, so
+  those now re-run `updateRecipeHighlights()` after setting the flag;
+  `restoreBrewState` restores the flags BEFORE its highlight pass.)
+- **Brew History:** ★4/★5 ratings no longer amber (`.bl-r.hot` retired — ratings
+  read like the other columns); legend's deviation column reads **"recipe Δ"**.
+- **Tools:** each sensitivity table's **zero-anchor column (8 | 208° | 4:30) is
+  static** — a darker-grey "0" (`.sens-zero`, `--tertiary`), no tap-to-edit
+  (editing it was meaningless: `getSens` re-zeros the row at the anchor). The
+  hidden input remains so `persistSens` reads 0 as before.
+- **Bean list cards:** top-right now shows **Bean★ big + amber** (21px/600,
+  `.bc-rating`; blank when unrated) instead of "roast M/D"; the stats line is
+  `Roaster · Country W · 6/15/26` — **process compressed to one letter**
+  (Washed=W, Natural=N, Honey=H, anything else omitted) and the **roast date
+  (date only, M/D/YY) moved to the end**. `.bc-date`/`.bc-lock` CSS pruned.
+  sw.js CACHE v54.
+
+## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
 `bestRecipeRating` was silently stuck at 5 with no 5★ brew, so every 4★ save's
 cohort update was tier-blocked and `bestBloom` stayed a pre-Loop-1 raw copy.
