@@ -362,7 +362,16 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   (3) the iOS theories (autosizing v10.8.5, Dynamic Type v10.8.7, strut
   v10.8.8) were wrong — platform-difference explanations need on-device
   measurement first (the v10.8.9 diagnostic exists for exactly this).
-  CACHE v64.
+  CACHE v64. v10.8.11: **spacing audit + comment truth pass.** Audited every
+  `gap` in the app: the gap-between-bordered-rows failure mode existed ONLY in
+  `.bean-list` (Brew History's `.history-list` has no gap and its single-line
+  rows are symmetric by construction; all other gaps are horizontal, between
+  discrete buttons/chips, or the intentional 0.5px hairline-grid trick). The
+  wrong-theory CSS comments from the saga (Dynamic-Type claims on `.brew-card`
+  / `.bc-main` / the `text-size-adjust` rule) were rewritten to state the
+  actual rationale — px line-heights kept for deterministic row math,
+  display:block name kept for strut correctness, text-size-adjust kept as
+  hygiene. No rendering change. CACHE v65.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
