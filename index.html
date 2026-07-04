@@ -31,6 +31,10 @@
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     /* Dark by default — native controls (date picker, caret, scrollbars) follow. */
     html { color-scheme: dark; }
+    /* iOS Safari silently inflates "body-like" text runs (it hit the bean-list
+       names, ~+30%, adding phantom space above their caps) — opt out so the
+       phone renders the same px sizes the design was tuned on. Never remove. */
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       font-family: var(--font);
       background: #ececef;
@@ -1301,7 +1305,7 @@
 
       <!-- Build stamp — the definitive "which version is this phone running?"
            answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
-      <div class="tools-version">v10.8.4 · cache v58</div>
+      <div class="tools-version">v10.8.5 · cache v59</div>
     </div>
    </section>
 

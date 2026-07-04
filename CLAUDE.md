@@ -316,11 +316,15 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   61→52px so more beans fit one screen). CACHE v56. v10.8.3: **version build
   stamp at the bottom of Tools** (`.tools-version`, tiny tertiary all-caps —
   keep in sync with each release, see Deploy loop). CACHE v57. v10.8.4:
-  **decisively tighter cards** — v10.8.2's trim read too subtle on TFD's phone
-  (his device renders text ~20% larger than desktop preview, so px paddings are
-  a smaller share of the row): padding → 5px/6px, explicit `line-height: 1.2`
-  on name + stats (counters iOS's looser 'normal' leading), stats margin-top
-  4→3px; card 52→45px desktop. CACHE v58.
+  padding → 5px/6px, explicit `line-height: 1.2` on name + stats, stats
+  margin-top 4→3px; card 52→47px desktop. CACHE v58. v10.8.5: **root cause of
+  the persistent "too much space above the name" found — iOS Safari TEXT
+  AUTOSIZING** was inflating the bean-list names ~30% (extra leading lands
+  above the caps; subtext wasn't inflated, so the gap ratio never changed no
+  matter how padding moved; desktop Chrome doesn't autosize, so previews looked
+  symmetric). Fixed globally with `html { -webkit-text-size-adjust: 100% }` —
+  **never remove it**; the phone now renders the same px sizes the design is
+  tuned on. CACHE v59.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
