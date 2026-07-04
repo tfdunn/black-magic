@@ -2917,6 +2917,44 @@
       return Math.max(Date.now(), maxId + 1);
     }
 
+    // ── One-time repair (v10.7) ──────────────────────────────────
+    // Until v10.7, an "update bean" save could count an auto-backfilled field (the
+    // v10.1 TDS-aim) as a hand edit and silently lock the bean's recipe tier at 5 —
+    // blocking every 4★ cohort update from then on. Downgrade any tier-5 bean with
+    // NO actual 5★ brew to its highest brewed tier, and re-run the Loop-1 cohort
+    // estimate for its dose/bloom so the very next cup seeds correctly (instead of
+    // waiting for the next 4★ save). Runs once (flagged) so a deliberate tier-5
+    // hand-lock made after this build is never clawed back.
+    (function repairTierLocks(){
+      const K = 'blackmagic.mig.tier5';
+      try {
+        if (localStorage.getItem(K)) return;
+        const brews = getBrews(), beans = getBeans();
+        let changed = false;
+        beans.forEach(b => {
+          if ((b.bestRecipeRating || 0) < 5) return;
+          const ratings = brews.filter(r => r.beanId === b.id)
+            .map(r => parseInt(r.brewRating || r.rating) || 0);
+          if (ratings.some(x => x >= 5)) return;        // a real 5★ exists — legit lock
+          const tier = Math.max(0, ...ratings);
+          b.bestRecipeRating = tier;
+          if (tier >= 4) {                              // refresh the cohort estimate now
+            const sig = recipeSig(beanToRecipe(b));
+            const cohort = brews.filter(r => r.beanId === b.id &&
+              (parseInt(r.brewRating || r.rating) || 0) === tier && recipeSig(r) === sig);
+            const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
+            const md = mean(cohort.map(impliedDose).filter(v => v != null));
+            const mb = mean(cohort.map(impliedBloom).filter(v => v != null));
+            if (md != null) b.bestDose  = String(Math.round(md * 10) / 10);
+            if (mb != null) b.bestBloom = String(Math.round(mb));
+          }
+          changed = true;
+        });
+        if (changed) setBeans(beans);
+        localStorage.setItem(K, '1');
+      } catch (e) {}
+    })();
+
     // Seed lists scraped from the spreadsheet (Café Integral absorbs "Integral";
     // "La Columbe" → "La Colombe"). Sorted alphabetically.
     const SEED = {
@@ -3048,11 +3086,19 @@
         bean = beans.find(b => b.id === editingBeanId);
         if (!bean) { editingBeanId = null; return saveBean(); }   // vanished — save as new
         if (bean.locked) { alert('This bean is locked (already exported) and can’t be edited.'); return null; }
-        // A hand-edit of an existing best recipe is a deliberate "this is the best" → tier 5,
-        // so only a 5★ brew (or another edit) can later replace it. A bean that had no recipe
-        // yet keeps tier 0 so good brews can still evolve it.
+        // A hand-edit of a FLAVOR choice on an existing best recipe is a deliberate
+        // "this is the best" → tier 5, so only a 5★ brew (or another edit) can later
+        // replace it. Two deliberate exclusions:
+        //  • compare against the values the form was SEEDED with (beanToRecipe fills
+        //    blanks from the defaults) — a no-op "update bean" or an auto-backfilled
+        //    field (the v10.1 TDS-aim did exactly this) can never lock the tier;
+        //  • dose & bloom never lock: they're bean characteristics, and a manual
+        //    re-anchor is something the Loop-1 cohort mean is supposed to absorb.
+        // A bean that had no recipe yet keeps tier 0 so good brews can still evolve it.
         const hadRecipe = bean.bestDose != null && bean.bestDose !== '';
-        const recipeChanged = Object.values(BEST_KEYS).some(k => String(bean[k] ?? '') !== String(data[k] ?? ''));
+        const seeded = beanToRecipe(bean);
+        const recipeChanged = RECIPE_FIELDS.some(f => f !== 'dose' && f !== 'bloom' &&
+          String(seeded[recKey(f)] ?? '') !== String(data[BEST_KEYS[f]] ?? ''));
         Object.assign(bean, data, { updatedAt: new Date().toISOString() });  // keeps rating/tastingNote
         if (hadRecipe && recipeChanged) bean.bestRecipeRating = 5;
         else if (bean.bestRecipeRating == null) bean.bestRecipeRating = 0;
