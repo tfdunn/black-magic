@@ -311,7 +311,9 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   **process compressed to one letter** (Washed=W, Natural=N, Honey=H, anything
   else omitted) and the **roast date (date only, M/D/YY) moved to the end**.
   `.bc-date`/`.bc-lock` CSS pruned. sw.js CACHE v55 (v10.8.1: rating 21→18px,
-  centered; `·` between country and process letter).
+  centered; `·` between country and process letter). v10.8.2: card padding
+  12px → 7px top / 8px bottom (9px visual gap above name = below stats; card
+  61→52px so more beans fit one screen). CACHE v56.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's

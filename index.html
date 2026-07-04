@@ -587,7 +587,9 @@
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
-      padding: 12px 20px;
+      /* Tight rows so more beans fit one screen; top 1px less than bottom to
+         offset the name's larger line-box leading (visually equal above/below) */
+      padding: 7px 20px 8px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       /* Long-press = our Edit/Delete gesture; suppress iOS text-selection + callout */
