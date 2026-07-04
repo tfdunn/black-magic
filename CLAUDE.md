@@ -348,7 +348,21 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   measured geometry (card/main/name/stats/rating heights, computed
   font-size/line-height pairs, top/mid/bottom gaps, dpr); tap again to restore.
   Ends the screenshot-forensics loop: the phone reports its real numbers.
-  CACHE v63.
+  CACHE v63. v10.8.10: **the diagnostic settled it — the phone's card was
+  pixel-identical to desktop (46px, gaps 6/3/7); the extra "space above the
+  name" was NEVER in the card: `.bean-list` had `display:flex; gap: 10px`,
+  putting 10px BETWEEN the divider (card border-bottom) and the next card's
+  text on every platform.** Card-box measurements looked perfect all along
+  while the user was (correctly) judging divider→text distance. Gap → 0
+  (comment marks it MUST stay 0; cards carry their own padding); row pitch
+  divider-to-divider = 47px, visual space above name ≈ below at last.
+  Postmortem for future layout bugs: (1) measure what the USER sees
+  (divider→text), not the element box; (2) when a spacing bug survives a
+  fix, re-examine WHERE the space lives before iterating on the same element;
+  (3) the iOS theories (autosizing v10.8.5, Dynamic Type v10.8.7, strut
+  v10.8.8) were wrong — platform-difference explanations need on-device
+  measurement first (the v10.8.9 diagnostic exists for exactly this).
+  CACHE v64.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
