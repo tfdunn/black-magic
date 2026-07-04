@@ -288,7 +288,42 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.8 (July 2026) — quiet auto-suggestions + list polish (latest)
+## v10.9 (July 2026) — estimation decoupled from adoption (latest)
+Driven by a real failure: TFD's first cup of a bag (rated 1, standard recipe)
+implied 23.5/83 but cup 2 still seeded the untouched 24/85 default — sub-4★
+data never reached the bean, and retro-editing the rating didn't help (edits
+are guarded). His usage pattern: 1/2/4★ cups share the bean's standard recipe;
+3★ = tests with varied recipes; a winning test gets adopted at 5★.
+- **Loop 1 split into two jobs.** `persistBestRecipe` = **ADOPTION only** (which
+  flavor signature is best): unchanged gating — fresh 4★/5★ adopts, tier
+  protection, bean-form flavor edit = tier 5. New `recomputeBeanEstimate(beanId)`
+  = **ESTIMATION** (the true dose/bloom for that recipe): **rating-agnostic** —
+  cohort = every brew of the bean whose `recipeSig` matches the bean's current
+  best recipe. Ratings gate the crown, not the data: cup 1 informs cup 2; 3★
+  tests self-exclude by signature; an adopted test recipe **backfills instantly
+  from its whole test history** (retro re-rating 3→5 is now optional
+  bookkeeping). NB: adoption still requires a FRESH 4/5★ save (or bean-form
+  edit) — retro-editing a rating feeds the estimator but never moves the crown.
+- **Exponential calendar-time decay** (`EST_HALF_LIFE_DAYS = 14`): weights
+  0.5^(Δdays/14) referenced to the newest cohort brew (reference cancels in
+  normalization — a vacation gap reweights, never shrinks). Chosen against
+  TFD's criterion: after 6 daily cups + 10-day gap + 1 cup, the fresh cup ≤25%
+  (14d → ~24%). Dose is empirically time-stationary (±TDS noise) so it wants a
+  flat average; bloom drifts with bag age and rides the same decay (a single
+  parameter — separate dose/bloom half-lives judged false precision on one
+  bean's evidence). Equal-weight mean (v10, "TFD's choice") superseded.
+- **Recompute triggers:** every fresh brew save (then `autoSuggestDoseBloom`
+  reseeds the live fields — touched flags re-armed), every brew **edit**
+  (`saveBrew` editing branch) and **delete** (values/recipe changes move cohort
+  membership), and a bean-form **flavor** edit (re-key → instant backfill). A
+  bean-form **dose/bloom-only** edit does NOT recompute: the hand-set value
+  stands until the next matching brew save absorbs it (decay handles drift, so
+  overrides should be rare).
+- `repairTierLocks` (v10.7 one-time migration) left untouched — already ran on
+  TFD's device; its tier-cohort estimate only affects un-flagged installs and
+  the next save recomputes with the new logic anyway. sw.js CACHE v66.
+
+## v10.8 (July 2026) — quiet auto-suggestions + list polish
 - **Auto-suggested dose/bloom no longer flag amber.** `updateRecipeHighlights`
   gates the dose/bloom `.diff` on `doseTouched`/`bloomTouched` — a Loop-2
   sensitivity correction (e.g. grind 8→10 recomputing dose/bloom) is the app's

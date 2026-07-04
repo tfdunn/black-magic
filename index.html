@@ -1320,7 +1320,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v10.8.11 · cache v65</div>
+      <div class="tools-version" id="tools-version">v10.9 · cache v66</div>
     </div>
    </section>
 
@@ -1682,17 +1682,21 @@
       const b = beans.find(x => x.id === currentBean.id);
       if (b && !b.locked) { b.brewNote = document.getElementById('notes-brew').value.trim(); setBeans(beans); currentBean.brewNote = b.brewNote; }
     }
-    // ── Loop 1: best recipe = tier-protected, cohort-averaged, outcome-corrected ──
-    // A fresh 4★/5★ brew adopts its FLAVOR variables (grind/temp/contact/agitate/
-    // pourΔ/target) as the bean's best recipe, then re-estimates the TRUE dose &
-    // bloom as the mean over the cohort — every brew of this bean at the same tier
-    // with the same flavor signature (equal weight, per TFD). Each cohort brew
-    // contributes its outcome-corrected values, so measured misses pull the
-    // estimate toward truth instead of averaging raw inputs:
+    // ── Loop 1 (v10.9): adoption and estimation are SEPARATE jobs ──
+    // ADOPTION (persistBestRecipe) — which flavor signature is the bean's best —
+    // stays rating-gated: a fresh 4★/5★ save adopts its flavor variables (tier-
+    // protected: a later 4★ never clobbers a 5★; bean-form flavor edits = tier 5).
+    // ESTIMATION (recomputeBeanEstimate) — the TRUE dose & bloom for that recipe —
+    // is RATING-AGNOSTIC: the cohort is every brew of the bean whose flavor
+    // signature matches the bean's current best (ratings gate the crown, not the
+    // data — cup 1 of a bag informs cup 2; an adopted test recipe inherits its
+    // whole test history by signature match). Each brew contributes its
+    // outcome-corrected values, so measured misses pull the estimate toward truth:
     //   implied dose  = dose × (TDS target / measured TDS)    (dose ∝ TDS, 1st order)
     //   implied bloom = bloom + (last pour / 30s) × Time Δ    (end-flow-rate rule)
-    // Tier protection unchanged: a later 4★ never clobbers a 5★. Manual edits on
-    // the Bean screen still set the tier to 5 (see saveBean).
+    // Weights decay with CALENDAR age (bags age while they sit): halve every
+    // 14 days, referenced to the newest cohort brew. Recomputed after every brew
+    // save, edit, and delete, and after a bean-form recipe change (re-key).
     const RECIPE_FIELDS = ['dose','grind','agitate','contact','water','bloom','decay','brew-target','tds-aim'];
     const BEST_KEYS = { dose:'bestDose', grind:'bestGrind', agitate:'bestAgitate', contact:'bestContact',
       water:'bestWater', bloom:'bestBloom', decay:'bestDecay', 'brew-target':'bestTarget', 'tds-aim':'tdsAim' };
@@ -1725,7 +1729,7 @@
       const ta = parseFloat(r.timeAdj);
       return isNaN(ta) ? bl : bl + (lastPourOf(r) / 30) * ta;   // ran over → wanted more bloom
     }
-    function persistBestRecipe(){
+    function persistBestRecipe(){                               // ADOPTION only (see block comment)
       if (!(currentBean && currentBean.id)) return;
       const br = parseInt(document.getElementById('brew-rating').value);
       if (!(br >= 4)) return;                                   // only 4★ / 5★ brews evolve the recipe
@@ -1735,26 +1739,43 @@
       if (br < (b.bestRecipeRating || 0)) return;               // tier protection
       RECIPE_FIELDS.forEach(f => b[BEST_KEYS[f]] = document.getElementById(f).value);
       b.bestRecipeRating = br;
-      // Cohort average (the just-saved brew is already in getBrews()):
-      const cur = {};
-      SIG_KEYS.forEach(k => cur[k] = document.getElementById(k === 'brewTarget' ? 'brew-target' : k === 'tdsAim' ? 'tds-aim' : k).value);
-      const sig = recipeSig(cur);
-      const cohort = getBrews().filter(r => r.beanId === b.id &&
-        parseInt(r.brewRating || r.rating) === br && recipeSig(r) === sig);
-      const mean = a => a.length ? a.reduce((s, v) => s + v, 0) / a.length : null;
-      const md = mean(cohort.map(impliedDose).filter(v => v != null));
-      const mb = mean(cohort.map(impliedBloom).filter(v => v != null));
+      setBeans(beans);
+      Object.assign(currentBean, b);
+      // dose/bloom refinement happens in recomputeBeanEstimate (saveBrew calls it
+      // right after this, so an adopted signature is estimated immediately).
+    }
+    // ESTIMATION: weighted mean of implied dose/bloom over the brews matching the
+    // bean's current best signature; weights halve every EST_HALF_LIFE_DAYS of
+    // calendar age (referenced to the newest cohort brew — reference cancels in
+    // the normalization, so gaps don't shrink the estimate, only reweight it).
+    const EST_HALF_LIFE_DAYS = 14;
+    function recomputeBeanEstimate(beanId){
+      if (!beanId) return;
+      const beans = getBeans();
+      const b = beans.find(x => x.id === beanId);
+      if (!b || b.locked) return;
+      const sig = recipeSig(beanToRecipe(b));
+      const cohort = getBrews().filter(r => r.beanId === b.id && recipeSig(r) === sig);
+      if (!cohort.length) return;                    // nothing matches → hand/seed values stand
+      const age = r => { const ms = Date.parse(r.savedAt); return isNaN(ms) ? Infinity : ms; };
+      const newest = Math.max(...cohort.map(age).filter(isFinite));
+      const HL_MS = EST_HALF_LIFE_DAYS * 86400000;
+      const wmean = fn => {
+        let sw = 0, sv = 0;
+        cohort.forEach(r => {
+          const v = fn(r), t = age(r);
+          if (v == null || !isFinite(t)) return;
+          const w = Math.pow(0.5, (newest - t) / HL_MS);
+          sw += w; sv += v * w;
+        });
+        return sw > 0 ? sv / sw : null;
+      };
+      const md = wmean(impliedDose), mb = wmean(impliedBloom);
+      if (md == null && mb == null) return;
       if (md != null) b.bestDose  = String(Math.round(md * 10) / 10);
       if (mb != null) b.bestBloom = String(Math.round(mb));
       setBeans(beans);
-      Object.assign(currentBean, b);
-      // Loop 1 payoff: the next cup starts at the refreshed estimate — write it into
-      // the live fields (clearForNextBrew keeps the recipe) and re-arm suggestions.
-      document.getElementById('dose').value  = b.bestDose  ?? document.getElementById('dose').value;
-      document.getElementById('bloom').value = b.bestBloom ?? document.getElementById('bloom').value;
-      renderField('dose'); renderField('bloom');
-      doseTouched = bloomTouched = false;
-      updateRecipeHighlights();
+      if (currentBean && currentBean.id === b.id) Object.assign(currentBean, b);
     }
     // ── Brew-screen recipe highlighting: light up only the deviations ──
     // Dose & Bloom flag only on a MANUAL override (touched) — an auto-suggested
@@ -2588,6 +2609,9 @@
             locked: old.locked, exportedAt: old.exportedAt
           });
           setBrews(brews);
+          // An edited record may enter/leave/move within the estimator cohort
+          // (recipe or result values changed) — refresh the bean's estimate.
+          recomputeBeanEstimate(brews[idx].beanId);
         }
         exitBrewEdit();
         // Side trip done — restore the cup we were brewing (untouched), then
@@ -2602,6 +2626,14 @@
       // Only a freshly-brewed cup updates the bean's evolving note/rating;
       // editing a loaded past brew must not clobber the bean's current verdict.
       if (!loadedFromHistory) { persistBeanRating(); persistBeanNote(); persistBeanBrewNote(); persistBestRecipe(); }
+      // Estimation is rating-agnostic (v10.9): every saved cup is data. If this
+      // cup's recipe matches the bean's best (possibly just adopted above), the
+      // estimate refreshes and the NEXT cup seeds from it — cup 1 informs cup 2.
+      if (currentBean && currentBean.id) {
+        recomputeBeanEstimate(currentBean.id);
+        doseTouched = bloomTouched = false;          // fresh estimate → suggestions re-armed
+        autoSuggestDoseBloom();                      // live fields ← best + corrections
+      }
       flashSaved();
       clearForNextBrew();        // labelLocked keeps "saved ✓" visible during this
     }
@@ -2749,6 +2781,7 @@
       if (!confirm('Delete this brew permanently? This cannot be undone.')) return;
       closeBrewActions();
       setBrews(getBrews().filter(b => b.id !== r.id));
+      recomputeBeanEstimate(r.beanId);   // a botched cup leaves the cohort with it
       renderHistory();
     });
     $('brew-act-cancel').addEventListener('click', closeBrewActions);
@@ -3152,7 +3185,7 @@
       const data = collectBean();
       if (!data.name) { alert('Add a bean name first.'); return null; }
       const beans = getBeans();
-      let bean;
+      let bean, estimatorRekey = false;
       if (editingBeanId) {
         bean = beans.find(b => b.id === editingBeanId);
         if (!bean) { editingBeanId = null; return saveBean(); }   // vanished — save as new
@@ -3173,11 +3206,17 @@
         Object.assign(bean, data, { updatedAt: new Date().toISOString() });  // keeps rating/tastingNote
         if (hadRecipe && recipeChanged) bean.bestRecipeRating = 5;
         else if (bean.bestRecipeRating == null) bean.bestRecipeRating = 0;
+        estimatorRekey = recipeChanged;
       } else {
         bean = Object.assign({ id: nextBeanId(), savedAt: new Date().toISOString(), bestRecipeRating: 0 }, data);
         beans.push(bean);
       }
       setBeans(beans);
+      // Hand-adopting a recipe re-keys the estimator: brews already matching the
+      // new signature (e.g. the 3★ tests that proved it) backfill dose/bloom
+      // immediately. A dose/bloom-only edit does NOT recompute — the hand-set
+      // value stands until the next matching brew save refreshes the estimate.
+      if (estimatorRekey) recomputeBeanEstimate(bean.id);
       // Live-reference: editing the selected coffee refreshes the brew bar immediately
       if (currentBean && currentBean.id === bean.id) setBeanBar(bean);
       clearBeanForm();
