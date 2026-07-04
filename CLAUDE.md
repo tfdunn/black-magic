@@ -657,12 +657,22 @@ All PWA paths are **relative** (`./`, `manifest.webmanifest`, `sw.js`, `icon-*.p
 so the app works under the `/black-magic/` subpath with no path rewrites — keep it
 that way (never hard-code a leading `/` in asset/manifest/SW references).
 
-**Deploy loop:** branch → edit → verify → merge to `main` → Pages auto-rebuilds
-(~1–2 min). Bump the `CACHE` version in `sw.js` when changing cached assets so
-clients pick up the update, **and keep the Tools `.tools-version` build stamp in
-sync** (e.g. "v10.8.3 · cache v57") — it's the definitive "which version is this
-phone running?" check. `gh` CLI lives at `~/.local/bin/gh` (logged in as
-`tfdunn`). `.claude/` is gitignored.
+**Deploy loop:** branch → edit → verify → merge to `main` → the **"Deploy Pages"
+Actions workflow** (`.github/workflows/deploy.yml`) publishes (~1–2 min). Bump the
+`CACHE` version in `sw.js` when changing cached assets so clients pick up the
+update, **and keep the Tools `.tools-version` build stamp in sync** (e.g.
+"v10.8.3 · cache v57") — it's the definitive "which version is this phone
+running?" check. `gh` CLI lives at `~/.local/bin/gh` (logged in as `tfdunn`).
+`.claude/` is gitignored.
+
+**Deploy reliability (July 2026):** Pages was switched from the legacy
+branch-based pipeline (`pages-build-deployment`) to **workflow-based deployment**
+(repo Pages `build_type=workflow`) because the legacy deploy step failed
+transiently 3× ("Deployment failed, try again later") with no retry hook.
+`deploy.yml` retries the deploy step up to **3 attempts** (30s/60s pauses), so
+flakes self-heal. Still **verify the run conclusion after pushing**:
+`gh run list --workflow deploy.yml`. Manual retrigger (replaces the old
+empty-commit trick): `gh workflow run deploy.yml`.
 
 **CDN staleness (v10.8.2 lesson):** GitHub Pages serves with
 `cache-control: max-age=600`, so a phone can get a copy up to **10 minutes older

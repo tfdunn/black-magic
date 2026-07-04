@@ -1,0 +1,53 @@
+# Pages deploy with automatic retries.
+#
+# Replaces the legacy branch-based `pages-build-deployment` pipeline (repo Pages
+# setting flipped to build_type=workflow), whose deploy step failed transiently
+# ("Deployment failed, try again later" — 3× in July 2026) with no retry option.
+# Here the deploy step retries up to 3 times with a 30s pause between attempts,
+# so a GitHub-side flake heals itself. Manual retrigger (replaces the old
+# empty-commit trick):  gh workflow run deploy.yml
+name: Deploy Pages
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+      - name: Deploy (attempt 1)
+        id: d1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Pause before retry
+        if: steps.d1.outcome == 'failure'
+        run: sleep 30
+      - name: Deploy (attempt 2)
+        id: d2
+        if: steps.d1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - name: Pause before retry
+        if: steps.d1.outcome == 'failure' && steps.d2.outcome == 'failure'
+        run: sleep 60
+      - name: Deploy (attempt 3)
+        id: d3
+        if: steps.d1.outcome == 'failure' && steps.d2.outcome == 'failure'
+        uses: actions/deploy-pages@v4
