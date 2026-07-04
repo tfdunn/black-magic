@@ -748,7 +748,11 @@
       font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
     }
     .bean-new:active { background: #f6f6f6; }
-    .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 10px;
+    /* gap MUST stay 0: a flex gap here sits between a card's bottom border (the
+       divider) and the next card's text — it reads as extra space above every
+       coffee name, outside the card box where card-level fixes can't touch it
+       (the v10.8.x "too much space on top" saga; cards carry their own padding). */
+    .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 0;
       max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     /* Section header — matches the centered ROASTER NOTES label */
@@ -1320,7 +1324,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v10.8.9 · cache v63</div>
+      <div class="tools-version" id="tools-version">v10.8.10 · cache v64</div>
     </div>
    </section>
 
