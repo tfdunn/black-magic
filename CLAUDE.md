@@ -315,7 +315,12 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   12px → 7px top / 8px bottom (9px visual gap above name = below stats; card
   61→52px so more beans fit one screen). CACHE v56. v10.8.3: **version build
   stamp at the bottom of Tools** (`.tools-version`, tiny tertiary all-caps —
-  keep in sync with each release, see Deploy loop). CACHE v57.
+  keep in sync with each release, see Deploy loop). CACHE v57. v10.8.4:
+  **decisively tighter cards** — v10.8.2's trim read too subtle on TFD's phone
+  (his device renders text ~20% larger than desktop preview, so px paddings are
+  a smaller share of the row): padding → 5px/6px, explicit `line-height: 1.2`
+  on name + stats (counters iOS's looser 'normal' leading), stats margin-top
+  4→3px; card 52→45px desktop. CACHE v58.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's

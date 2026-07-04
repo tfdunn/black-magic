@@ -588,8 +588,9 @@
 
     .brew-card {
       /* Tight rows so more beans fit one screen; top 1px less than bottom to
-         offset the name's larger line-box leading (visually equal above/below) */
-      padding: 7px 20px 8px;
+         offset the name's larger line-box leading (visually equal above/below).
+         Explicit line-heights below counter iOS's looser 'normal' leading. */
+      padding: 5px 20px 6px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       /* Long-press = our Edit/Delete gesture; suppress iOS text-selection + callout */
@@ -602,7 +603,7 @@
       align-items: center;      /* rating spans both text lines, merged-cell style */
     }
     .brew-card .bc-main { min-width: 0; }
-    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; }
+    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; line-height: 1.2; }
     /* Bean★ verdict at the right — vertically centered on the name + stats pair */
     .brew-card .bc-rating {
       font-size: 18px; font-weight: 600;
@@ -614,7 +615,8 @@
     .brew-card .bc-stats {
       font-size: 11px;
       color: #888;
-      margin-top: 4px;
+      margin-top: 3px;
+      line-height: 1.2;
       font-variant-numeric: tabular-nums;
     }
     /* ── Screen nav toggle (top-left, mirrors history) ── */
@@ -1299,7 +1301,7 @@
 
       <!-- Build stamp — the definitive "which version is this phone running?"
            answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
-      <div class="tools-version">v10.8.3 · cache v57</div>
+      <div class="tools-version">v10.8.4 · cache v58</div>
     </div>
    </section>
 
