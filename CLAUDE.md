@@ -317,16 +317,20 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   stamp at the bottom of Tools** (`.tools-version`, tiny tertiary all-caps —
   keep in sync with each release, see Deploy loop). CACHE v57. v10.8.4:
   padding → 5px/6px, explicit `line-height: 1.2` on name + stats, stats
-  margin-top 4→3px; card 52→47px desktop. CACHE v58. v10.8.5: **root cause of
-  the persistent "too much space above the name" found — iOS Safari TEXT
-  AUTOSIZING** was inflating the bean-list names ~30% (extra leading lands
-  above the caps; subtext wasn't inflated, so the gap ratio never changed no
-  matter how padding moved; desktop Chrome doesn't autosize, so previews looked
-  symmetric). Fixed globally with `html { -webkit-text-size-adjust: 100% }` —
-  **never remove it**; the phone now renders the same px sizes the design is
-  tuned on. CACHE v59. v10.8.6: bean-card rating 18→**14px** (same size as the
-  coffee name — exact match possible now that autosizing is off; amber carries
-  the emphasis). CACHE v60.
+  margin-top 4→3px; card 52→47px desktop. CACHE v58. v10.8.5: added
+  `html { -webkit-text-size-adjust: 100% }` on an (incorrect) autosizing theory
+  — harmless, kept. CACHE v59. v10.8.6: bean-card rating 18→**14px** (same size
+  as the coffee name; amber carries the emphasis). CACHE v60. v10.8.7: **actual
+  root cause of the persistent "too much space above the name": iOS Dynamic
+  Type / Larger Text scales system-font TEXT in installed web apps** (TFD runs
+  a larger text size; small sizes scale more than large — names +~30%) and
+  **CSS cannot opt out** (`text-size-adjust` doesn't govern it — v10.8.5/v10.8.6
+  changed nothing on-device, proven by identical screenshots at stamped
+  versions). Fix: the bean-card line-heights are **FIXED PIXELS** (name/rating
+  17px, stats 13px; padding 6px symmetric) so row geometry is text-scale-proof
+  — glyphs render larger around their baselines but spacing never moves. Card
+  = 6+17+3+13+6+1 = 46px on every device. **Pattern to reuse whenever a list's
+  spacing must survive TFD's text setting: pin line-height in px.** CACHE v61.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
