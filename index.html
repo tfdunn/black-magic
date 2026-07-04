@@ -31,9 +31,9 @@
     html, body { height: 100%; overflow: hidden; overscroll-behavior: none; }
     /* Dark by default — native controls (date picker, caret, scrollbars) follow. */
     html { color-scheme: dark; }
-    /* iOS Safari silently inflates "body-like" text runs (it hit the bean-list
-       names, ~+30%, adding phantom space above their caps) — opt out so the
-       phone renders the same px sizes the design was tuned on. Never remove. */
+    /* Standard opt-out of Safari's text autosizing so px font sizes render as
+       written. (Added during the v10.8.x bean-list spacing hunt — the actual
+       bug turned out to be a flex gap, but the rule is correct hygiene; keep.) */
     html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
     body {
       font-family: var(--font);
@@ -591,13 +591,11 @@
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
-      /* Tight rows so more beans fit one screen. Line-heights below are FIXED
-         PIXELS, not relative: iOS Dynamic Type / Larger Text scales system-font
-         TEXT in installed web apps (CSS can't opt out — text-size-adjust doesn't
-         govern it) and relative leading inflated with it, piling space above the
-         name's caps. Pixel line boxes pin the row geometry on every device; the
-         glyphs simply render larger around their baseline when the user's text
-         setting is bigger. */
+      /* Tight rows so more beans fit one screen; symmetric padding = the visual
+         space above the name matches the space below the stats line. Row height
+         is fully deterministic: 6 + 17 (name) + 3 + 13 (stats) + 6 + 1 border
+         = 46px (all line-heights pinned in px below). The list container must
+         contribute NO extra spacing — see .bean-list. */
       padding: 6px 20px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
@@ -610,12 +608,10 @@
       justify-content: space-between;
       align-items: center;      /* rating spans both text lines, merged-cell style */
     }
-    /* bc-name MUST be display:block: as an inline span its line box was sized
-       by bc-main's STRUT (container's inherited font-size × normal leading) —
-       Dynamic Type inflates that inherited size, so the strut towered over the
-       pinned 17px and dumped phantom space above the name's caps on TFD's
-       phone. A block's line box uses its own pinned line-height. Belt-and-
-       braces: pin bc-main's line-height too. */
+    /* bc-name is display:block so its line box is governed by its OWN pinned
+       line-height — an inline span's line box also includes the container's
+       strut (inherited font-size × its line-height), which can silently exceed
+       the pin. Pinning bc-main's line-height covers the strut as well. */
     .brew-card .bc-main { min-width: 0; line-height: 17px; }
     .brew-card .bc-name { display: block; font-size: 14px; font-weight: 600; color: #000; line-height: 17px; }
     /* Bean★ verdict at the right — vertically centered on the name + stats pair,
@@ -1324,7 +1320,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v10.8.10 · cache v64</div>
+      <div class="tools-version" id="tools-version">v10.8.11 · cache v65</div>
     </div>
    </section>
 
