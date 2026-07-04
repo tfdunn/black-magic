@@ -324,7 +324,9 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   matter how padding moved; desktop Chrome doesn't autosize, so previews looked
   symmetric). Fixed globally with `html { -webkit-text-size-adjust: 100% }` —
   **never remove it**; the phone now renders the same px sizes the design is
-  tuned on. CACHE v59.
+  tuned on. CACHE v59. v10.8.6: bean-card rating 18→**14px** (same size as the
+  coffee name — exact match possible now that autosizing is off; amber carries
+  the emphasis). CACHE v60.
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
