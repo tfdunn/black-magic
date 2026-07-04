@@ -578,8 +578,6 @@
     }
     .brew-line:active { background: #1C1C1E; }
     .brew-line.tier-end { border-bottom: 1px solid rgba(235,235,245,0.28); }  /* rating-group break */
-    /* Only proven-good cups light the rating amber */
-    .brew-line .bl-r.hot { color: var(--accent); }
     /* Raw inputs + deviation tokens: small + dim, same voice as the date */
     .brew-line .bl-sm { font-size: 10px; color: var(--tertiary); }
     /* Ideal dose* and blm*: the heavier values; amber only past the noise floor
@@ -602,11 +600,13 @@
       align-items: baseline;
     }
     .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; }
-    .brew-card .bc-date {
-      font-size: 10px;
-      color: #aaa;
+    /* Bean★ verdict, big at the card's top-right (amber like the brew screen's Bean★) */
+    .brew-card .bc-rating {
+      font-size: 21px; font-weight: 600;
+      color: var(--accent);
       white-space: nowrap;
       margin-left: 8px;
+      font-variant-numeric: tabular-nums;
     }
     .brew-card .bc-stats {
       font-size: 11px;
@@ -762,6 +762,8 @@
     .sens-name { font-size: 10px; font-weight: 600; letter-spacing: 0.07em; text-transform: uppercase; color: var(--tertiary); }
     .sens-lvl { font-size: 11px; font-weight: 600; color: var(--secondary); }
     .sens-grid .field { width: 100%; }
+    /* Zero-anchor column (8 | 208° | 4:30): Δ is 0 by definition — static, darker grey */
+    .sens-grid .sens-zero { font-size: 14px; color: var(--tertiary); }
     /* Δ cells: quiet grey, no amber — sensitivities are slow-moving calibration
        data (refined rarely, then stable for months), not per-cup signals. */
     .sens-grid .field .fnum, .sens-grid .field .dash { color: rgba(235,235,245,0.88); font-size: 14px; }
@@ -792,7 +794,6 @@
     .bean-back:active { color: var(--ink); }
     .brew-card.locked { opacity: 0.55; }
     .brew-card.holding { background: #f0f0f0; transition: background .15s; }
-    .bc-lock { font-size: 10px; color: var(--accent); font-weight: 600; letter-spacing: 0.3px; }
 
     /* Bean action sheet buttons (reuses .ed-bg / .ed-sheet) */
     .act-btns { display: flex; flex-direction: column; gap: 10px; margin-bottom: 8px; }
@@ -927,7 +928,7 @@
       .text-field input, .text-field textarea { color: var(--ink); }
       .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
       .brew-card .bc-stats { color: var(--secondary); }
-      .brew-card .bc-date, .history-empty { color: var(--tertiary); }
+      .history-empty { color: var(--tertiary); }
 
       /* Placeholders */
       input.bean-name::placeholder, input.roaster::placeholder,
@@ -1596,10 +1597,14 @@
         const g = document.createElement('div'); g.className = 'sens-grid';
         let html = '<div class="sens-cell sens-var">' + v.name + '</div>' +
           idx.map(i => '<div class="sens-cell sens-lvl">' + v.fmt(s[v.key].levels[i]) + '</div>').join('');
+        // The anchor level's Δ is 0 by definition (getSens re-zeros every row
+        // there) — render it static/uneditable so it can't be nudged off zero.
+        const ai = s[v.key].levels.indexOf(SENS_ANCHOR[v.key]);
         [['d', 'Δ dose'], ['b', 'Δ bloom']].forEach(([suf, nm]) => {
           html += '<div class="sens-cell sens-name">' + nm + '</div>' +
             idx.map(i => {
               const id = 'sens-' + v.key + '-' + i + '-' + suf;
+              if (i === ai) return '<div class="sens-cell"><span class="sens-zero">0</span><input type="hidden" id="' + id + '"></div>';
               return '<div class="sens-cell"><button type="button" class="field" data-f="' + id + '"></button><input type="hidden" id="' + id + '"></div>';
             }).join('');
         });
@@ -1721,8 +1726,10 @@
       updateRecipeHighlights();
     }
     // ── Brew-screen recipe highlighting: light up only the deviations ──
-    // All 9 knobs flag now (v10): Dose & Bloom light up when off the bean's best —
-    // which is exactly when a sensitivity correction (or manual override) is riding.
+    // Dose & Bloom flag only on a MANUAL override (touched) — an auto-suggested
+    // sensitivity correction is the app's own default, so it stays quiet grey even
+    // though it's off the bean's best; the flavor knob that caused it carries the
+    // amber. The other 7 knobs flag whenever off the baseline.
     const HILITE_FIELDS = ['dose','grind','water','contact','agitate','bloom','decay','brew-target','tds-aim'];
     function recipeBaseline(){
       const b = (currentBean && currentBean.id) ? liveBean(currentBean.id) : null;
@@ -1734,8 +1741,9 @@
         const k = recKey(f);
         const cur = document.getElementById(f).value, bv = base[k];
         const differs = cur !== '' && cur != null && bv != null && bv !== '' && parseFloat(cur) !== parseFloat(bv);
+        const manual = f === 'dose' ? doseTouched : f === 'bloom' ? bloomTouched : true;
         const btn = document.querySelector('#screen-brew .field[data-f="'+f+'"]');
-        if (btn) btn.classList.toggle('diff', differs);
+        if (btn) btn.classList.toggle('diff', differs && manual);
       });
     }
     ['dose','grind','agitate','contact','water','bloom','decay','brew-target']
@@ -1750,8 +1758,10 @@
     // event only fires from the editor (programmatic loads write .value directly),
     // so a change on dose/bloom is always a human touch.
     let doseTouched = false, bloomTouched = false;
-    document.getElementById('dose').addEventListener('change', () => { doseTouched = true; });
-    document.getElementById('bloom').addEventListener('change', () => { bloomTouched = true; });
+    // Re-run the highlight pass AFTER setting the flag — the generic highlight
+    // listener above fires first (registration order), before the flag is set.
+    document.getElementById('dose').addEventListener('change', () => { doseTouched = true; updateRecipeHighlights(); });
+    document.getElementById('bloom').addEventListener('change', () => { bloomTouched = true; updateRecipeHighlights(); });
     function autoSuggestDoseBloom(){
       if (editingBrewId) return;                       // fixing a past record — leave it be
       if (!(currentBean && currentBean.id)) return;    // no bean → no best to anchor on
@@ -2454,7 +2464,7 @@
       // noise floor. A heavier bottom border closes each rating group within a bean.
       const esc = s => String(s).replace(/</g, '&lt;');
       const stdAim = getSens().tdsTarget;
-      const LEGEND = '<span>★</span><span>date</span><span>dose</span><span>blm</span><span>tds</span><span>dose*</span><span>blm*</span><span class="bl-dev">recipe</span>';
+      const LEGEND = '<span>★</span><span>date</span><span>dose</span><span>blm</span><span>tds</span><span>dose*</span><span>blm*</span><span class="bl-dev">recipe Δ</span>';
 
       let lastBean = null, lastRating = null, lastLine = null;
       brews.forEach(r => {
@@ -2486,7 +2496,7 @@
         const line = document.createElement('div');
         line.className = 'brew-line bl-grid' + (r.locked ? ' locked' : '');
         line.innerHTML =
-          '<span class="bl-r' + (m.rating >= 4 ? ' hot' : '') + '">' + esc(brewR ? '★' + brewR : '★–') + '</span>' +
+          '<span class="bl-r">' + esc(brewR ? '★' + brewR : '★–') + '</span>' +
           '<span class="bl-date">' + (isNaN(d) ? '' : (d.getMonth() + 1) + '/' + d.getDate()) + '</span>' +
           '<span class="bl-sm">' + (isNaN(doseN) ? '–' : esc(doseN.toFixed(1))) + '</span>' +
           '<span class="bl-sm">' + (isNaN(bloomN) ? '–' : esc(Math.round(bloomN))) + '</span>' +
@@ -2596,9 +2606,9 @@
       applyDraftObject(s.draft);
       renderAllFields(); growNotes();
       recalcSchedule();
-      updateRecipeHighlights();
       loadedFromHistory = s.loadedFromHistory;
-      doseTouched = !!s.doseTouched; bloomTouched = !!s.bloomTouched;
+      doseTouched = !!s.doseTouched; bloomTouched = !!s.bloomTouched;   // before the highlight pass — it reads the flags
+      updateRecipeHighlights();
       inCountdown = s.inCountdown; running = s.running; elapsed = s.elapsed; lastTs = null;
       cancelCountdownAudio();
       render(elapsed);                // the rAF loop keeps the button label correct from here
@@ -3335,18 +3345,21 @@
       beans.forEach(b => {
         const card = document.createElement('div');
         card.className = 'brew-card' + (b.locked ? ' locked' : '');
-        const roast = b.roastDate ? fmtDateShort(b.roastDate) : '—';
         card.innerHTML = `
           <div class="bc-top">
             <span class="bc-name"></span>
-            <span class="bc-date"></span>
+            <span class="bc-rating"></span>
           </div>
           <div class="bc-stats"></div>`;
         card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
-        card.querySelector('.bc-date').textContent = b.locked ? 'exported' : 'roast ' + roast;
-        if (b.locked) card.querySelector('.bc-date').classList.add('bc-lock');
+        // Bean★ (the verdict) rides big at top-right; blank if unrated
+        card.querySelector('.bc-rating').textContent = (b.rating ?? '') === '' ? '' : b.rating;
+        // Process compressed to one letter (W/N/H; anything else omitted);
+        // roast date (date only) closes the line
+        const procL = { washed: 'W', natural: 'N', honey: 'H' }[(b.process || '').trim().toLowerCase()] || '';
         card.querySelector('.bc-stats').textContent =
-          [b.roaster, [b.country, b.process].filter(Boolean).join(' · ')]
+          [b.roaster, [b.country, procL].filter(Boolean).join(' '),
+           b.roastDate ? fmtDateNumeric(b.roastDate) : '']
             .filter(Boolean).join(' · ') || '—';
         card.addEventListener('click', () => {
           if (beanPickMode === 'attach') selectBean(b);
