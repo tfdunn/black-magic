@@ -591,10 +591,14 @@
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
-      /* Tight rows so more beans fit one screen; top 1px less than bottom to
-         offset the name's larger line-box leading (visually equal above/below).
-         Explicit line-heights below counter iOS's looser 'normal' leading. */
-      padding: 5px 20px 6px;
+      /* Tight rows so more beans fit one screen. Line-heights below are FIXED
+         PIXELS, not relative: iOS Dynamic Type / Larger Text scales system-font
+         TEXT in installed web apps (CSS can't opt out — text-size-adjust doesn't
+         govern it) and relative leading inflated with it, piling space above the
+         name's caps. Pixel line boxes pin the row geometry on every device; the
+         glyphs simply render larger around their baseline when the user's text
+         setting is bigger. */
+      padding: 6px 20px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       /* Long-press = our Edit/Delete gesture; suppress iOS text-selection + callout */
@@ -607,7 +611,7 @@
       align-items: center;      /* rating spans both text lines, merged-cell style */
     }
     .brew-card .bc-main { min-width: 0; }
-    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; line-height: 1.2; }
+    .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; line-height: 17px; }
     /* Bean★ verdict at the right — vertically centered on the name + stats pair,
        same size as the coffee name (amber carries the emphasis) */
     .brew-card .bc-rating {
@@ -615,13 +619,14 @@
       color: var(--accent);
       white-space: nowrap;
       margin-left: 8px;
+      line-height: 17px;
       font-variant-numeric: tabular-nums;
     }
     .brew-card .bc-stats {
       font-size: 11px;
       color: #888;
       margin-top: 3px;
-      line-height: 1.2;
+      line-height: 13px;
       font-variant-numeric: tabular-nums;
     }
     /* ── Screen nav toggle (top-left, mirrors history) ── */
@@ -1306,7 +1311,7 @@
 
       <!-- Build stamp — the definitive "which version is this phone running?"
            answer (CDN/SW staleness debugging). Keep in sync with sw.js CACHE. -->
-      <div class="tools-version">v10.8.6 · cache v60</div>
+      <div class="tools-version">v10.8.7 · cache v61</div>
     </div>
    </section>
 
