@@ -597,12 +597,13 @@
     .brew-card .bc-top {
       display: flex;
       justify-content: space-between;
-      align-items: baseline;
+      align-items: center;      /* rating spans both text lines, merged-cell style */
     }
+    .brew-card .bc-main { min-width: 0; }
     .brew-card .bc-name { font-size: 14px; font-weight: 600; color: #000; }
-    /* Bean★ verdict, big at the card's top-right (amber like the brew screen's Bean★) */
+    /* Bean★ verdict at the right — vertically centered on the name + stats pair */
     .brew-card .bc-rating {
-      font-size: 21px; font-weight: 600;
+      font-size: 18px; font-weight: 600;
       color: var(--accent);
       white-space: nowrap;
       margin-left: 8px;
@@ -3347,19 +3348,20 @@
         card.className = 'brew-card' + (b.locked ? ' locked' : '');
         card.innerHTML = `
           <div class="bc-top">
-            <span class="bc-name"></span>
+            <div class="bc-main">
+              <span class="bc-name"></span>
+              <div class="bc-stats"></div>
+            </div>
             <span class="bc-rating"></span>
-          </div>
-          <div class="bc-stats"></div>`;
+          </div>`;
         card.querySelector('.bc-name').textContent = b.name || 'Untitled bean';
-        // Bean★ (the verdict) rides big at top-right; blank if unrated
+        // Bean★ (the verdict) at the right, centered across both lines; blank if unrated
         card.querySelector('.bc-rating').textContent = (b.rating ?? '') === '' ? '' : b.rating;
         // Process compressed to one letter (W/N/H; anything else omitted);
         // roast date (date only) closes the line
         const procL = { washed: 'W', natural: 'N', honey: 'H' }[(b.process || '').trim().toLowerCase()] || '';
         card.querySelector('.bc-stats').textContent =
-          [b.roaster, [b.country, procL].filter(Boolean).join(' '),
-           b.roastDate ? fmtDateNumeric(b.roastDate) : '']
+          [b.roaster, b.country, procL, b.roastDate ? fmtDateNumeric(b.roastDate) : '']
             .filter(Boolean).join(' · ') || '—';
         card.addEventListener('click', () => {
           if (beanPickMode === 'attach') selectBean(b);

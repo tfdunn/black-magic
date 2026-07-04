@@ -303,12 +303,15 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
   static** — a darker-grey "0" (`.sens-zero`, `--tertiary`), no tap-to-edit
   (editing it was meaningless: `getSens` re-zeros the row at the anchor). The
   hidden input remains so `persistSens` reads 0 as before.
-- **Bean list cards:** top-right now shows **Bean★ big + amber** (21px/600,
-  `.bc-rating`; blank when unrated) instead of "roast M/D"; the stats line is
-  `Roaster · Country W · 6/15/26` — **process compressed to one letter**
-  (Washed=W, Natural=N, Honey=H, anything else omitted) and the **roast date
-  (date only, M/D/YY) moved to the end**. `.bc-date`/`.bc-lock` CSS pruned.
-  sw.js CACHE v54.
+- **Bean list cards:** the right side shows **Bean★ amber** (18px/600,
+  `.bc-rating`; blank when unrated) instead of "roast M/D" — **vertically
+  centered across the name + stats pair** like a merged Excel cell (the card's
+  `.bc-top` flex row holds a `.bc-main` name/stats column + the rating,
+  `align-items:center`); the stats line is `Roaster · Country · W · 6/15/26` —
+  **process compressed to one letter** (Washed=W, Natural=N, Honey=H, anything
+  else omitted) and the **roast date (date only, M/D/YY) moved to the end**.
+  `.bc-date`/`.bc-lock` CSS pruned. sw.js CACHE v55 (v10.8.1: rating 21→18px,
+  centered; `·` between country and process letter).
 
 ## v10.7 (July 2026) — tier-5 false-lock fix + one-time repair
 Root cause of "history says blm* ≈ 80 but a new cup suggests 74": the bean's
