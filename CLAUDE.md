@@ -322,6 +322,21 @@ are guarded). His usage pattern: 1/2/4★ cups share the bean's standard recipe;
 - `repairTierLocks` (v10.7 one-time migration) left untouched — already ran on
   TFD's device; its tier-cohort estimate only affects un-flagged installs and
   the next save recomputes with the new logic anyway. sw.js CACHE v66.
+- **v10.9.1 — backup freshness on the Bean page** (TFD is weighing dropping
+  Excel; data lives only in this phone's localStorage, so backup cadence is
+  load-bearing). Bean History's top row = **two pills** (`.bean-actions`,
+  reusing `.tools-data-btn`): **＋ new bean** (replaces the full-width dashed
+  `.bean-new`, CSS pruned) and **backup** — a twin of the Tools backup button
+  that turns **amber** (`.tools-data-btn.stale`, save-pill styling) when the
+  last backup is older than **14 days** (`BACKUP_STALE_DAYS`;
+  `localStorage['blackmagic.lastBackup']`, stamped by every backup from either
+  button AND by a successful restore — restored data equals an external file).
+  **Creating a NEW bean auto-triggers the backup download** (a bag ≈ biweekly
+  = the natural cadence; bean *updates* don't prompt) — iOS web apps have no
+  silent file write (no AppleScript/Shortcuts path), so one "Save to Files"
+  tap is the floor. Backup filenames are now **dated**
+  (`black-magic-backup-YYYY-MM-DD.json`) so the iCloud folder accumulates a
+  versioned archive (also what Claude-side analysis reads). sw.js CACHE v67.
 
 ## v10.8 (July 2026) — quiet auto-suggestions + list polish
 - **Auto-suggested dose/bloom no longer flag amber.** `updateRecipeHighlights`

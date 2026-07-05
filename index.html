@@ -738,12 +738,10 @@
     .verdict-note::placeholder { color: #ccc; }
 
     /* ── Bean tab: list-first + form ── */
-    .bean-new {
-      width: 100%; padding: 14px; margin-top: 8px; border-radius: 14px;
-      border: 1.5px dashed var(--hairline); background: #fff;
-      font-family: inherit; font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer;
-    }
-    .bean-new:active { background: #f6f6f6; }
+    .bean-actions { display: flex; gap: 10px; margin-top: 8px; }
+    /* Backup pill past the freshness threshold: amber fill, like the save-bean
+       pill — the standing "your data lives only on this phone" nudge */
+    .tools-data-btn.stale { background: var(--accent); border-color: var(--accent); color: #100A06; }
     /* gap MUST stay 0: a flex gap here sits between a card's bottom border (the
        divider) and the next card's text — it reads as extra space above every
        coffee name, outside the card box where card-level fixes can't touch it
@@ -921,7 +919,7 @@
       /* Overlays sit outside .app, so they don't inherit its light text colour —
          set it on the containers (covers the big sheet value, history heading). */
       .ed-sheet, .history-panel { color: var(--ink); }
-      .bean-new, .act-btn:disabled { background: #161617; }
+      .act-btn:disabled { background: #161617; }
 
       /* Emphasis fills that were the black --ink pill → amber accent */
       .btn-save, .ed-chips .chip.sel, .ed-done {
@@ -942,7 +940,7 @@
 
       /* Subtle :active / fill greys (#f4–f7, #f0f0f0) */
       .bean-cell .chips button { background: rgba(235,235,245,0.08); color: var(--secondary); }
-      .bean-new:active, .brew-card:active, .btn-save.secondary:active,
+      .brew-card:active, .btn-save.secondary:active,
       .ac-item.active, .ac-item:hover { background: rgba(235,235,245,0.06); }
       .brew-card.holding { background: rgba(235,235,245,0.09); }
       .bean-bar:active { background: rgba(235,235,245,0.05); }
@@ -1122,9 +1120,14 @@
       <button class="history-btn" id="btn-to-beanlist" hidden>Beans</button>
     </div>
 
-    <!-- List view (default): create-new on top, then beans newest-first -->
+    <!-- List view (default): new-bean + backup pills on top, then beans newest-first.
+         Backup lives HERE (not just Tools) because this page is visited constantly —
+         the pill goes amber when the last backup is older than the threshold. -->
     <div id="bean-list-view">
-      <button class="bean-new" id="btn-new-bean" type="button">＋ Create new bean</button>
+      <div class="bean-actions">
+        <button class="tools-data-btn" id="btn-new-bean" type="button">＋ new bean</button>
+        <button class="tools-data-btn" id="btn-backup-bean" type="button">backup</button>
+      </div>
       <div class="bean-list" id="bean-list"></div>
     </div>
 
@@ -1320,7 +1323,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v10.9 · cache v66</div>
+      <div class="tools-version" id="tools-version">v10.9.1 · cache v67</div>
     </div>
    </section>
 
@@ -2882,12 +2885,38 @@
     }
 
     // ── Full JSON backup / restore (survives a browser change or PWA reinstall) ──
+    // Backup freshness: data lives ONLY in this phone's localStorage, so the app
+    // nudges — every backup/restore stamps a timestamp, and the bean-page pill
+    // turns amber once it's older than the threshold. iOS gives web apps no
+    // silent file writes (no AppleScript/Shortcuts path), so one share-sheet tap
+    // per backup is the floor; a new-bean save auto-triggers one (see saveBean's
+    // caller) so the cadence flows with the hobby instead of needing memory.
+    const BACKUP_KEY = 'blackmagic.lastBackup';
+    const BACKUP_STALE_DAYS = 14;
+    function backupStale() {
+      const t = Date.parse(localStorage.getItem(BACKUP_KEY) || '');
+      return isNaN(t) || (Date.now() - t) > BACKUP_STALE_DAYS * 86400000;
+    }
+    function updateBackupPill() {
+      const btn = document.getElementById('btn-backup-bean');
+      if (btn) btn.classList.toggle('stale', backupStale());
+    }
+    function stampBackup() {
+      localStorage.setItem(BACKUP_KEY, new Date().toISOString());
+      updateBackupPill();
+    }
     function exportJSON() {
       let sound = null; try { sound = JSON.parse(localStorage.getItem(SOUND_KEY)); } catch (e) {}
       const data = { app: 'black-magic', version: 2, exportedAt: new Date().toISOString(),
         beans: getBeans(), brews: getBrews(),
         settings: { defaultRecipe: getDefaultRecipe(), sens: getSens(), sound } };
-      downloadCSV('black-magic-backup.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8;');
+      // Dated filename → "Save to Files" accumulates a versioned archive instead
+      // of overwriting one file (also what Claude-side analysis reads).
+      // sv-SE = YYYY-MM-DD in LOCAL time (toISOString is UTC — an evening backup
+      // would carry tomorrow's date).
+      const day = new Date().toLocaleDateString('sv-SE');
+      downloadCSV('black-magic-backup-' + day + '.json', JSON.stringify(data, null, 2), 'application/json;charset=utf-8;');
+      stampBackup();
     }
     function importJSON(text) {
       let data;
@@ -2902,6 +2931,7 @@
         if (data.settings.sens)  localStorage.setItem(SENS_KEY,  JSON.stringify(data.settings.sens));
         if (data.settings.sound) localStorage.setItem(SOUND_KEY, JSON.stringify(data.settings.sound));
       }
+      stampBackup();       // the data now equals an external file — fresh by definition
       alert('Restored ' + data.beans.length + ' beans and ' + data.brews.length + ' brews.');
       location.reload();   // re-seed everything (fields, Tools, sound) from the restored data
     }
@@ -2934,6 +2964,13 @@
       const btn = $('btn-backup'), orig = btn.textContent;
       btn.textContent = 'saved ✓';
       setTimeout(() => { btn.textContent = orig; }, 1400);
+    });
+    // Bean-page twin of the Tools backup button (the everyday reminder surface)
+    $('btn-backup-bean').addEventListener('click', () => {
+      exportJSON();
+      const btn = $('btn-backup-bean');
+      btn.textContent = 'saved ✓';
+      setTimeout(() => { btn.textContent = 'backup'; }, 1400);
     });
     $('btn-restore').addEventListener('click', () => $('restore-file').click());
     $('restore-file').addEventListener('change', e => {
@@ -3224,8 +3261,13 @@
       return bean;
     }
     $('btn-save-bean').addEventListener('click', () => {
+      const isNew = !editingBeanId;              // capture before saveBean clears it
       if (!saveBean()) return;
       showBeanList();
+      // A new bag ≈ every couple of weeks — the natural backup cadence. Auto-
+      // trigger the backup download (still one "Save to Files" tap; iOS allows
+      // nothing more silent). Updates to existing beans don't prompt.
+      if (isNew) exportJSON();
     });
 
     // List ⇄ form navigation within the Bean tab. The amber "Beans" header button
@@ -3237,6 +3279,7 @@
       $('btn-beanlist-tools').hidden = false;   // list view: Tools on the right
       $('btn-to-beanlist').hidden = true;        // (the "Beans" cancel→list is form-only)
       renderBeanList();
+      updateBackupPill();                        // amber when the last backup is stale
     }
     function showBeanForm() {
       $('bean-list-view').hidden = true;
