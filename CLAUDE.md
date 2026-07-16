@@ -352,7 +352,11 @@ signature matches the bean's best recipe — so 0 is the only real per-brew fact
   order), whole line heading-light-grey (`rgba(235,235,245,.7)`; the
   `.bc-roaster` span is gone — one plain string); standardized dose/bloom
   stepped down to `--secondary` — amber Bean★ is the only bright element on a
-  card. CACHE v70.
+  card. CACHE v70. **v11.3:** name line = **"Roaster Coffee"** (no separator —
+  exact Brew-History-header format) in **`--ink`** (the v11.2 heading-grey
+  `.7` was indistinguishable from the `.62` stats line — TFD's palette model
+  is ink/secondary/tertiary/amber; stick to tokens, the off-token .7/.8 greys
+  predate it). CACHE v71.
 - **`analysis/` is new (not part of the served app):** `fit_sens.py` reads a dated
   backup JSON and fits every sensitivity cell empirically — single-variable
   contrasts vs a CONTEMPORANEOUS baseline (the app's 14-day half-life but symmetric
