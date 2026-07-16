@@ -562,14 +562,20 @@
     .bl-grid > .bl-dev { text-align: left; padding-left: 8px;
       overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     /* Recipe-group summary line: tag (★+token = best, token = testing) spans the
-       raw-input columns; the decayed cohort estimate prints IN the dose*/blm*
-       columns so it reads against the rows beneath. Not tappable — promotion
-       lives on the brew screen (Brew★ = best), not here. */
+       raw-input columns; the decayed cohort estimate prints IN the dose\* and
+       blm\* columns so it reads against the rows beneath. (NEVER write those two
+       starred names around a slash in a CSS comment — the star-slash terminates
+       it and silently kills the next rule; that exact bug shipped in v11 and
+       broke this row's padding/alignment.) Not tappable — promotion lives on
+       the brew screen (Brew★ = best), not here. */
     .brew-sum { padding: 11px 20px 5px; border-bottom: 0.5px solid var(--hairline);
       -webkit-user-select: none; user-select: none; }
-    .brew-sum .bs-tag { grid-column: 1 / 5; text-align: left; font-size: 10px;
-      font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
-      color: var(--tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    /* Whole summary row shares one size (13px). Values are amber on every
+       summary; the tag is amber ONLY on the best recipe — that contrast is
+       what makes best stand out (testing tags read grey). */
+    .brew-sum .bs-tag { grid-column: 1 / 5; text-align: left; font-size: 13px;
+      font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .brew-sum .bs-tag.best { color: var(--accent); }
     .brew-sum .bs-val { font-size: 13px; font-weight: 600; color: var(--accent);
       font-variant-numeric: tabular-nums; }
@@ -598,10 +604,10 @@
     .brew-line.ignored > span { opacity: 0.4; }
     /* Raw inputs + deviation tokens: small + dim, same voice as the date */
     .brew-line .bl-sm { font-size: 10px; color: var(--tertiary); }
-    /* Ideal dose* and blm*: the heavier values; amber only past the noise floor
-       (|TDS−aim| > .02 for dose*, |blm*−bloom| > 5 ml) */
-    .brew-line .bl-star { font-weight: 600; }
-    .brew-line .bl-star.hot { color: var(--accent); }
+    /* Ideal dose\* and blm\*: grey within one std-dev of the target, white past
+       it (amber is reserved for the summary estimates above the rows) */
+    .brew-line .bl-star { font-weight: 600; color: var(--secondary); }
+    .brew-line .bl-star.hot { color: var(--ink); }
     .brew-line .bl-date { font-size: 10px; color: var(--tertiary); white-space: nowrap; }
 
     .brew-card {
@@ -610,7 +616,7 @@
          is fully deterministic: 6 + 17 (name) + 3 + 13 (stats) + 6 + 1 border
          = 46px (all line-heights pinned in px below). The list container must
          contribute NO extra spacing — see .bean-list. */
-      padding: 6px 20px;
+      padding: 6px 12px;
       border-bottom: 1px solid #f0f0f0;
       cursor: pointer;
       /* Long-press = our Edit/Delete gesture; suppress iOS text-selection + callout */
@@ -776,7 +782,10 @@
        divider) and the next card's text — it reads as extra space above every
        coffee name, outside the card box where card-level fixes can't touch it
        (the v10.8.x "too much space on top" saga; cards carry their own padding). */
-    .bean-list { margin-top: 12px; display: flex; flex-direction: column; gap: 0;
+    /* Negative side margins pull the list past the .app padding (20px) so cards
+       use more of the screen width; with the card's own 12px padding the text
+       sits 20px from the screen edge — aligned with the headers. */
+    .bean-list { margin: 12px -12px 0; display: flex; flex-direction: column; gap: 0;
       max-height: calc(100dvh - 180px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     #bean-form-view { max-height: calc(100dvh - 70px); overflow-y: auto; -webkit-overflow-scrolling: touch; }
     /* Section header — matches the centered ROASTER NOTES label */
@@ -1336,7 +1345,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v11 · cache v68</div>
+      <div class="tools-version" id="tools-version">v11.1 · cache v69</div>
     </div>
    </section>
 
@@ -2565,14 +2574,15 @@
         const doseN = parseFloat(r.dose), bloomN = parseFloat(r.bloom);
         const tdsN = parseFloat(r.tds);
         const aim = parseFloat(r.tdsAim) > 0 ? parseFloat(r.tdsAim) : stdAim;
-        // Ideal values; hot (amber) only past the noise floor: |TDS−aim| > .02 for
-        // dose*, |blm*−bloom| > 5 ml — in-noise misses stay quiet.
+        // Ideal values: grey within one std-dev of the target (TDS σ ≈ 0.015 →
+        // dose*; bloom σ ≈ 4 ml → blm*), white past it. No amber on rows — that
+        // belongs to the summary estimates.
         const dStar = impliedDose(r);
         const bStar = impliedBloom(r);
-        const dHot = dStar != null && !isNaN(tdsN) && tdsN > 0 && Math.abs(tdsN - aim) > 0.02;
-        const bHot = bStar != null && !isNaN(bloomN) && Math.abs(bStar - bloomN) > 5;
+        const dHot = dStar != null && !isNaN(tdsN) && tdsN > 0 && Math.abs(tdsN - aim) > 0.015;
+        const bHot = bStar != null && !isNaN(bloomN) && Math.abs(bStar - bloomN) > 4;
         const deltas = compactDeltas(r, defRec);
-        const devTxt = deltas.length > 2 ? 'Many' : deltas.join(' ');
+        const devTxt = deltas.length > 3 ? 'Many' : deltas.join(' ');
         const d = new Date(r.savedAt);
         const line = document.createElement('div');
         line.className = 'brew-line bl-grid' + (r.locked ? ' locked' : '') + (ignored ? ' ignored' : '');

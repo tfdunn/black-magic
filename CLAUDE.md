@@ -336,6 +336,19 @@ signature matches the bean's best recipe — so 0 is the only real per-brew fact
   controls were redundant — cues always play at full level (`SOUND_VOL = 1.0`
   const). Backup JSON no longer carries `settings.sound` (old backups restoring it
   are silently ignored).
+- **v11.1 — on-device feedback round.** (1) Summary estimates were ~20px off
+  their columns: the `.brew-sum` padding rule was killed by writing the two
+  starred column names around a slash in its CSS comment — the EXACT v10.5
+  gotcha, shipped again; comment rewritten, rule restored. (2) **Amber diet on
+  history rows:** dose\*/blm\* row values are **grey within one σ of target
+  (TDS 0.015 / bloom 4 ml), white past it** — no amber on rows; amber belongs
+  to the summary estimates (best summary all-amber incl. ★ tag; testing
+  summaries amber values + grey tag — that contrast marks best). Summary row
+  is one size (13px, incl. the tag). (3) "Many" now kicks in past **3**
+  deviation tokens (was 2). (4) **Bean list uses more screen width:**
+  `.bean-list` margin −12px each side + card padding 20→12px — text sits 20px
+  from the screen edge (aligned with headers), ~40px more for names. sw.js
+  CACHE v69.
 - **`analysis/` is new (not part of the served app):** `fit_sens.py` reads a dated
   backup JSON and fits every sensitivity cell empirically — single-variable
   contrasts vs a CONTEMPORANEOUS baseline (the app's 14-day half-life but symmetric
