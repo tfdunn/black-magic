@@ -633,9 +633,8 @@
        strut (inherited font-size × its line-height), which can silently exceed
        the pin. Pinning bc-main's line-height covers the strut as well. */
     .brew-card .bc-main { min-width: 0; line-height: 17px; }
-    .brew-card .bc-name { display: block; font-size: 14px; font-weight: 600; color: #000; line-height: 17px;
+    .brew-card .bc-name { display: block; font-size: 14px; font-weight: 600; color: #444; line-height: 17px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .brew-card .bc-roaster { font-weight: 500; color: #888; }
     /* Right side: three aligned columns (std dose · std bloom · Bean★),
        vertically centered on the name + stats pair. Fixed widths so the
        columns line up down the list. */
@@ -648,7 +647,7 @@
       flex: none;
     }
     .brew-card .bc-num {
-      font-size: 11px; font-weight: 600; color: #000;
+      font-size: 11px; font-weight: 600; color: #666;
       text-align: right; line-height: 17px;
       font-variant-numeric: tabular-nums;
     }
@@ -974,11 +973,14 @@
       .brew-card.holding { background: rgba(235,235,245,0.09); }
       .bean-bar:active { background: rgba(235,235,245,0.05); }
 
-      /* Text greys → tokens */
-      .brew-card .bc-name, .brew-card .bc-num, .ac-item { color: var(--ink); }
+      /* Text greys → tokens. Bean cards read calm: name line = heading light
+         grey, standardized dose/bloom = medium grey — amber Bean★ is the only
+         bright thing on the row. */
+      .ac-item { color: var(--ink); }
+      .brew-card .bc-name { color: rgba(235,235,245,0.7); }
       .text-field input, .text-field textarea { color: var(--ink); }
       .bean-cell .label, .text-field .label, .bean-section-label, .verdict-row .label,
-      .brew-card .bc-stats, .brew-card .bc-roaster { color: var(--secondary); }
+      .brew-card .bc-stats, .brew-card .bc-num { color: var(--secondary); }
       .history-empty { color: var(--tertiary); }
 
       /* Placeholders */
@@ -1345,7 +1347,7 @@
            TAP: swaps to a layout diagnostic — a hidden probe bean-card is laid
            out and its real geometry (heights, computed font/line sizes, gaps)
            replaces the stamp, so the device reports its own numbers. -->
-      <div class="tools-version" id="tools-version">v11.1 · cache v69</div>
+      <div class="tools-version" id="tools-version">v11.2 · cache v70</div>
     </div>
    </section>
 
@@ -3088,7 +3090,7 @@
       const probe = document.createElement('div');
       probe.style.cssText = 'position:fixed;left:0;top:0;width:360px;visibility:hidden;pointer-events:none';
       probe.innerHTML = '<div class="brew-card"><div class="bc-top"><div class="bc-main">' +
-        '<span class="bc-name">Probe Bean<span class="bc-roaster"> · Roaster</span></span><div class="bc-stats">Peru · W · 5/22/26</div>' +
+        '<span class="bc-name">Roaster · Probe Bean</span><div class="bc-stats">Peru · W · 5/22/26</div>' +
         '</div><div class="bc-cols"><span class="bc-num">24.0g</span><span class="bc-num">90ml</span><span class="bc-rating">92</span></div></div></div>';
       document.body.appendChild(probe);
       const q = s => probe.querySelector(s);
@@ -3560,16 +3562,10 @@
               <span class="bc-rating"></span>
             </div>
           </div>`;
-        // Name line = coffee · roaster (roaster dimmer); long pairs ellipsize
-        // before touching the right columns.
-        const nameEl = card.querySelector('.bc-name');
-        nameEl.textContent = b.name || 'Untitled bean';
-        if (b.roaster) {
-          const ro = document.createElement('span');
-          ro.className = 'bc-roaster';
-          ro.textContent = ' · ' + b.roaster;
-          nameEl.appendChild(ro);
-        }
+        // Name line = roaster · coffee (same order as the brew bar and Brew
+        // History headers); long pairs ellipsize before the right columns.
+        card.querySelector('.bc-name').textContent =
+          [b.roaster, b.name || 'Untitled bean'].filter(Boolean).join(' · ');
         // Right side: three aligned columns — standardized dose & bloom (the
         // bean's best translated to the default recipe; cross-bean comparable)
         // + Bean★ (the verdict, amber; blank if unrated).

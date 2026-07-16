@@ -348,7 +348,11 @@ signature matches the bean's best recipe — so 0 is the only real per-brew fact
   deviation tokens (was 2). (4) **Bean list uses more screen width:**
   `.bean-list` margin −12px each side + card padding 20→12px — text sits 20px
   from the screen edge (aligned with headers), ~40px more for names. sw.js
-  CACHE v69.
+  CACHE v69. **v11.2:** bean-card name line = **Roaster · Coffee** (brew-bar
+  order), whole line heading-light-grey (`rgba(235,235,245,.7)`; the
+  `.bc-roaster` span is gone — one plain string); standardized dose/bloom
+  stepped down to `--secondary` — amber Bean★ is the only bright element on a
+  card. CACHE v70.
 - **`analysis/` is new (not part of the served app):** `fit_sens.py` reads a dated
   backup JSON and fits every sensitivity cell empirically — single-variable
   contrasts vs a CONTEMPORANEOUS baseline (the app's 14-day half-life but symmetric
