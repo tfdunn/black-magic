@@ -288,7 +288,67 @@ Web-Audio quirk), so a clean launch is now the common path — these tune for it
 - **Tools volume slider range widened to 0–100%** (was 0–40%) for louder beeps;
   default still 10%. (`SOUND_VOL` already scales per-voice gain.)
 
-## v10.9 (July 2026) — estimation decoupled from adoption (latest)
+## v11 (July 2026) — RECIPE ratings (0/1/2) + recipe-grouped history + standardized bean cards (latest)
+Conceptual shift (TFD's call): **the rating is a property of the RECIPE, not the
+cup** — every brew of the same recipe shares it by definition. Scale: **0 ignore ·
+1 test · 2 best** (`BREW_RATINGS`; FX presets 0/1/2; select default **1**, restored
+by `clearForNextBrew`/`startBrewWith`). "Best" is DERIVED — a cup is best iff its
+signature matches the bean's best recipe — so 0 is the only real per-brew fact
+("keep the record, drop the datapoint"); stored ratings are kept consistent anyway
+(`renormalizeRatings`) so the CSV tells the same story.
+- **The v10 tier system is RETIRED** (`bestRecipeRating` no longer written/read;
+  `repairTierLocks` migration deleted). **Promotion = the brew screen only** (the
+  drinking screen — subconscious-evaluation mode, vs the analytical bean page): a
+  FRESH save with Brew★ = 2 adopts the cup's recipe onto the bean
+  (`persistBestRecipe`), renormalizes stored ratings, and the estimator instantly
+  backfills dose/bloom from the new signature's whole history. A bean-form flavor
+  edit remains the hand-adoption path (also renormalizes now). Editing a past brew
+  never promotes (`loadedFromHistory` guard unchanged).
+- **Estimation excludes ignores:** cohort = same bean + same signature + rating ≠ 0
+  (`cohortOf`; the decayed-mean math factored into `estimateCohort(cohort)`, reused
+  by the history summaries). `fit_sens.py` skips rating-0 cups too.
+- **One-time migration** (`blackmagic.mig.rating012`): every existing brew → 1,
+  except cups matching their bean's current best signature → 2. **Nothing maps
+  to 0** — the old ★1 meant "noisy first cup", not "botched" (those datapoints
+  stay in). Old 1–5 values survive only in dated backups.
+- **Brew History regrouped by RECIPE** (`renderHistory` rewritten; the ★ column is
+  gone — rating lives on the group summary): per bean, the BEST recipe group first
+  (summary tag **★ + amber deviation token** vs the Tools default, or "★ standard"),
+  then other recipes by cup count (**≥3 cups earns a summary line**, dim token tag;
+  the best always has one), then all ≤2-cup recipes in one unsummarized pile,
+  **ignored cups last at 40% opacity** ("ignore · token" in the Δ column). The
+  summary's decayed cohort estimate prints **in the dose\*/blm\* columns** (best
+  group shows the bean's stored estimate — single source of truth), so two summary
+  lines read against each other = a live marginal-sensitivity check (`.brew-sum`,
+  `.bs-tag`/`.bs-val`; `bl-grid` is now 7 columns).
+- **Bean cards** (46px height unchanged): name line = **Coffee · Roaster** (roaster
+  dim, `.bc-roaster`; ellipsizes); stats = `Country · P · M/D/YY`; right side =
+  **three aligned columns** (`.bc-cols` grid): **standardized dose · standardized
+  bloom** (11px/600 ink, `.bc-num`) · **Bean★** (13px amber). Standardized =
+  `standardizedDoseBloom(bean)`: best dose × (default aim / bean aim) + the
+  grind/water/contact sensitivity corrections back to the default recipe — computed
+  at render time from the live tables (nothing stored; cross-bean comparable — the
+  raw material for future "seed a new gesha from past geshas" priors). The
+  version-stamp layout probe uses the new markup.
+- **Sound settings REMOVED** (toggle + slider + `blackmagic.sound` + the mutable
+  `SOUND_ON`/`SOUND_VOL`): since the v9.2 Web Audio revert the phone's hardware
+  volume/mute governs cues completely (TFD verified on-device), so the in-app
+  controls were redundant — cues always play at full level (`SOUND_VOL = 1.0`
+  const). Backup JSON no longer carries `settings.sound` (old backups restoring it
+  are silently ignored).
+- **`analysis/` is new (not part of the served app):** `fit_sens.py` reads a dated
+  backup JSON and fits every sensitivity cell empirically — single-variable
+  contrasts vs a CONTEMPORANEOUS baseline (the app's 14-day half-life but symmetric
+  in time, killing bag-age drift bias), pooled per (variable, interval) with noise
+  propagated, vs the stored table; plus per-level data support, unconstrained-cell
+  gaps, and a **roast-age drift section** (within-bean OLS; July 2026: bloom
+  +2.7 ± 1.1 ml/wk pooled, dose flat — the estimator's decayed mean lags a trending
+  bloom by ~4 ml mid-bag, acceptable; revisit a decayed *linear fit* if the slope
+  keeps confirming). Reports accumulate in `analysis/reports/`. Workflow: TFD drops
+  a backup (iCloud folder or ~/Downloads), run the script, he hand-commits any cell
+  edits in Tools. sw.js CACHE v68.
+
+## v10.9 (July 2026) — estimation decoupled from adoption
 Driven by a real failure: TFD's first cup of a bag (rated 1, standard recipe)
 implied 23.5/83 but cup 2 still seeded the untouched 24/85 default — sub-4★
 data never reached the bean, and retro-editing the rating didn't help (edits
